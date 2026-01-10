@@ -25,6 +25,7 @@ Suggests:
     knitr,
     osfr,
     patchwork,
+    progressr,
     rmarkdown,
     tidyr
 VignetteBuilder: knitr
