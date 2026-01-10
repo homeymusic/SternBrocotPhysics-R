@@ -5,7 +5,7 @@ An R package for computational experiments in classical and quantum
 physics using the Stern-Brocot tree.
 
 ``` r
-file_path <- here::here("data-raw/outputs/01_micro_macro_erasures/micro_macro_erasures_P_000007.250000.csv.gz")
+file_path <- here::here("data-raw/outputs/01_micro_macro_erasures/micro_macro_erasures_P_000025.000000.csv.gz")
 df <- fread(file_path)
 ```
 
