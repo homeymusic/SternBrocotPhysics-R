@@ -265,6 +265,7 @@ p_hero <- ggplot2::ggplot(dt, ggplot2::aes(x = momentum)) +
   ggplot2::theme_minimal() +
   ggplot2::theme(legend.position = "top", plot.title = ggplot2::element_text(face = "bold", size = 14))
 
+
 # --- 4. Assembly ---
 p_kol  <- plot_physics_metric(dt, "kolmogorov_complexity", "K Complexity Aggregates")
 p_sha  <- plot_physics_metric(dt, "shannon_entropy", "Shannon Entropy")

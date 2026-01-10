@@ -8,12 +8,18 @@ using namespace Rcpp;
 const int MAX_SEARCH_DEPTH = 20000;
 
 // Core erasure logic template
+// Core erasure logic template
 template <typename StopPredicate>
 DataFrame erase_core(NumericVector microstate, StopPredicate stop_criteria, double display_uncertainty, int max_depth_limit) {
   int n = microstate.size();
 
+  // 1. Declare Storage Vectors
   NumericVector res_num(n), res_den(n), depths(n), max_depths(n), res_fluctuation(n), res_macro(n);
   NumericVector res_l_count(n), res_r_count(n), res_shannon(n);
+
+  // NEW: Quantum Fisher Information Storage
+  NumericVector res_qfi_std(n), res_qfi_super(n);
+
   CharacterVector res_path(n), res_b_path(n);
   LogicalVector found(n);
 
@@ -52,22 +58,32 @@ DataFrame erase_core(NumericVector microstate, StopPredicate stop_criteria, doub
       depth++;
     }
 
-    // Shannon Entropy Calculation (H = -sum(p * log2(p)))
+    // 2. Entropy & QFI Calculations (Post-while loop)
     double shannon = 0.0;
+    double qfi_std = 0.0;
+    double qfi_sup = 0.0;
+
     if (depth > 0) {
-      double pL = (double)count_l / depth;
-      double pR = (double)count_r / depth;
+      double d_val = (double)depth;
+      double pL = (double)count_l / d_val;
+      double pR = (double)count_r / d_val;
+
+      // Shannon Entropy
       if (pL > 0) shannon -= pL * std::log2(pL);
       if (pR > 0) shannon -= pR * std::log2(pR);
+
+      // Quantum Fisher Information
+      qfi_std = 4.0 * d_val * d_val * pL * pR;
+      qfi_sup = 4.0 * std::pow(d_val, 4.0) * pL * pR;
+
+      // Regularization for pure paths (no variance but max resolution potential)
+      if (pL == 0 || pR == 0) {
+        qfi_std = d_val * d_val;
+        qfi_sup = std::pow(d_val, 4.0);
+      }
     }
 
-    if (NumericVector::is_na(display_uncertainty)) {
-      found[i] = (depth >= max_depth_limit);
-    } else {
-      const double threshold = display_uncertainty * (1.0 - 1e-15);
-      found[i] = (error < threshold);
-    }
-
+    // 3. Assign to Vectors
     res_num[i] = (double)c_num;
     res_den[i] = (double)c_den;
     res_macro[i] = macro_val;
@@ -77,17 +93,32 @@ DataFrame erase_core(NumericVector microstate, StopPredicate stop_criteria, doub
     res_l_count[i] = count_l;
     res_r_count[i] = count_r;
     res_shannon[i] = shannon;
+    res_qfi_std[i] = qfi_std;
+    res_qfi_super[i] = qfi_sup;
     depths[i] = depth;
     max_depths[i] = max_depth_limit;
+
+    // Found logic
+    if (NumericVector::is_na(display_uncertainty)) {
+      found[i] = (depth >= max_depth_limit);
+    } else {
+      const double threshold = display_uncertainty * (1.0 - 1e-15);
+      found[i] = (error < threshold);
+    }
   }
 
+  // 4. Return Final DataFrame with all 2026 Physics Metrics
   return DataFrame::create(
     _["microstate"]             = microstate,
     _["macrostate"]             = res_macro,
+    _["numerator"]              = res_num,
+    _["denominator"]            = res_den,
     _["fluctuation"]            = res_fluctuation,
     _["minimal_program"]        = res_b_path,
     _["kolmogorov_complexity"]  = depths,
     _["shannon_entropy"]        = res_shannon,
+    _["fisher_N2"]              = res_qfi_std,
+    _["fisher_N4"]              = res_qfi_super,
     _["stern_brocot_path"]      = res_path,
     _["uncertainty"]            = display_uncertainty,
     _["l_count"]                = res_l_count,
