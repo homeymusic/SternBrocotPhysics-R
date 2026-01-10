@@ -24,5 +24,7 @@ Suggests:
     here,
     knitr,
     osfr,
-    rmarkdown
+    patchwork,
+    rmarkdown,
+    tidyr
 VignetteBuilder: knitr

@@ -45,8 +45,9 @@ run_and_save_erasure_experiment <- function(momentum_factor) {
 
 # Define Momentum Range
 momenta_factor_step <- 0.01
-momenta_factor_max <- 25
-momenta_factors <- seq(from = momenta_factor_step, to = momenta_factor_max, by = momenta_factor_step)
+momenta_factor_min <- 25 + momenta_factor_step
+momenta_factor_max <- 50
+momenta_factors <- seq(from = momenta_factor_min, to = momenta_factor_max, by = momenta_factor_step)
 
 # Execute Parallel Loop
 # future.seed = TRUE is mandatory for physics/randomness consistency
