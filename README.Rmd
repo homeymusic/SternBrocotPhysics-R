@@ -100,12 +100,12 @@ data.table::setorder(dt, momentum)
 p_markers <- c(2.25, 4.25, 6.25, 8.25, 12.25, 19.25, 23.25, 29.25, 37.00, 44.50)
 
 target_cols <- c(
-  "kolmogorov_complexity", "shannon_entropy", "fluctuation", 
-  "numerator", "denominator"
+  "kolmogorov_complexity", "shannon_entropy", "zurek_entropy",
+  "fluctuation", "numerator", "denominator"
 )
 
 # --- 2. Individual Plot Function ---
-render_and_save <- function(data, metric_name, vlines) {
+render_plot <- function(data, metric_name, vlines) {
   
   m_mean   <- paste0(metric_name, "_mean")
   m_median <- paste0(metric_name, "_median")
@@ -144,26 +144,9 @@ render_and_save <- function(data, metric_name, vlines) {
 # --- 3. Execution Loop (Original Metrics) ---
 for (metric in target_cols) {
   if (paste0(metric, "_mean") %in% names(dt)) {
-    print(render_and_save(dt, metric, p_markers))
+    print(render_plot(dt, metric, p_markers))
   }
 }
-
-# --- 4. Prepare and Plot the New Combined Metric (KC + SE) ---
-
-# Calculate the SUM of the two metrics and all their associated stats
-dt[, sum_kc_se_mean := kolmogorov_complexity_mean + shannon_entropy_mean]
-dt[, sum_kc_se_median := kolmogorov_complexity_median + shannon_entropy_median]
-dt[, sum_kc_se_min := kolmogorov_complexity_min + shannon_entropy_min]
-dt[, sum_kc_se_max := kolmogorov_complexity_max + shannon_entropy_max]
-
-# NOTE: Standard deviations cannot simply be summed unless the variables are perfectly correlated. 
-# We calculate the sum of the SDs as a proxy based on user request, but this is mathematically approximate.
-dt[, sum_kc_se_sd := kolmogorov_complexity_sd + shannon_entropy_sd]
-
-# Add the new combined metric name to a temporary list to use the existing function
-render_and_save(dt, "sum_kc_se", p_markers)
-
-print(last_plot()) # Displays the last generated plot in the Rmd output
 
 ```
 
@@ -249,7 +232,7 @@ plot(
   y = df$kolmogorov_complexity,
   main = expression(paste("Kolmogorov Complexity (", K, ") vs Microstate (", x["?"], ")")),
   xlab = expression(paste("Microstate (", x["?"], ")")),
-  ylab = expression(paste("Kolmogorov Complexity (", K, ")")),
+  ylab = expression(paste("Kolmogorov Complexity (", K, ") [bits]")),
   pch = ".",
   col = rgb(0.5, 0.1, 0.9, 0.1), # A purple color with transparency
   cex = 0.5
@@ -264,6 +247,20 @@ plot(
   main = expression(paste("Shannon Entropy (", H, ") vs Microstate (", x["?"], ")")),
   xlab = expression(paste("Microstate (", x["?"], ")")),
   ylab = expression(paste("Shannon Entropy (", H, ") [bits]")),
+  pch = ".",
+  col = rgb(0.1, 0.6, 0.1, 0.1), # A green color with transparency
+  cex = 0.5
+)
+grid(col = "gray80")
+```
+
+```{r plot-zurek-entropy, fig.width=10, fig.height=6, echo=F}
+plot(
+  x = df$microstate,
+  y = df$zurek_entropy,
+  main = expression(paste("Zurek Entropy (", H, ") vs Microstate (", x["?"], ")")),
+  xlab = expression(paste("Microstate (", x["?"], ")")),
+  ylab = expression(paste("Zurek Entropy (", Z, ") [bits]")),
   pch = ".",
   col = rgb(0.1, 0.6, 0.1, 0.1), # A green color with transparency
   cex = 0.5
@@ -291,27 +288,6 @@ plot(
 )
 
 abline(h = mean(df$total_entropy, na.rm = TRUE), col = "red", lty = 2, lwd = 2)
-
-grid(col = "gray80")
-```
-
-```{r plot-total-entropy, fig.width=10, fig.height=6, echo=F}
-# Calculate total entropy S = H + K
-df$total_entropy <- df$shannon_entropy + df$kolmogorov_complexity
-
-plot(
-  x = df$microstate,
-  y = df$total_entropy,
-  main = expression(paste("Total Physical Entropy (", S, " = ", H, " + ", K, ") vs Microstate")),
-  xlab = expression(paste("Microstate (", x["?"], ")")),
-  ylab = expression(paste("Total Entropy (", S, ") [bits]")),
-  pch = ".",
-  col = rgb(0.9, 0.5, 0.1, 0.1), # Orange transparency
-  cex = 0.5
-)
-
-# Plot average total entropy as a reference line
-abline(h = mean(df$total_entropy), col = "red", lty = 2, lwd = 2)
 
 grid(col = "gray80")
 ```
