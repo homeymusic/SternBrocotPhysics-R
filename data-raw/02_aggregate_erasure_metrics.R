@@ -36,8 +36,7 @@ process_file_summary <- function(f) {
   # Added new measures and 'found' for filtering
   target_cols <- c(
     "fluctuation", "kolmogorov_complexity", "shannon_entropy",
-    "numerator", "denominator", "fisher_N2", "fisher_N4",
-    "symplectic_capacity", "winding_number", "phase_density"
+    "numerator", "denominator"
   )
   needed_cols <- c("momentum", "macrostate", "found", target_cols)
 

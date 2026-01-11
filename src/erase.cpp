@@ -15,8 +15,6 @@ DataFrame erase_core(NumericVector microstate, StopPredicate stop_criteria, doub
   // 1. Declare Storage Vectors (Original + New Physics)
   NumericVector res_num(n), res_den(n), depths(n), max_depths(n), res_fluctuation(n), res_macro(n);
   NumericVector res_l_count(n), res_r_count(n), res_shannon(n);
-  NumericVector res_fisher_n2(n), res_fisher_n4(n); // Fisher Information
-  NumericVector res_symplectic_capacity(n), res_winding_number(n), res_phase_density(n); // De Gosson
 
   CharacterVector res_path(n), res_b_path(n);
   LogicalVector found(n);
@@ -58,8 +56,6 @@ DataFrame erase_core(NumericVector microstate, StopPredicate stop_criteria, doub
 
     // 2. Physics & Information Calculations
     double shannon = 0.0;
-    double qfi_n2 = 0.0;
-    double qfi_n4 = 0.0;
 
     if (depth > 0) {
       double d_val = (double)depth;
@@ -69,14 +65,6 @@ DataFrame erase_core(NumericVector microstate, StopPredicate stop_criteria, doub
       // Entropy
       if (pL > 0) shannon -= pL * std::log2(pL);
       if (pR > 0) shannon -= pR * std::log2(pR);
-
-      // Fisher Information (Standard HL and Super-Heisenberg)
-      qfi_n2 = 4.0 * d_val * d_val * pL * pR;
-      qfi_n4 = 4.0 * std::pow(d_val, 4.0) * pL * pR;
-      if (pL == 0 || pR == 0) {
-        qfi_n2 = d_val * d_val;
-        qfi_n4 = std::pow(d_val, 4.0);
-      }
     }
 
     // Assigning results
@@ -89,11 +77,6 @@ DataFrame erase_core(NumericVector microstate, StopPredicate stop_criteria, doub
     res_l_count[i] = count_l;
     res_r_count[i] = count_r;
     res_shannon[i] = shannon;
-    res_fisher_n2[i] = qfi_n2;
-    res_fisher_n4[i] = qfi_n4;
-    res_symplectic_capacity[i] = std::abs(macro_val * (double)c_den);
-    res_winding_number[i] = (double)count_r - (double)count_l;
-    res_phase_density[i] = (depth > 0) ? (double)depth / (std::abs(error) + 1e-18) : 0.0;
     depths[i] = depth;
     max_depths[i] = max_depth_limit;
 
@@ -115,11 +98,6 @@ DataFrame erase_core(NumericVector microstate, StopPredicate stop_criteria, doub
     _["minimal_program"]        = res_b_path,
     _["kolmogorov_complexity"]  = depths,
     _["shannon_entropy"]        = res_shannon,
-    _["fisher_N2"]              = res_fisher_n2,
-    _["fisher_N4"]              = res_fisher_n4,
-    _["symplectic_capacity"]    = res_symplectic_capacity,
-    _["winding_number"]         = res_winding_number,
-    _["phase_density"]          = res_phase_density,
     _["stern_brocot_path"]      = res_path,
     _["uncertainty"]            = display_uncertainty,
     _["l_count"]                = res_l_count,
@@ -129,6 +107,15 @@ DataFrame erase_core(NumericVector microstate, StopPredicate stop_criteria, doub
   );
 }
 
+//' Erase microstate information by uncertainty threshold
+//'
+//' Implements Landauer erasure by mapping microstates to macrostates
+//' within a specified physical uncertainty (x_0).
+//'
+//' @param x A numeric vector of microstates to erase.
+//' @param uncertainty The maximum allowable physical fluctuation.
+//' @return A data frame with physical and algorithmic information properties.
+//' @export
 // [[Rcpp::export(name = "erase_by_uncertainty")]]
 DataFrame erase_uncertainty(NumericVector x, double uncertainty) {
   if (uncertainty <= 0) stop("uncertainty must be positive");
@@ -138,14 +125,31 @@ DataFrame erase_uncertainty(NumericVector x, double uncertainty) {
   }, uncertainty, MAX_SEARCH_DEPTH);
 }
 
+//' Erase microstate information by a specific tree depth
+//'
+//' Maps microstates to macrostates by enforcing a fixed Kolmogorov complexity.
+//'
+//' @param x A numeric vector of microstates to erase.
+//' @param depth The target Kolmogorov complexity (path length).
+//' @return A data frame with physical and algorithmic information properties.
+//' @export
 // [[Rcpp::export(name = "erase_by_depth")]]
 DataFrame erase_depth(NumericVector x, int depth) {
-  if (depth < 0 || depth > MAX_SEARCH_DEPTH) stop("Invalid depth");
+  if (depth < 0 || depth > MAX_SEARCH_DEPTH) {
+    stop("Requested depth %i is out of bounds", depth);
+  }
   return erase_core(x, [depth](double err, int d) {
     return d >= depth;
   }, NA_REAL, depth);
 }
 
+//' Erase microstate information by both uncertainty and depth
+//'
+//' @param x A numeric vector of microstates to erase.
+//' @param uncertainty The maximum allowable physical fluctuation.
+//' @param depth The maximum target Kolmogorov complexity.
+//' @return A data frame with physical and algorithmic information properties.
+//' @export
 // [[Rcpp::export(name = "erase_by_uncertainty_and_depth")]]
 DataFrame erase_uncertainty_and_depth(NumericVector x, double uncertainty, int depth) {
   if (uncertainty <= 0) stop("uncertainty must be positive");

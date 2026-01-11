@@ -2,19 +2,14 @@
 here::i_am("data-raw/01_micro_macro_erasures.R")
 
 # 1. Load/Install environment
-# devtools::install(quick = TRUE, upgrade = "never")
-devtools::install(args = "--preclean", upgrade = "never")
+devtools::install(quick = TRUE, upgrade = "never")
+# devtools::install(args = "--preclean", upgrade = "never")
 library(SternBrocotPhysics)
 library(data.table)
 library(future.apply)
-library(progressr) # Added for progress tracking
 
 # 2. Setup Parallel Plan
-future::plan(future::multisession, workers = parallel::detectCores() - 1)
-
-# Enable progress reporting globally
-handlers(global = TRUE)
-handlers("progress") # Standard progress bar
+future::plan(future::multisession, workers = parallel::detectCores() / 2)
 
 # 3. Setup Directory
 raw_directory <- here::here("data-raw", "outputs", "01_micro_macro_erasures")
@@ -26,10 +21,7 @@ if (!dir.exists(raw_directory)) {
 microstates_count <- 1e6 + 1
 microstates <- seq(from = -1, to = 1, length.out = microstates_count)
 
-run_and_save_erasure_experiment <- function(momentum_factor, p) {
-  # Notify progressor
-  p(sprintf("P = %1.2f", momentum_factor))
-
+run_and_save_erasure_experiment <- function(momentum_factor) {
   uncertainty <- 1 / momentum_factor
 
   # Run updated C++ function with Fisher, Denom, and De Gosson metrics
@@ -44,25 +36,20 @@ run_and_save_erasure_experiment <- function(momentum_factor, p) {
     file = file.path(raw_directory, file_name),
     compress = "gzip"
   )
+  gc()
 }
 
 # 5. Define Momentum Range (Extended to 100)
 momenta_factor_step <- 0.01
-momenta_factor_min  <- 35 + momenta_factor_step
-momenta_factor_max  <- 50
+momenta_factor_min  <- 24 + momenta_factor_step
+momenta_factor_max  <- 26
 momenta_factors <- seq(from = momenta_factor_min, to = momenta_factor_max, by = momenta_factor_step)
-
-# 6. Execute Parallel Loop with Progress Bar
-with_progress({
-  # Create progressor for the total number of experiments
-  p <- progressor(steps = length(momenta_factors))
 
   future.apply::future_lapply(
     momenta_factors,
-    function(m) run_and_save_erasure_experiment(m, p = p),
+    function(m) run_and_save_erasure_experiment(m),
     future.seed = TRUE
   )
-})
 
 # 7. Shutdown workers clean
 future::plan(future::sequential)
