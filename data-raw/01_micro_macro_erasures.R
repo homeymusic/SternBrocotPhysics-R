@@ -2,7 +2,8 @@
 here::i_am("data-raw/01_micro_macro_erasures.R")
 
 # 1. Load/Install environment
-devtools::install(quick = TRUE, upgrade = "never")
+# devtools::install(quick = TRUE, upgrade = "never")
+devtools::install(args = "--preclean", upgrade = "never")
 library(SternBrocotPhysics)
 library(data.table)
 library(future.apply)
@@ -47,8 +48,8 @@ run_and_save_erasure_experiment <- function(momentum_factor, p) {
 
 # 5. Define Momentum Range (Extended to 100)
 momenta_factor_step <- 0.01
-momenta_factor_min  <- 50 + momenta_factor_step
-momenta_factor_max  <- 100
+momenta_factor_min  <- 35 + momenta_factor_step
+momenta_factor_max  <- 50
 momenta_factors <- seq(from = momenta_factor_min, to = momenta_factor_max, by = momenta_factor_step)
 
 # 6. Execute Parallel Loop with Progress Bar

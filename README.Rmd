@@ -31,6 +31,170 @@ transparency = 0.4
 file_path <- here::here("data-raw/outputs/01_micro_macro_erasures/micro_macro_erasures_P_000025.000000.csv.gz")
 df <- fread(file_path)
 ```
+```{r jump-fluctuations, fig.width=10, fig.height=12, echo=F}
+# 1. Define the 5 Critical Jump Points based on the observed staircase
+jumps <- list(
+  list(n = "0 to 1", p_vals = c(2.39,  2.64,  2.89)),
+  list(n = "1 to 2", p_vals = c(5.02,  5.27,  5.52)),
+  list(n = "2 to 3", p_vals = c(10.28, 10.53, 10.78)),
+  list(n = "3 to 4", p_vals = c(18.17, 18.42, 18.67)),
+  list(n = "4 to 5", p_vals = c(33.96, 34.21, 34.46))
+)
+
+# 2. Setup Plotting Grid (15 panels total)
+# High height (15) to ensure each row is readable
+par(mfrow = c(5, 3), mar = c(4, 4, 3, 1), oma = c(2, 2, 5, 1))
+
+# 3. Execution Loop
+for (j in seq_along(jumps)) {
+  for (p in seq_along(jumps[[j]]$p_vals)) {
+    
+    current_p <- jumps[[j]]$p_vals[p]
+    f_name <- sprintf("micro_macro_erasures_P_%013.6f.csv.gz", round(current_p, 6))
+    f_path <- here::here("data-raw", "outputs", "01_micro_macro_erasures", f_name)
+    
+    if (file.exists(f_path)) {
+      # Read only fluctuations to maintain RAM safety
+      raw_fluc <- data.table::fread(f_path, select = "fluctuation")$fluctuation
+      
+      # Visual styling: Red for the Jump (Criticality), Blue for the Plateaus
+      col_val <- if (p == 2) rgb(0.8, 0.2, 0.2, 0.7) else rgb(0.2, 0.4, 0.8, 0.5)
+      
+      # Natural scaling: no xlim, dynamic breaks
+      hist(
+        raw_fluc, 
+        breaks = "FD", 
+        main = bquote(.(jumps[[j]]$n) ~ "at" ~ mathcal(P) == .(current_p)),
+        xlab = expression(delta[x]), 
+        ylab = "", 
+        col = col_val, 
+        border = "white",
+        las = 1 # Horizontal axis labels
+      )
+      
+    }
+  }
+}
+
+# 4. Matrix Annotations
+mtext("Transition Phases of Algorithmic Depth", side = 3, line = 2, outer = TRUE, cex = 1.5, font = 2)
+mtext("BEFORE JUMP", side = 3, line = 0, outer = TRUE, adj = 0.15, font = 2, col = "steelblue")
+mtext("ON JUMP POINT", side = 3, line = 0, outer = TRUE, adj = 0.5, font = 2, col = "firebrick")
+mtext("AFTER JUMP", side = 3, line = 0, outer = TRUE, adj = 0.85, font = 2, col = "steelblue")
+```
+
+```{r plot-all-measures, fig.width=6, fig.height=6, echo=F, results='asis'}
+# --- 1. Dependencies & Setup ---
+if (!requireNamespace("bit64", quietly = TRUE)) install.packages("bit64")
+library(ggplot2)
+library(data.table)
+library(here) # Ensure 'here' package is used if using here::here()
+
+summary_path <- here::here("data-raw", "outputs", "02_aggregated_summary", "02_aggregated_summary.csv.gz")
+plot_output_dir <- here::here("plots", "iphone_exports")
+if(!dir.exists(plot_output_dir)) dir.create(plot_output_dir, recursive = TRUE)
+
+dt <- data.table::fread(summary_path)
+data.table::setorder(dt, momentum)
+
+# Threshold markers for vertical lines
+p_markers <- c(2.25, 4.25, 6.25, 8.25, 12.25, 19.25, 23.25, 29.25, 37.00, 44.50)
+
+target_cols <- c(
+  "kolmogorov_complexity", "shannon_entropy", "fluctuation", 
+  "numerator", "denominator", "fisher_N2", "fisher_N4",
+  "symplectic_capacity", "winding_number", "phase_density"
+)
+
+# --- 2. Individual Plot Function ---
+render_and_save <- function(data, metric_name, vlines) {
+  
+  m_mean   <- paste0(metric_name, "_mean")
+  m_median <- paste0(metric_name, "_median")
+  m_min    <- paste0(metric_name, "_min")
+  m_max    <- paste0(metric_name, "_max")
+  m_sd     <- paste0(metric_name, "_sd")
+  
+  plot_dt <- data[, .(
+    momentum = as.numeric(momentum),
+    y_mean   = as.numeric(get(m_mean)),
+    y_med    = as.numeric(get(m_median)),
+    y_min    = as.numeric(get(m_min)),
+    y_max    = as.numeric(get(m_max)),
+    y_sd     = as.numeric(get(m_sd))
+  )]
+
+  p <- ggplot(plot_dt, aes(x = momentum)) +
+    # Faint Vertical Reference Lines
+    geom_vline(xintercept = vlines, color = "grey70", linetype = "dashed", alpha = 0.5) +
+    # Statistical Layers
+    geom_ribbon(aes(ymin = y_mean - y_sd, ymax = y_mean + y_sd), fill = "firebrick", alpha = 0.1) +
+    geom_line(aes(y = y_mean, color = "Mean"), linewidth = 1) +
+    geom_line(aes(y = y_med, color = "Median"), linewidth = 1, linetype = "dashed") +
+    geom_line(aes(y = y_min), color = "black", linetype = "dotted", alpha = 0.3) +
+    geom_line(aes(y = y_max), color = "black", linetype = "dotted", alpha = 0.3) +
+    scale_color_manual(values = c("Mean" = "firebrick", "Median" = "blue")) +
+    labs(title = metric_name, 
+         subtitle = "Vertical lines denote transition markers",
+         x = "Momentum (P)", y = "Value", color = "Stat") +
+    theme_minimal(base_size = 14) +
+    theme(legend.position = "bottom", plot.title = element_text(face = "bold"))
+
+  ggsave(file.path(plot_output_dir, paste0(metric_name, ".png")), 
+         plot = p, width = 4.5, height = 8, units = "in", dpi = 300)
+  
+  return(p)
+}
+
+# --- 3. Execution Loop (Original Metrics) ---
+for (metric in target_cols) {
+  if (paste0(metric, "_mean") %in% names(dt)) {
+    print(render_and_save(dt, metric, p_markers))
+  }
+}
+
+# --- 4. Prepare and Plot the New Combined Metric (KC + SE) ---
+
+# Calculate the SUM of the two metrics and all their associated stats
+dt[, sum_kc_se_mean := kolmogorov_complexity_mean + shannon_entropy_mean]
+dt[, sum_kc_se_median := kolmogorov_complexity_median + shannon_entropy_median]
+dt[, sum_kc_se_min := kolmogorov_complexity_min + shannon_entropy_min]
+dt[, sum_kc_se_max := kolmogorov_complexity_max + shannon_entropy_max]
+
+# NOTE: Standard deviations cannot simply be summed unless the variables are perfectly correlated. 
+# We calculate the sum of the SDs as a proxy based on user request, but this is mathematically approximate.
+dt[, sum_kc_se_sd := kolmogorov_complexity_sd + shannon_entropy_sd]
+
+# Add the new combined metric name to a temporary list to use the existing function
+render_and_save(dt, "sum_kc_se", p_markers)
+
+print(last_plot()) # Displays the last generated plot in the Rmd output
+
+```
+
+```{r plot-complexity-vs-denominator, fig.width=8, fig.height=6, echo=FALSE}
+# Prepare the data table for plotting the scatter relationship
+# We rely on the 'dt' object created in the previous chunk
+plot_scatter_dt <- dt[, .(
+  kc_median = as.numeric(kolmogorov_complexity_median),
+  den_median = as.numeric(denominator_median),
+  momentum = as.numeric(momentum) # Optional: Use momentum for color scale
+)]
+
+# Generate the 2D scatter plot using ggplot2
+ggplot(plot_scatter_dt, aes(x = den_median, y = kc_median, color = momentum)) +
+  geom_point(alpha = 0.7, size = 3) +
+  labs(
+    title = "Scatter Plot of Median Kolmogorov Complexity vs. Median Denominator",
+    x = "Median Denominator",
+    y = "Median Kolmogorov Complexity",
+    color = "Momentum (P)"
+  ) +
+  scale_color_viridis_c(option = "plasma") + # Using a colorblind-friendly color scale
+  theme_minimal(base_size = 14) +
+  theme(plot.title = element_text(face = "bold"))
+
+```
 
 ```{r plot-staircase, fig.width=10, fig.height=10, echo=F}
 # Subsample for rendering performance if needed, 
@@ -214,71 +378,6 @@ abline(h = 0.5, col = "red", lty = 2, lwd = 2) # Balanced path line
 grid(col = "gray80")
 ```
 
-```{r  plot-aggregates-versus-momentum, fig.width=10, fig.height=10, echo=F}
-# --- 1. Setup and Data ---
-summary_path <- here::here("data-raw", "outputs", "02_aggregated_summary", "erasure_metrics_summary.csv.gz")
-dt <- data.table::fread(summary_path)
-data.table::setorder(dt, momentum)
-
-# --- 2. Enhanced Base Plotting Function ---
-plot_physics_metric <- function(data, metric_name, display_title) {
-  cols <- grep(metric_name, names(data), value = TRUE)
-  plot_df <- data[, .SD, .SDcols = c("momentum", cols)]
-  
-  m_mean   <- paste0(metric_name, "_mean")
-  m_median <- paste0(metric_name, "_median")
-  m_min    <- paste0(metric_name, "_min")
-  m_max    <- paste0(metric_name, "_max")
-  m_sd     <- paste0(metric_name, "_sd")
-  
-  ggplot2::ggplot(plot_df, ggplot2::aes(x = momentum)) +
-    ggplot2::geom_ribbon(ggplot2::aes(ymin = .data[[m_mean]] - .data[[m_sd]], 
-                                      ymax = .data[[m_mean]] + .data[[m_sd]]),
-                         fill = "grey90", alpha = 0.7) +
-    ggplot2::geom_line(ggplot2::aes(y = .data[[m_mean]], color = "Mean"), linewidth = 0.8) +
-    ggplot2::geom_line(ggplot2::aes(y = .data[[m_median]], color = "Median"), linewidth = 0.8, linetype = "dashed") +
-    ggplot2::geom_line(ggplot2::aes(y = .data[[m_min]], color = "Min/Max"), linetype = "dotted", alpha = 0.5) +
-    ggplot2::geom_line(ggplot2::aes(y = .data[[m_max]], color = "Min/Max"), linetype = "dotted", alpha = 0.5) +
-    ggplot2::scale_color_manual(values = c("Mean" = "firebrick", "Median" = "blue", "Min/Max" = "black")) +
-    ggplot2::labs(title = display_title, x = NULL, y = "Bits / Depth", color = "Metric") +
-    ggplot2::theme_minimal() +
-    ggplot2::theme(legend.position = "none")
-}
-
-# --- 3. The "Hero" Plot: Quantum-Algorithmic Correspondence ---
-p_hero <- ggplot2::ggplot(dt, ggplot2::aes(x = momentum)) +
-  ggplot2::geom_step(ggplot2::aes(y = kolmogorov_complexity_max, color = "Max K (Action Capacity)"), 
-                     direction = "hv", linewidth = 1.2, alpha = 0.3) +
-  ggplot2::geom_step(ggplot2::aes(y = kolmogorov_complexity_median, color = "Median K (Quantum n)"), 
-                     direction = "hv", linewidth = 1.2) +
-  ggplot2::geom_hline(yintercept = seq(0, max(dt$kolmogorov_complexity_max), by = 2), 
-                      linetype = "dotted", color = "grey80", alpha = 0.5) +
-  ggplot2::scale_color_manual(values = c("Max K (Action Capacity)" = "darkorchid", 
-                                         "Median K (Quantum n)" = "black")) +
-  ggplot2::labs(
-    title = "Quantum-Algorithmic Correspondence (P up to 50)",
-    subtitle = expression(paste("The 'staircase' effect reveals integer-locking of the median complexity ", K[med])),
-    x = expression(paste("Scaled Momentum (", mathcal(P), ")")),
-    y = "Algorithmic Depth (Bits)",
-    color = "State Boundary"
-  ) +
-  ggplot2::theme_minimal() +
-  ggplot2::theme(legend.position = "top", plot.title = ggplot2::element_text(face = "bold", size = 14))
-
-
-# --- 4. Assembly ---
-p_kol  <- plot_physics_metric(dt, "kolmogorov_complexity", "K Complexity Aggregates")
-p_sha  <- plot_physics_metric(dt, "shannon_entropy", "Shannon Entropy")
-p_flu  <- plot_physics_metric(dt, "fluctuation", "Fluctuations")
-
-if (requireNamespace("patchwork", quietly = TRUE)) {
-  final_layout <- p_hero / (p_kol | p_sha | p_flu) + 
-    patchwork::plot_layout(heights = c(2, 1)) +
-    patchwork::plot_annotation(caption = "Stern-Brocot Physics: Extended Momentum Analysis")
-  print(final_layout)
-}
-```
-
 ```{r  table-of-median-complexity-momentum, fig.width=10, fig.height=10, echo=F}
 # Create fitting data with the full range
 fitting_data <- dt[, .(
@@ -373,56 +472,4 @@ p_res <- ggplot2::ggplot(dt, ggplot2::aes(x = momentum, y = n_residual)) +
 if (requireNamespace("patchwork", quietly = TRUE)) {
   (p_curve / p_res) + patchwork::plot_layout(heights = c(2, 1))
 }
-```
-
-```{r jump-fluctuations, fig.width=10, fig.height=12, echo=F}
-# 1. Define the 5 Critical Jump Points based on the observed staircase
-jumps <- list(
-  list(n = "0 to 1", p_vals = c(2.39,  2.64,  2.89)),
-  list(n = "1 to 2", p_vals = c(5.02,  5.27,  5.52)),
-  list(n = "2 to 3", p_vals = c(10.28, 10.53, 10.78)),
-  list(n = "3 to 4", p_vals = c(18.17, 18.42, 18.67)),
-  list(n = "4 to 5", p_vals = c(33.96, 34.21, 34.46))
-)
-
-# 2. Setup Plotting Grid (15 panels total)
-# High height (15) to ensure each row is readable
-par(mfrow = c(5, 3), mar = c(4, 4, 3, 1), oma = c(2, 2, 5, 1))
-
-# 3. Execution Loop
-for (j in seq_along(jumps)) {
-  for (p in seq_along(jumps[[j]]$p_vals)) {
-    
-    current_p <- jumps[[j]]$p_vals[p]
-    f_name <- sprintf("micro_macro_erasures_P_%013.6f.csv.gz", round(current_p, 6))
-    f_path <- here::here("data-raw", "outputs", "01_micro_macro_erasures", f_name)
-    
-    if (file.exists(f_path)) {
-      # Read only fluctuations to maintain RAM safety
-      raw_fluc <- data.table::fread(f_path, select = "fluctuation")$fluctuation
-      
-      # Visual styling: Red for the Jump (Criticality), Blue for the Plateaus
-      col_val <- if (p == 2) rgb(0.8, 0.2, 0.2, 0.7) else rgb(0.2, 0.4, 0.8, 0.5)
-      
-      # Natural scaling: no xlim, dynamic breaks
-      hist(
-        raw_fluc, 
-        breaks = "FD", 
-        main = bquote(.(jumps[[j]]$n) ~ "at" ~ mathcal(P) == .(current_p)),
-        xlab = expression(delta[x]), 
-        ylab = "", 
-        col = col_val, 
-        border = "white",
-        las = 1 # Horizontal axis labels
-      )
-      
-    }
-  }
-}
-
-# 4. Matrix Annotations
-mtext("Transition Phases of Algorithmic Depth", side = 3, line = 2, outer = TRUE, cex = 1.5, font = 2)
-mtext("BEFORE JUMP", side = 3, line = 0, outer = TRUE, adj = 0.15, font = 2, col = "steelblue")
-mtext("ON JUMP POINT", side = 3, line = 0, outer = TRUE, adj = 0.5, font = 2, col = "firebrick")
-mtext("AFTER JUMP", side = 3, line = 0, outer = TRUE, adj = 0.85, font = 2, col = "steelblue")
 ```

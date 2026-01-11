@@ -19,12 +19,14 @@ LinkingTo:
 Imports: 
     Rcpp
 Suggests: 
+    bit64,
     future.apply,
     ggplot2,
     here,
     knitr,
     osfr,
     patchwork,
+    progress,
     progressr,
     rmarkdown,
     tidyr

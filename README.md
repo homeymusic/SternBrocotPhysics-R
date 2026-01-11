@@ -4,6 +4,12 @@ Stern-Brocot Physics
 An R package for computational experiments in classical and quantum
 physics using the Stern-Brocot tree.
 
+![](man/figures/README-jump-fluctuations-1.png)<!-- -->
+
+![](man/figures/README-plot-all-measures-1.png)<!-- -->![](man/figures/README-plot-all-measures-2.png)<!-- -->![](man/figures/README-plot-all-measures-3.png)<!-- -->![](man/figures/README-plot-all-measures-4.png)<!-- -->![](man/figures/README-plot-all-measures-5.png)<!-- -->![](man/figures/README-plot-all-measures-6.png)<!-- -->![](man/figures/README-plot-all-measures-7.png)<!-- -->![](man/figures/README-plot-all-measures-8.png)<!-- -->![](man/figures/README-plot-all-measures-9.png)<!-- -->![](man/figures/README-plot-all-measures-10.png)<!-- -->![](man/figures/README-plot-all-measures-11.png)<!-- -->![](man/figures/README-plot-all-measures-12.png)<!-- -->
+
+![](man/figures/README-plot-complexity-vs-denominator-1.png)<!-- -->
+
 ![](man/figures/README-plot-staircase-1.png)<!-- -->
 
 ![](man/figures/README-plot-degeneracy-histogram-1.png)<!-- -->
@@ -23,8 +29,6 @@ physics using the Stern-Brocot tree.
 ![](man/figures/README-plot-fluctuation-vs-shannon-1.png)<!-- -->
 
 ![](man/figures/README-plot-lr-ratio-vs-microstate-1.png)<!-- -->
-
-![](man/figures/README-plot-aggregates-versus-momentum-1.png)<!-- -->
 
 | Momentum (P) | Median K (n) | Max K (Action) | Avg Entropy |
 |-------------:|-------------:|---------------:|------------:|
@@ -53,5 +57,3 @@ Correspondence Table: Extended Momentum vs. Algorithmic Depth
 
 ![](man/figures/README-finding-fit-median-k-P-1.png)<!-- -->
 ![](man/figures/README-scaling-analysis-1.png)<!-- -->
-
-![](man/figures/README-jump-fluctuations-1.png)<!-- -->
