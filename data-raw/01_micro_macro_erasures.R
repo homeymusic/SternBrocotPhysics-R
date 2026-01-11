@@ -22,7 +22,7 @@ microstates_count <- 1e6 + 1
 microstates <- seq(from = -1, to = 1, length.out = microstates_count)
 
 run_and_save_erasure_experiment <- function(momentum_factor) {
-  uncertainty <- 1 / momentum_factor
+  uncertainty <- (pi / 4)  * (1 / momentum_factor)
 
   # Run updated C++ function with Fisher, Denom, and De Gosson metrics
   results <- SternBrocotPhysics::erase_by_uncertainty(microstates, uncertainty)
@@ -41,8 +41,8 @@ run_and_save_erasure_experiment <- function(momentum_factor) {
 
 # 5. Define Momentum Range (Extended to 100)
 momenta_factor_step <- 0.01
-momenta_factor_min  <- 24 + momenta_factor_step
-momenta_factor_max  <- 26
+momenta_factor_min  <- 0 + momenta_factor_step
+momenta_factor_max  <- 50
 momenta_factors <- seq(from = momenta_factor_min, to = momenta_factor_max, by = momenta_factor_step)
 
   future.apply::future_lapply(
