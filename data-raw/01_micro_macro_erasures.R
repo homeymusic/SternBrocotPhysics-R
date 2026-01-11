@@ -4,7 +4,6 @@ here::i_am("data-raw/01_micro_macro_erasures.R")
 # 1. Load/Install environment
 devtools::install(quick = TRUE, upgrade = "never")
 # devtools::install(args = "--preclean", upgrade = "never")
-library(SternBrocotPhysics)
 library(data.table)
 library(future.apply)
 
@@ -45,11 +44,14 @@ momenta_factor_min  <- 0 + momenta_factor_step
 momenta_factor_max  <- 50
 momenta_factors <- seq(from = momenta_factor_min, to = momenta_factor_max, by = momenta_factor_step)
 
-  future.apply::future_lapply(
-    momenta_factors,
-    function(m) run_and_save_erasure_experiment(m),
-    future.seed = TRUE
-  )
+future.apply::future_lapply(
+  momenta_factors,
+  function(m) {
+    library(SternBrocotPhysics)
+    run_and_save_erasure_experiment(m)
+  },
+  future.seed = TRUE
+)
 
 # 7. Shutdown workers clean
 future::plan(future::sequential)

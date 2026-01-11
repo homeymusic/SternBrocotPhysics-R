@@ -92,8 +92,6 @@ library(data.table)
 library(here) # Ensure 'here' package is used if using here::here()
 
 summary_path <- here::here("data-raw", "outputs", "02_aggregated_summary", "02_aggregated_summary.csv.gz")
-plot_output_dir <- here::here("plots", "iphone_exports")
-if(!dir.exists(plot_output_dir)) dir.create(plot_output_dir, recursive = TRUE)
 
 dt <- data.table::fread(summary_path)
 data.table::setorder(dt, momentum)
@@ -140,9 +138,6 @@ render_and_save <- function(data, metric_name, vlines) {
     theme_minimal(base_size = 14) +
     theme(legend.position = "bottom", plot.title = element_text(face = "bold"))
 
-  ggsave(file.path(plot_output_dir, paste0(metric_name, ".png")), 
-         plot = p, width = 4.5, height = 8, units = "in", dpi = 300)
-  
   return(p)
 }
 

@@ -14,7 +14,7 @@ DataFrame erase_core(NumericVector microstate, StopPredicate stop_criteria, doub
 
   // 1. Declare Storage Vectors (Original + New Physics)
   NumericVector res_num(n), res_den(n), depths(n), max_depths(n), res_fluctuation(n), res_macro(n);
-  NumericVector res_l_count(n), res_r_count(n), res_shannon(n);
+  NumericVector res_l_count(n), res_r_count(n), res_shannon(n), res_zurek(n);
 
   CharacterVector res_path(n), res_b_path(n);
   LogicalVector found(n);
@@ -77,6 +77,7 @@ DataFrame erase_core(NumericVector microstate, StopPredicate stop_criteria, doub
     res_l_count[i] = count_l;
     res_r_count[i] = count_r;
     res_shannon[i] = shannon;
+    res_zurek[i] = (double)depth + shannon;
     depths[i] = depth;
     max_depths[i] = max_depth_limit;
 
@@ -98,6 +99,7 @@ DataFrame erase_core(NumericVector microstate, StopPredicate stop_criteria, doub
     _["minimal_program"]        = res_b_path,
     _["kolmogorov_complexity"]  = depths,
     _["shannon_entropy"]        = res_shannon,
+    _["zurek_entropy"]          = res_zurek,
     _["stern_brocot_path"]      = res_path,
     _["uncertainty"]            = display_uncertainty,
     _["l_count"]                = res_l_count,
