@@ -39,8 +39,8 @@ run_and_save_erasure_experiment <- function(momentum_factor) {
 
 # 5. Define Momentum Range (Extended to 100)
 momenta_factor_step <- 0.01
-momenta_factor_min  <- 0 + momenta_factor_step
-momenta_factor_max  <- 50
+momenta_factor_min  <- 50 + momenta_factor_step
+momenta_factor_max  <- 100
 momenta_factors <- seq(from = momenta_factor_min, to = momenta_factor_max, by = momenta_factor_step)
 
 future.apply::future_lapply(

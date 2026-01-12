@@ -18,9 +18,9 @@ holographic scaling relation for physical momentum values ($P \ge 1.0$).
 
 | Metric                | k_constant | R_squared | Correlation_R | RMSE   |
 |:----------------------|:-----------|:----------|:--------------|:-------|
-| Shannon Entropy       | 0.162      | -2.803    | 0.5658        | 0.2233 |
-| Zurek Entropy         | 1.138      | 0.9827    | 0.9919        | 0.2318 |
-| Kolmogorov Complexity | 0.977      | 0.982     | 0.9964        | 0.227  |
+| Shannon Entropy       | 0.124      | -10.9065  | 0.4125        | 0.2822 |
+| Zurek Entropy         | 1.086      | 0.9522    | 0.9908        | 0.4701 |
+| Kolmogorov Complexity | 0.963      | 0.985     | 0.9938        | 0.2583 |
 
 ### Summary and Conclusion
 
