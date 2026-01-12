@@ -3,6 +3,7 @@ Stern-Brocot Physics
 
 An R package for computational experiments in classical and quantum
 physics using the Stern-Brocot tree.
+
 ![](man/figures/README-jump-fluctuations-1.png)<!-- -->
 
 ![](man/figures/README-plot-all-measures-1.png)<!-- -->![](man/figures/README-plot-all-measures-2.png)<!-- -->![](man/figures/README-plot-all-measures-3.png)<!-- -->
@@ -10,7 +11,7 @@ physics using the Stern-Brocot tree.
 ![](man/figures/README-plot-complexity-vs-denominator-1.png)<!-- -->
 
 ![](man/figures/README-plot-all-metrics-with-residuals-1.png)<!-- -->![](man/figures/README-plot-all-metrics-with-residuals-2.png)<!-- -->![](man/figures/README-plot-all-metrics-with-residuals-3.png)<!-- -->
-\### Fit Statistics: Holographic Theory ($y \propto \sqrt{P}$)
+\### Fit Statistics: Holographic Theory ($K \propto \sqrt{P}$)
 
 This section summarizes the goodness-of-fit for the mean values of
 Shannon, Kolmogorov, and Zurek entropies against the proposed

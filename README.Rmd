@@ -66,60 +66,74 @@ p_markers <- dt_summary$momentum[jump_indices]
 ```{r child = 'inst/readme/introduction.Rmd'}
 # Introduction content pulled from external file
 ```
-```{r jump-fluctuations, fig.width=10, fig.height=3 * length(jumps), echo=F}
 
-# 1. Setup Plotting Grid using base R graphics functions
-graphics::par(mfrow = c(length(jumps), 3), mar = c(4, 4, 3, 1), oma = c(2, 2, 5, 1))
+```{r jump-fluctuations, fig.width=10, fig.height=3 * length(jumps), echo=FALSE}
+
+# 1. Setup list for plots
+plot_list <- vector("list", length(jumps) * 3)
+counter   <- 1
 
 # 2. Execution Loop
 for (j in seq_along(jumps)) {
   for (p in seq_along(jumps[[j]]$p_vals)) {
-
+    
     current_p <- jumps[[j]]$p_vals[p]
-    f_name <- base::sprintf("micro_macro_erasures_P_%013.6f.csv.gz", base::round(current_p, 6))
-    f_path <- here::here("data-raw", "outputs", "01_micro_macro_erasures", f_name)
-
-    # CRITICAL FILTER: Check file existence AND P >= 1.0 rule
-    if (base::file.exists(f_path) && current_p >= 1.0) {
-      # Use data.table::fread explicitly
+    f_name    <- sprintf("micro_macro_erasures_P_%013.6f.csv.gz", round(current_p, 6))
+    f_path    <- here::here("data-raw", "outputs", "01_micro_macro_erasures", f_name)
+    
+    if (file.exists(f_path) && current_p >= 1.0) {
       raw_fluc <- data.table::fread(f_path, select = "fluctuation")$fluctuation
-
-      # DYNAMIC BIN WIDTH: Determine range per-file, but keep exactly 401 bins (402 breakpoints)
-      f_range <- base::range(raw_fluc, na.rm = TRUE)
+      f_range  <- range(raw_fluc, na.rm = TRUE)
       
-      # FIX: Explicitly use the min (f_range[1]) and max (f_range[2]) values
-      panel_breaks <- base::seq(from = f_range[1], to = f_range[2], length.out = 402)
-      
-      # Generate histogram object (plot=FALSE) to get the counts
+      # Use range indices for seq()
+      panel_breaks <- seq(from = f_range[1], to = f_range[2], length.out = 402)
       h <- graphics::hist(raw_fluc, breaks = panel_breaks, plot = FALSE)
       
-      # Create the dynamic main title string
-      plot_title <- base::paste0(
-        jumps[[j]]$n, " at P = ", base::round(current_p, 2)      )
-      
-      # Using black as color per your previous instruction
-      graphics::hist(
-        raw_fluc,
-        breaks = panel_breaks,
-        main = plot_title,
-        xlab = base::expression(delta[x]),
-        ylab = "",
-        col = "black",
-        las = 1
+      # Dataframe for plotting
+      plot_df <- data.frame(
+        x = h$breaks[-length(h$breaks)], 
+        y = h$counts
       )
       
+      p_obj <- ggplot2::ggplot(plot_df, ggplot2::aes(x = x, y = y)) +
+        ggplot2::geom_ribbon(
+          ggplot2::aes(ymin = 0, ymax = y), 
+          fill = "black", 
+          alpha = 0.3, 
+          color = NA
+        ) +
+        ggplot2::geom_step(direction = "hv", color = "black", linewidth = 0.2) +
+        ggplot2::labs(
+          title = paste0(jumps[[j]]$n, " at P = ", round(current_p, 2)),
+          x = expression(delta[x]),
+          y = ""
+        ) +
+        ggplot2::theme_minimal() +
+        ggplot2::theme(plot.title = ggplot2::element_text(size = 10))
+      
     } else {
-      graphics::plot.new()
-      graphics::text(0.5, 0.5, base::paste("P =", current_p, "\n excluded"), cex = 0.8)
+      p_obj <- ggplot2::ggplot() + 
+        ggplot2::annotate("text", x = 0.5, y = 0.5, 
+                          label = paste("P =", current_p, "\n excluded")) +
+        ggplot2::theme_void()
     }
+    plot_list[[counter]] <- p_obj
+    counter <- counter + 1
   }
 }
 
-# 3. Matrix Annotations 
-graphics::mtext("Automated Detection of Transition Phases (P >= 1.0)", side = 3, line = 2, outer = TRUE, cex = 1.5, font = 2)
-graphics::mtext("LOWER PLATEAU", side = 3, line = 0, outer = TRUE, adj = 0.15, font = 2, col = "steelblue")
-graphics::mtext("JUMP POINT", side = 3, line = 0, outer = TRUE, adj = 0.5, font = 2, col = "firebrick")
-graphics::mtext("UPPER PLATEAU", side = 3, line = 0, outer = TRUE, adj = 0.85, font = 2, col = "steelblue")
+# 3. Assemble Grid
+combined_plot <- patchwork::wrap_plots(plot_list, ncol = 3) + 
+  patchwork::plot_annotation(
+    title = "Automated Detection of Transition Phases (P >= 1.0)",
+    subtitle = "LOWER PLATEAU                      JUMP POINT                      UPPER PLATEAU",
+    theme = ggplot2::theme(
+      plot.title = ggplot2::element_text(hjust = 0.5, face = "bold", size = 14),
+      plot.subtitle = ggplot2::element_text(hjust = 0.5, size = 10, face = "bold")
+    )
+  )
+
+combined_plot
 
 ```
 
@@ -271,7 +285,7 @@ for (metric in target_metrics) {
   }
 }
 ```
-### Fit Statistics: Holographic Theory ($y \propto \sqrt{P}$)
+### Fit Statistics: Holographic Theory ($K \propto \sqrt{P}$)
 
 This section summarizes the goodness-of-fit for the mean values of Shannon, Kolmogorov, and Zurek entropies against the proposed holographic scaling relation for physical momentum values ($P \ge 1.0$).
 
