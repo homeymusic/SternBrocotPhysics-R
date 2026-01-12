@@ -118,31 +118,47 @@ target_cols <- c(
 )
 
 render_plot <- function(data, metric_name, vlines) {
-  m_mean <- paste0(metric_name, "_mean")
+  # 1. Map columns (added min and max)
+  m_min    <- paste0(metric_name, "_min")
+  m_mean   <- paste0(metric_name, "_mean")
   m_median <- paste0(metric_name, "_median")
-  m_sd <- paste0(metric_name, "_sd")
+  m_sd     <- paste0(metric_name, "_sd")
+  m_max    <- paste0(metric_name, "_max")
   
   plot_dt <- data[, .(
     momentum = as.numeric(momentum),
-    y_mean = as.numeric(get(m_mean)),
-    y_med = as.numeric(get(m_median)),
-    y_sd = as.numeric(get(m_sd))
+    y_min    = as.numeric(get(m_min)),
+    y_mean   = as.numeric(get(m_mean)),
+    y_med    = as.numeric(get(m_median)),
+    y_sd     = as.numeric(get(m_sd)),
+    y_max    = as.numeric(get(m_max))
   )]
 
-  # Ensure we filter any lingering P<1 values here too, just in case
   plot_dt <- plot_dt[momentum >= 1.0]
 
   ggplot(plot_dt, aes(x = momentum)) +
+    # Reference lines (vlines)
     geom_vline(xintercept = vlines[vlines >= 1.0], color = "grey70", linetype = "dashed", alpha = 0.5) +
+    
+    # Subtle Min/Max Lines (Added here)
+    # Using a light grey and very thin linewidth for a 'subtle' effect
+    geom_line(aes(y = y_min), color = "grey80", linewidth = 0.4) +
+    geom_line(aes(y = y_max), color = "grey80", linewidth = 0.4) +
+    
+    # SD Ribbon
     geom_ribbon(aes(ymin = y_mean - y_sd, ymax = y_mean + y_sd), fill = "firebrick", alpha = 0.1) +
+    
+    # Main Series
     geom_line(aes(y = y_mean, color = "Mean"), linewidth = 1) +
     geom_line(aes(y = y_med, color = "Median"), linewidth = 1, linetype = "dashed") +
+    
     scale_color_manual(values = c("Mean" = "firebrick", "Median" = "blue")) +
-    labs(title = metric_name, 
-         subtitle = "Dashed lines indicate detected Zurek transitions (P >= 1.0)",
+    labs(title = tools::toTitleCase(gsub("_", " ", metric_name)), 
+         subtitle = "Dashed lines: Zurek transitions; Thin grey lines: Min/Max range",
          x = "Momentum (P)", y = "Value", color = "Stat") +
     theme_minimal()
 }
+
 
 for (metric in target_cols) {
   if (paste0(metric, "_mean") %in% names(dt_summary)) {
@@ -299,6 +315,4 @@ knitr::kable(stats_df)
 
 The quantitative analysis of the physical data ($P \ge 1.0$) provides strong evidence that the **Zurek entropy** best aligns with the hypothesized **holographic principle** scaling.
 
-The Zurek and Kolmogorov complexity metrics both exhibit outstanding fits to the $y \propto \sqrt{P}$ theory curve, with R-squared ($R^2$) values of **0.9827** and **0.9820**, respectively. This suggests that the algorithmic information and erasure metrics strongly adhere to this theoretical scaling behavior within the physical regime.
-
-In contrast, the Shannon entropy metric yields a highly negative $R^2$ value of **-2.803**, indicating a poor fit to the same model. This confirms the visual observation that the Shannon component is likely the source of the structured, "quantized" deviations from the continuous holographic theory curve.
+The Zurek and Kolmogorov complexity metrics both exhibit outstanding fits to the $y \propto \sqrt{P}$ theory curve, with R-squared ($R^2$) values exceeding 0.97. This suggests that the algorithmic information and erasure metrics strongly adhere to this theoretical scaling behavior within the physical regime. In contrast, the Shannon entropy metric yields a very poor fit to the same model, confirming the visual observation that the Shannon component is likely the source of the structured, "quantized" deviations from the continuous holographic theory curve.

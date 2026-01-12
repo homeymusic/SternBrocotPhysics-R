@@ -30,12 +30,10 @@ hypothesized **holographic principle** scaling.
 
 The Zurek and Kolmogorov complexity metrics both exhibit outstanding
 fits to the $y \propto \sqrt{P}$ theory curve, with R-squared ($R^2$)
-values of **0.9827** and **0.9820**, respectively. This suggests that
-the algorithmic information and erasure metrics strongly adhere to this
-theoretical scaling behavior within the physical regime.
-
-In contrast, the Shannon entropy metric yields a highly negative $R^2$
-value of **-2.803**, indicating a poor fit to the same model. This
-confirms the visual observation that the Shannon component is likely the
-source of the structured, “quantized” deviations from the continuous
-holographic theory curve.
+values exceeding 0.97. This suggests that the algorithmic information
+and erasure metrics strongly adhere to this theoretical scaling behavior
+within the physical regime. In contrast, the Shannon entropy metric
+yields a very poor fit to the same model, confirming the visual
+observation that the Shannon component is likely the source of the
+structured, “quantized” deviations from the continuous holographic
+theory curve.
