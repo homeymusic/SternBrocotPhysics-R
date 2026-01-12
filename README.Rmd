@@ -47,10 +47,15 @@ jumps <- lapply(seq_along(jump_indices), function(i) {
   # Logic: Plateau below at floor - 0.1, Plateau above at ceiling + 0.1
   list(
     n = paste("Transition", i),
+    # p_vals = c(
+    #   (floor(m_at * 10) / 10) - 0.1,   # LOWER PLATEAU (e.g., 13.4 -> 13.3)
+    #   m_at,                           # JUMP POINT    (e.g., 13.42)
+    #   (ceiling(m_at * 10) / 10) + 0.1 # UPPER PLATEAU (e.g., 13.4 -> 13.5)
+    # )
     p_vals = c(
-      (floor(m_at * 10) / 10) - 0.1,   # LOWER PLATEAU (e.g., 13.4 -> 13.3)
-      m_at,                           # JUMP POINT    (e.g., 13.42)
-      (ceiling(m_at * 10) / 10) + 0.1 # UPPER PLATEAU (e.g., 13.4 -> 13.5)
+      floor(m_at),
+      m_at,       
+      ceiling(m_at)
     )
   )
 })
@@ -116,9 +121,6 @@ graphics::mtext("LOWER PLATEAU", side = 3, line = 0, outer = TRUE, adj = 0.15, f
 graphics::mtext("JUMP POINT", side = 3, line = 0, outer = TRUE, adj = 0.5, font = 2, col = "firebrick")
 graphics::mtext("UPPER PLATEAU", side = 3, line = 0, outer = TRUE, adj = 0.85, font = 2, col = "steelblue")
 
-
-
-
 ```
 
 ```{r plot-all-measures, fig.width=6, fig.height=6, echo=F, results='asis'}
@@ -126,8 +128,10 @@ graphics::mtext("UPPER PLATEAU", side = 3, line = 0, outer = TRUE, adj = 0.85, f
 # Data dt_summary is already filtered P >= 1.0
 
 target_cols <- c(
-  "kolmogorov_complexity", "shannon_entropy", "zurek_entropy",
-  "fluctuation", "numerator", "denominator"
+  "zurek_entropy", "kolmogorov_complexity", "shannon_entropy"
+  # ,
+  # "denominator",
+  # "fluctuation", "numerator"
 )
 
 render_plot <- function(data, metric_name, vlines) {
@@ -183,13 +187,13 @@ for (metric in target_cols) {
 ```{r plot-complexity-vs-denominator, fig.width=8, fig.height=6, echo=FALSE}
 # Relationship between complexity and rational denominator
 # dt_summary is already filtered
-ggplot(dt_summary, aes(x = denominator_median, y = kolmogorov_complexity_median, color = momentum)) +
-  geom_point(alpha = 0.7, size = 3) +
+ggplot(dt_summary, aes(x = shannon_entropy_mean, y = kolmogorov_complexity_mean, color = momentum)) +
+  geom_point(alpha = 0.7, size = 0.05) +
   scale_color_viridis_c(option = "plasma") +
   labs(
-    title = "Scatter Plot: Kolmogorov Complexity vs. Denominator (P >= 1.0)",
-    x = "Median Denominator",
-    y = "Median Kolmogorov Complexity",
+    title = "Scatter Plot: Shannon Entropy vs. Kolmogorov Complexity (P >= 1.0)",
+    x = "Mean Shannon Entropy",
+    y = "Mean Kolmogorov Complexity",
     color = "Momentum (P)"
   ) +
   theme_minimal()
@@ -259,7 +263,7 @@ render_dual_plot <- function(metric_name, data_summary, transition_markers) {
 }
 
 # --- Execute the loop for the three main metrics ---
-target_metrics <- c("shannon_entropy", "zurek_entropy", "kolmogorov_complexity")
+target_metrics <- c("zurek_entropy", "kolmogorov_complexity", "shannon_entropy")
 
 for (metric in target_metrics) {
   if (paste0(metric, "_mean") %in% names(dt_summary)) {

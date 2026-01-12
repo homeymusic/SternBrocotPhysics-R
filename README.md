@@ -5,7 +5,7 @@ An R package for computational experiments in classical and quantum
 physics using the Stern-Brocot tree.
 ![](man/figures/README-jump-fluctuations-1.png)<!-- -->
 
-![](man/figures/README-plot-all-measures-1.png)<!-- -->![](man/figures/README-plot-all-measures-2.png)<!-- -->![](man/figures/README-plot-all-measures-3.png)<!-- -->![](man/figures/README-plot-all-measures-4.png)<!-- -->![](man/figures/README-plot-all-measures-5.png)<!-- -->![](man/figures/README-plot-all-measures-6.png)<!-- -->
+![](man/figures/README-plot-all-measures-1.png)<!-- -->![](man/figures/README-plot-all-measures-2.png)<!-- -->![](man/figures/README-plot-all-measures-3.png)<!-- -->
 
 ![](man/figures/README-plot-complexity-vs-denominator-1.png)<!-- -->
 
@@ -18,9 +18,9 @@ holographic scaling relation for physical momentum values ($P \ge 1.0$).
 
 | Metric                | k_constant | R_squared | Correlation_R | RMSE   |
 |:----------------------|:-----------|:----------|:--------------|:-------|
-| Shannon Entropy       | 0.124      | -10.9065  | 0.4125        | 0.2822 |
-| Zurek Entropy         | 1.086      | 0.9522    | 0.9908        | 0.4701 |
-| Kolmogorov Complexity | 0.963      | 0.985     | 0.9938        | 0.2583 |
+| Shannon Entropy       | 0.104      | -20.3311  | 0.3308        | 0.3089 |
+| Zurek Entropy         | 1.041      | 0.9123    | 0.9897        | 0.7063 |
+| Kolmogorov Complexity | 0.937      | 0.9657    | 0.992         | 0.4369 |
 
 ### Summary and Conclusion
 
