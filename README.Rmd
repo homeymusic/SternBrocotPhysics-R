@@ -64,7 +64,6 @@ p_markers <- dt_summary$momentum[jump_indices]
 ```
 
 ```{r introduction, child = 'inst/readme/introduction.Rmd'}
-# Introduction content pulled from external file
 ```
 
 
@@ -112,7 +111,7 @@ render_dual_plot <- function(metric_name, data_summary, transition_markers) {
     scale_color_manual(values = c("Mean" = "gray40", "Median" = "black", "Theory (K = sqrt P)" = "gray60")) +
     labs(
       title = paste(tools::toTitleCase(metric_name), "vs. Momentum (P >= 1.0)"),
-      subtitle = bquote("Holographic Fit:" ~ y %prop% sqrt(P) ~ (k ~ .(round(k_fit, 3)))),
+      subtitle = bquote("Holographic Fit:" ~ S %prop% sqrt(P) ~ (k ~ .(round(k_fit, 3)))),
       x = "Momentum (P)", y = "Value", color = "Series"
     ) +
     theme_minimal() +
@@ -162,7 +161,7 @@ for (metric in target_metrics) {
 }
 ```
 
-### Fit Statistics: Holographic Theory ($K \propto \sqrt{P}$)
+### Fit Statistics: Holographic Theory ($S \propto \sqrt{P}$)
 
 This section summarizes the goodness-of-fit for the mean values of Shannon, Kolmogorov, and Zurek entropies against the proposed holographic scaling relation for physical momentum values ($P 
 The quantitative analysis of the physical data ($P \ge 1.0$) provides strong evidence that the **Zurek entropy** best aligns with the hypothesized **holographic principle** scaling.
