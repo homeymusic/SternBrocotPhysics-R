@@ -4,7 +4,6 @@ here::i_am("data-raw/01_micro_macro_erasures.R")
 # 1. Load/Install environment
 devtools::install(quick = TRUE, upgrade = "never")
 # devtools::install(args = "--preclean", upgrade = "never")
-library(data.table)
 library(future.apply)
 
 # 2. Setup Parallel Plan
@@ -46,11 +45,9 @@ momenta_factors <- seq(from = momenta_factor_min, to = momenta_factor_max, by = 
 
 future.apply::future_lapply(
   momenta_factors,
-  function(m) {
-    library(SternBrocotPhysics)
-    run_and_save_erasure_experiment(m)
-  },
-  future.seed = TRUE
+  run_and_save_erasure_experiment,
+  future.seed = TRUE,
+  future.packages = c("SternBrocotPhysics", "data.table") # Load packages efficiently
 )
 
 # 7. Shutdown workers clean

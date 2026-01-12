@@ -20,6 +20,7 @@ Imports:
     Rcpp
 Suggests: 
     bit64,
+    cowplot,
     future.apply,
     ggplot2,
     here,

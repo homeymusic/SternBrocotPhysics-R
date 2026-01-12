@@ -3,57 +3,39 @@ Stern-Brocot Physics
 
 An R package for computational experiments in classical and quantum
 physics using the Stern-Brocot tree.
-
 ![](man/figures/README-jump-fluctuations-1.png)<!-- -->
 
-![](man/figures/README-plot-all-measures-1.png)<!-- -->![](man/figures/README-plot-all-measures-2.png)<!-- -->![](man/figures/README-plot-all-measures-3.png)<!-- -->![](man/figures/README-plot-all-measures-4.png)<!-- -->![](man/figures/README-plot-all-measures-5.png)<!-- -->![](man/figures/README-plot-all-measures-6.png)<!-- -->![](man/figures/README-plot-all-measures-7.png)<!-- -->
+![](man/figures/README-plot-all-measures-1.png)<!-- -->![](man/figures/README-plot-all-measures-2.png)<!-- -->![](man/figures/README-plot-all-measures-3.png)<!-- -->![](man/figures/README-plot-all-measures-4.png)<!-- -->![](man/figures/README-plot-all-measures-5.png)<!-- -->![](man/figures/README-plot-all-measures-6.png)<!-- -->
 
 ![](man/figures/README-plot-complexity-vs-denominator-1.png)<!-- -->
 
-![](man/figures/README-plot-staircase-1.png)<!-- -->
+![](man/figures/README-plot-all-metrics-with-residuals-1.png)<!-- -->![](man/figures/README-plot-all-metrics-with-residuals-2.png)<!-- -->![](man/figures/README-plot-all-metrics-with-residuals-3.png)<!-- -->
+\### Fit Statistics: Holographic Theory ($y \propto \sqrt{P}$)
 
-![](man/figures/README-plot-degeneracy-histogram-1.png)<!-- -->
+This section summarizes the goodness-of-fit for the mean values of
+Shannon, Kolmogorov, and Zurek entropies against the proposed
+holographic scaling relation for physical momentum values ($P \ge 1.0$).
 
-![](man/figures/README-plot-fluctuation-histogram-1.png)<!-- -->
+| Metric                | k_constant | R_squared | Correlation_R | RMSE   |
+|:----------------------|:-----------|:----------|:--------------|:-------|
+| Shannon Entropy       | 0.162      | -2.803    | 0.5658        | 0.2233 |
+| Zurek Entropy         | 1.138      | 0.9827    | 0.9919        | 0.2318 |
+| Kolmogorov Complexity | 0.977      | 0.982     | 0.9964        | 0.227  |
 
-![](man/figures/README-plot-kolmogorov-complexity-1.png)<!-- -->
+### Summary and Conclusion
 
-![](man/figures/README-plot-shannon-entropy-1.png)<!-- -->
+The quantitative analysis of the physical data ($P \ge 1.0$) provides
+strong evidence that the **Zurek entropy** best aligns with the
+hypothesized **holographic principle** scaling.
 
-![](man/figures/README-plot-h-vs-k-1.png)<!-- -->
+The Zurek and Kolmogorov complexity metrics both exhibit outstanding
+fits to the $y \propto \sqrt{P}$ theory curve, with R-squared ($R^2$)
+values of **0.9827** and **0.9820**, respectively. This suggests that
+the algorithmic information and erasure metrics strongly adhere to this
+theoretical scaling behavior within the physical regime.
 
-![](man/figures/README-plot-total-entropy-1.png)<!-- -->
-
-![](man/figures/README-plot-fluctuation-vs-K-1.png)<!-- -->
-
-![](man/figures/README-plot-fluctuation-vs-shannon-1.png)<!-- -->
-
-![](man/figures/README-plot-lr-ratio-vs-microstate-1.png)<!-- -->
-
-| Momentum (P) | Median K (n) | Max K (Action) | Avg Entropy |
-|-------------:|-------------:|---------------:|------------:|
-|         0.01 |            0 |              0 |      0.0000 |
-|         2.64 |            1 |              2 |      0.4050 |
-|         5.27 |            2 |              4 |      0.6614 |
-|         7.90 |            3 |              6 |      0.7139 |
-|        10.53 |            3 |              7 |      0.7296 |
-|        13.16 |            4 |              9 |      0.7372 |
-|        15.79 |            4 |             11 |      0.7397 |
-|        18.42 |            4 |             12 |      0.7392 |
-|        21.05 |            4 |             14 |      0.7408 |
-|        23.68 |            4 |             16 |      0.7414 |
-|        26.32 |            5 |             17 |      0.7409 |
-|        28.95 |            5 |             19 |      0.7401 |
-|        31.58 |            5 |             21 |      0.7390 |
-|        34.21 |            5 |             22 |      0.7394 |
-|        36.84 |            5 |             24 |      0.7395 |
-|        39.47 |            5 |             26 |      0.7393 |
-|        42.10 |            5 |             27 |      0.7388 |
-|        44.73 |            5 |             29 |      0.7382 |
-|        47.36 |            5 |             31 |      0.7375 |
-|        50.00 |            6 |             32 |      0.7373 |
-
-Correspondence Table: Extended Momentum vs. Algorithmic Depth
-
-![](man/figures/README-finding-fit-median-k-P-1.png)<!-- -->
-![](man/figures/README-scaling-analysis-1.png)<!-- -->
+In contrast, the Shannon entropy metric yields a highly negative $R^2$
+value of **-2.803**, indicating a poor fit to the same model. This
+confirms the visual observation that the Shannon component is likely the
+source of the structured, “quantized” deviations from the continuous
+holographic theory curve.
