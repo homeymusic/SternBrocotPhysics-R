@@ -63,9 +63,168 @@ jumps <- lapply(seq_along(jump_indices), function(i) {
 p_markers <- dt_summary$momentum[jump_indices]
 ```
 
-```{r child = 'inst/readme/introduction.Rmd'}
+```{r introduction, child = 'inst/readme/introduction.Rmd'}
 # Introduction content pulled from external file
 ```
+
+
+```{r plot-all-metrics-with-residuals, fig.width=8, fig.height=8, echo=FALSE, results='asis'}
+# dt_summary is already filtered P >= 1.0
+
+# Function to generate the two-panel plot for any given metric
+render_dual_plot <- function(metric_name, data_summary, transition_markers) {
+  
+  # 1. Prepare data for the specific metric
+  m_mean   <- paste0(metric_name, "_mean")
+  m_median <- paste0(metric_name, "_median")
+  m_sd     <- paste0(metric_name, "_sd")
+
+  plot_dt <- data_summary[, .(
+    momentum = as.numeric(momentum),
+    y_mean   = as.numeric(get(m_mean)),
+    y_med    = as.numeric(get(m_median)),
+    y_sd     = as.numeric(get(m_sd))
+  )]
+
+  # Ensure any P<1 data is removed before sqrt(P) calculation
+  plot_dt <- plot_dt[momentum >= 1.0]
+
+  # 2. Calculate 'k' constant and the theory line (y = k * sqrt(P))
+  # Remove P=0 which causes issues with sqrt(P) in the denominator
+  plot_dt_fit <- plot_dt[momentum > 0.001] 
+  k_fit <- mean(plot_dt_fit$y_mean / sqrt(plot_dt_fit$momentum), na.rm = TRUE)
+  plot_dt[, theory := k_fit * sqrt(momentum)]
+  plot_dt[, residuals := y_mean - theory]
+
+  # 3. Plot 1: Main Data vs Theory
+  p_main <- ggplot(plot_dt, aes(x = momentum)) +
+    # Only show vlines for physical P >= 1.0
+    geom_vline(xintercept = transition_markers[transition_markers >= 1.0], color = "grey70", linetype = "dashed", alpha = 0.5) +
+    geom_ribbon(aes(ymin = y_mean - y_sd, ymax = y_mean + y_sd), fill = "gray60", alpha = 0.1) +
+    geom_line(aes(y = y_mean, color = "Mean"), linewidth = 1) +
+    geom_line(aes(y = y_med, color = "Median"), linewidth = 1, linetype = "dashed") +
+    geom_line(
+      aes(y = theory, color = "Theory (K = sqrt P)"), # EXACT MATCH HERE
+      linewidth = 0.8, 
+      alpha = 0.8, 
+      linetype = "dashed"  # or "twodash", "dotted", "longdash"
+    ) +
+    scale_color_manual(values = c("Mean" = "gray40", "Median" = "black", "Theory (K = sqrt P)" = "gray60")) +
+    labs(
+      title = paste(tools::toTitleCase(metric_name), "vs. Momentum (P >= 1.0)"),
+      subtitle = bquote("Holographic Fit:" ~ y %prop% sqrt(P) ~ (k ~ .(round(k_fit, 3)))),
+      x = "Momentum (P)", y = "Value", color = "Series"
+    ) +
+    theme_minimal() +
+    theme(legend.position = "bottom", plot.title = element_text(face = "bold"),
+          axis.text.x = element_blank(), axis.title.x = element_blank())
+
+  # 4. Plot 2: Residuals Plot (Mean - Theory)
+  p_residuals <- ggplot(plot_dt, aes(x = momentum, y = residuals)) +
+    geom_bar(stat = "identity", fill = "gray50", alpha = 0.6) +
+    geom_hline(yintercept = 0, color = "gray60", linetype = "solid", linewidth = 1) +
+    labs(y = "Residual", x = "Momentum (P)") +
+    theme_minimal() +
+    theme(plot.title = element_blank())
+
+    # 5. Combine using cowplot
+  combined <- cowplot::plot_grid(
+    p_main, p_residuals, 
+    ncol = 1, 
+    align = "v", 
+    rel_heights = c(3, 1)
+  )
+  
+  return(combined)
+}
+
+# --- Execute the loop for the three main metrics ---
+target_metrics <- c("zurek_entropy", "kolmogorov_complexity", "shannon_entropy")
+
+for (metric in target_metrics) {
+  if (paste0(metric, "_mean") %in% names(dt_summary)) {
+    
+    # 1. Generate the combined plot object
+    p_final <- render_dual_plot(metric, dt_summary, p_markers)
+    
+    # 2. Save it (using the dimensions from your chunk header)
+    ggplot2::ggsave(
+      filename = path.expand(sprintf("~/Downloads/dual_plot_%s.pdf", metric)), 
+      plot = p_final,
+      width = 8, 
+      height = 8,
+      device = "pdf"
+    )
+    
+    # 3. Print to Rmd
+    print(p_final)
+  }
+}
+```
+
+### Fit Statistics: Holographic Theory ($K \propto \sqrt{P}$)
+
+This section summarizes the goodness-of-fit for the mean values of Shannon, Kolmogorov, and Zurek entropies against the proposed holographic scaling relation for physical momentum values ($P 
+The quantitative analysis of the physical data ($P \ge 1.0$) provides strong evidence that the **Zurek entropy** best aligns with the hypothesized **holographic principle** scaling.
+
+The Zurek and Kolmogorov complexity metrics both exhibit outstanding fits to the $y \propto \sqrt{P}$ theory curve, with R-squared ($R^2$) values exceeding 0.97. This suggests that the algorithmic information and erasure metrics strongly adhere to this theoretical scaling behavior within the physical regime. In contrast, the Shannon entropy metric yields a very poor fit to the same model, confirming the visual observation that the Shannon component is likely the source of the structured, "quantized" deviations from the continuous holographic theory curve.
+
+
+\ge 1.0$).
+
+```{r fit-statistics, echo=FALSE, results='asis'}
+# Use the dt_summary data.table object available from the 'jump-detection' chunk
+
+calculate_fit_stats <- function(metric_name, data_summary) {
+  mean_col <- paste0(metric_name, "_mean")
+  
+  if (!(mean_col %in% names(data_summary))) {
+    return(NULL)
+  }
+  
+  plot_dt <- data_summary[, .(
+    momentum = as.numeric(momentum),
+    y_mean   = as.numeric(get(mean_col))
+  )]
+
+  # CRITICAL FILTER: Ensure all data used for the fit is P >= 1.0 (physical range)
+  # Also remove P=0 which causes issues with sqrt(P) in the denominator
+  plot_dt <- plot_dt[momentum >= 1.0]
+  
+  if (nrow(plot_dt) == 0) return(NULL) # Return if no physical data remains
+  
+  # Calculate 'k' constant and the theory line
+  k_fit <- mean(plot_dt$y_mean / sqrt(plot_dt$momentum), na.rm = TRUE)
+  plot_dt[, theory := k_fit * sqrt(momentum)]
+
+  # Calculate R-squared (using sum of squares approach)
+  ss_total <- sum((plot_dt$y_mean - mean(plot_dt$y_mean, na.rm = TRUE))^2, na.rm = TRUE)
+  ss_residual <- sum((plot_dt$y_mean - plot_dt$theory)^2, na.rm = TRUE)
+  r_squared <- 1 - (ss_residual / ss_total)
+  
+  # Calculate RMSE
+  rmse <- sqrt(mean((plot_dt$y_mean - plot_dt$theory)^2, na.rm = TRUE))
+
+  # Calculate Pearson correlation (R value)
+  correlation_r <- cor(plot_dt$y_mean, plot_dt$theory, use = "complete.obs")
+  
+  return(list(
+    Metric = tools::toTitleCase(gsub("_", " ", metric_name)),
+    k_constant = round(k_fit, 3),
+    R_squared = round(r_squared, 4),
+    Correlation_R = round(correlation_r, 4),
+    RMSE = round(rmse, 4)
+  ))
+}
+
+target_metrics <- c("shannon_entropy", "zurek_entropy", "kolmogorov_complexity")
+stats_list <- lapply(target_metrics, calculate_fit_stats, data_summary = dt_summary)
+stats_df <- as.data.frame(do.call(rbind, stats_list))
+
+# Render as Markdown table
+knitr::kable(stats_df)
+```
+
 
 ```{r jump-fluctuations, fig.width=10, fig.height=3 * length(jumps), echo=FALSE}
 
@@ -135,75 +294,96 @@ combined_plot <- patchwork::wrap_plots(plot_list, ncol = 3) +
 
 combined_plot
 
-```
-
-```{r plot-all-measures, fig.width=6, fig.height=6, echo=F, results='asis'}
-# --- Plotting function for aggregated metrics ---
-# Data dt_summary is already filtered P >= 1.0
-
-target_cols <- c(
-  "zurek_entropy", "kolmogorov_complexity", "shannon_entropy"
-  # ,
-  # "denominator",
-  # "fluctuation", "numerator"
+ggplot2::ggsave(
+  filename = path.expand("~/Downloads/jump-fluctuations.pdf"), 
+  plot = combined_plot, 
+  width = 10, 
+  height = 3 * length(jumps)
 )
 
-render_plot <- function(data, metric_name, vlines) {
-  # 1. Map columns (added min and max)
-  m_min    <- paste0(metric_name, "_min")
-  m_mean   <- paste0(metric_name, "_mean")
-  m_median <- paste0(metric_name, "_median")
-  m_sd     <- paste0(metric_name, "_sd")
-  m_max    <- paste0(metric_name, "_max")
-  
-  plot_dt <- data[, .(
-    momentum = as.numeric(momentum),
-    y_min    = as.numeric(get(m_min)),
-    y_mean   = as.numeric(get(m_mean)),
-    y_med    = as.numeric(get(m_median)),
-    y_sd     = as.numeric(get(m_sd)),
-    y_max    = as.numeric(get(m_max))
-  )]
 
-  plot_dt <- plot_dt[momentum >= 1.0]
+```
 
-  ggplot(plot_dt, aes(x = momentum)) +
-    # Reference lines (vlines)
-    geom_vline(xintercept = vlines[vlines >= 1.0], color = "grey70", linetype = "dashed", alpha = 0.5) +
-    
-    # Subtle Min/Max Lines (Added here)
-    # Using a light grey and very thin linewidth for a 'subtle' effect
-    geom_line(aes(y = y_min), color = "grey80", linewidth = 0.4) +
-    geom_line(aes(y = y_max), color = "grey80", linewidth = 0.4) +
-    
-    # SD Ribbon
-    geom_ribbon(aes(ymin = y_mean - y_sd, ymax = y_mean + y_sd), fill = "firebrick", alpha = 0.1) +
-    
-    # Main Series
-    geom_line(aes(y = y_mean, color = "Mean"), linewidth = 1) +
-    geom_line(aes(y = y_med, color = "Median"), linewidth = 1, linetype = "dashed") +
-    
-    scale_color_manual(values = c("Mean" = "firebrick", "Median" = "blue")) +
-    labs(title = tools::toTitleCase(gsub("_", " ", metric_name)), 
-         subtitle = "Dashed lines: Zurek transitions; Thin grey lines: Min/Max range",
-         x = "Momentum (P)", y = "Value", color = "Stat") +
-    theme_minimal()
-}
+```{r jump-fluctuations-custom, fig.width=10, echo=FALSE}
+# --- CONFIGURATION ---
+max_rows <- 7
+subset_jumps <- if(length(jumps) > max_rows) jumps[1:max_rows] else jumps
+n_rows <- length(subset_jumps)
 
+# Dynamically set chunk height for the output
+knitr::opts_chunk$set(fig.height = 3 * n_rows)
 
-for (metric in target_cols) {
-  if (paste0(metric, "_mean") %in% names(dt_summary)) {
-    print(render_plot(dt_summary, metric, p_markers))
+# 1. Setup list for plots (each jump has 3 p_vals)
+plot_list <- vector("list", n_rows * 3)
+counter   <- 1
+
+# 2. Execution Loop
+for (j in seq_len(n_rows)) {
+  for (p in seq_along(subset_jumps[[j]]$p_vals)) {
+    
+    current_p <- subset_jumps[[j]]$p_vals[p]
+    f_name    <- sprintf("micro_macro_erasures_P_%013.6f.csv.gz", round(current_p, 6))
+    f_path    <- here::here("data-raw", "outputs", "01_micro_macro_erasures", f_name)
+    
+    if (file.exists(f_path) && current_p >= 1.0) {
+      raw_fluc <- data.table::fread(f_path, select = "fluctuation")$fluctuation
+      f_range  <- range(raw_fluc, na.rm = TRUE)
+      
+      panel_breaks <- seq(from = f_range[1], to = f_range[2], length.out = 402)
+      h <- graphics::hist(raw_fluc, breaks = panel_breaks, plot = FALSE)
+      
+      plot_df <- data.frame(
+        x = h$breaks[-length(h$breaks)], 
+        y = h$counts
+      )
+      
+      p_obj <- ggplot2::ggplot(plot_df, ggplot2::aes(x = x, y = y)) +
+        ggplot2::geom_ribbon(ggplot2::aes(ymin = 0, ymax = y), fill = "black", alpha = 0.3) +
+        ggplot2::geom_step(direction = "hv", color = "black", linewidth = 0.2) +
+        ggplot2::labs(
+          title = paste0(subset_jumps[[j]]$n, " at P = ", round(current_p, 2)),
+          x = expression(delta[x]), y = ""
+        ) +
+        ggplot2::theme_minimal() +
+        ggplot2::theme(plot.title = ggplot2::element_text(size = 10))
+      
+    } else {
+      p_obj <- ggplot2::ggplot() + 
+        ggplot2::annotate("text", x = 0.5, y = 0.5, label = paste("P =", current_p, "\n excluded")) +
+        ggplot2::theme_void()
+    }
+    plot_list[[counter]] <- p_obj
+    counter <- counter + 1
   }
 }
+
+# 3. Assemble Grid
+combined_plot <- patchwork::wrap_plots(plot_list, ncol = 3) + 
+  patchwork::plot_annotation(
+    title = "Automated Detection of Transition Phases (P >= 1.0)",
+    subtitle = "LOWER PLATEAU                      JUMP POINT                      UPPER PLATEAU",
+    theme = ggplot2::theme(
+      plot.title = ggplot2::element_text(hjust = 0.5, face = "bold", size = 14),
+      plot.subtitle = ggplot2::element_text(hjust = 0.5, size = 10, face = "bold")
+    )
+  )
+
+combined_plot
+
+# 4. Save with dynamic height
+ggplot2::ggsave(
+  filename = path.expand("~/Downloads/jump-fluctuations-custom.pdf"), 
+  plot = combined_plot, 
+  width = 10, 
+  height = 3 * n_rows
+)
 ```
 
 ```{r plot-complexity-vs-denominator, fig.width=8, fig.height=6, echo=FALSE}
-# Relationship between complexity and rational denominator
-# dt_summary is already filtered
-ggplot(dt_summary, aes(x = shannon_entropy_mean, y = kolmogorov_complexity_mean, color = momentum)) +
+# 1. Assign to a variable
+p_scatter <- ggplot(dt_summary, aes(x = shannon_entropy_mean, y = kolmogorov_complexity_mean, color = momentum)) +
   geom_point(alpha = 0.7, size = 0.05) +
-  scale_color_viridis_c(option = "plasma") +
+  scale_color_gradient(low = "gray20", high = "gray80") + 
   labs(
     title = "Scatter Plot: Shannon Entropy vs. Kolmogorov Complexity (P >= 1.0)",
     x = "Mean Shannon Entropy",
@@ -211,139 +391,16 @@ ggplot(dt_summary, aes(x = shannon_entropy_mean, y = kolmogorov_complexity_mean,
     color = "Momentum (P)"
   ) +
   theme_minimal()
+
+# 2. Save it using the path that worked for you
+ggplot2::ggsave(
+  filename = path.expand("~/Downloads/entropy_vs_complexity_gray.pdf"), 
+  plot = p_scatter, 
+  width = 8, 
+  height = 6,
+  device = "pdf"
+)
+
+# 3. Display it in the Rmd
+p_scatter
 ```
-
-```{r plot-all-metrics-with-residuals, fig.width=8, fig.height=8, echo=FALSE, results='asis'}
-# dt_summary is already filtered P >= 1.0
-
-# Function to generate the two-panel plot for any given metric
-render_dual_plot <- function(metric_name, data_summary, transition_markers) {
-  
-  # 1. Prepare data for the specific metric
-  m_mean   <- paste0(metric_name, "_mean")
-  m_median <- paste0(metric_name, "_median")
-  m_sd     <- paste0(metric_name, "_sd")
-
-  plot_dt <- data_summary[, .(
-    momentum = as.numeric(momentum),
-    y_mean   = as.numeric(get(m_mean)),
-    y_med    = as.numeric(get(m_median)),
-    y_sd     = as.numeric(get(m_sd))
-  )]
-
-  # Ensure any P<1 data is removed before sqrt(P) calculation
-  plot_dt <- plot_dt[momentum >= 1.0]
-
-  # 2. Calculate 'k' constant and the theory line (y = k * sqrt(P))
-  # Remove P=0 which causes issues with sqrt(P) in the denominator
-  plot_dt_fit <- plot_dt[momentum > 0.001] 
-  k_fit <- mean(plot_dt_fit$y_mean / sqrt(plot_dt_fit$momentum), na.rm = TRUE)
-  plot_dt[, theory := k_fit * sqrt(momentum)]
-  plot_dt[, residuals := y_mean - theory]
-
-  # 3. Plot 1: Main Data vs Theory
-  p_main <- ggplot(plot_dt, aes(x = momentum)) +
-    # Only show vlines for physical P >= 1.0
-    geom_vline(xintercept = transition_markers[transition_markers >= 1.0], color = "grey70", linetype = "dashed", alpha = 0.5) +
-    geom_ribbon(aes(ymin = y_mean - y_sd, ymax = y_mean + y_sd), fill = "firebrick", alpha = 0.1) +
-    geom_line(aes(y = y_mean, color = "Mean"), linewidth = 1) +
-    geom_line(aes(y = y_med, color = "Median"), linewidth = 1, linetype = "dashed") +
-    geom_line(aes(y = theory, color = "Theory (sqrt P)"), linewidth = 0.8, alpha = 0.8) +
-    scale_color_manual(values = c("Mean" = "firebrick", "Median" = "blue", "Theory (sqrt P)" = "forestgreen")) +
-    labs(
-      title = paste(tools::toTitleCase(metric_name), "vs. Momentum (P >= 1.0)"),
-      subtitle = bquote("Holographic Fit:" ~ y %prop% sqrt(P) ~ (k ~ .(round(k_fit, 3)))),
-      x = "Momentum (P)", y = "Value", color = "Series"
-    ) +
-    theme_minimal() +
-    theme(legend.position = "bottom", plot.title = element_text(face = "bold"),
-          axis.text.x = element_blank(), axis.title.x = element_blank())
-
-  # 4. Plot 2: Residuals Plot (Mean - Theory)
-  p_residuals <- ggplot(plot_dt, aes(x = momentum, y = residuals)) +
-    geom_bar(stat = "identity", fill = "gray50", alpha = 0.6) +
-    geom_hline(yintercept = 0, color = "red", linetype = "solid", linewidth = 1) +
-    labs(y = "Residual", x = "Momentum (P)") +
-    theme_minimal() +
-    theme(plot.title = element_blank())
-
-  # 5. Combine and print
-  if(requireNamespace("cowplot", quietly = TRUE)) {
-    print(cowplot::plot_grid(p_main, p_residuals, ncol = 1, align = "v", rel_heights = c(3, 1)))
-  } else {
-    print(p_main)
-    print(p_residuals)
-  }
-}
-
-# --- Execute the loop for the three main metrics ---
-target_metrics <- c("zurek_entropy", "kolmogorov_complexity", "shannon_entropy")
-
-for (metric in target_metrics) {
-  if (paste0(metric, "_mean") %in% names(dt_summary)) {
-    render_dual_plot(metric, dt_summary, p_markers)
-  }
-}
-```
-### Fit Statistics: Holographic Theory ($K \propto \sqrt{P}$)
-
-This section summarizes the goodness-of-fit for the mean values of Shannon, Kolmogorov, and Zurek entropies against the proposed holographic scaling relation for physical momentum values ($P \ge 1.0$).
-
-```{r fit-statistics, echo=FALSE, results='asis'}
-# Use the dt_summary data.table object available from the 'jump-detection' chunk
-
-calculate_fit_stats <- function(metric_name, data_summary) {
-  mean_col <- paste0(metric_name, "_mean")
-  
-  if (!(mean_col %in% names(data_summary))) {
-    return(NULL)
-  }
-  
-  plot_dt <- data_summary[, .(
-    momentum = as.numeric(momentum),
-    y_mean   = as.numeric(get(mean_col))
-  )]
-
-  # CRITICAL FILTER: Ensure all data used for the fit is P >= 1.0 (physical range)
-  # Also remove P=0 which causes issues with sqrt(P) in the denominator
-  plot_dt <- plot_dt[momentum >= 1.0]
-  
-  if (nrow(plot_dt) == 0) return(NULL) # Return if no physical data remains
-  
-  # Calculate 'k' constant and the theory line
-  k_fit <- mean(plot_dt$y_mean / sqrt(plot_dt$momentum), na.rm = TRUE)
-  plot_dt[, theory := k_fit * sqrt(momentum)]
-
-  # Calculate R-squared (using sum of squares approach)
-  ss_total <- sum((plot_dt$y_mean - mean(plot_dt$y_mean, na.rm = TRUE))^2, na.rm = TRUE)
-  ss_residual <- sum((plot_dt$y_mean - plot_dt$theory)^2, na.rm = TRUE)
-  r_squared <- 1 - (ss_residual / ss_total)
-  
-  # Calculate RMSE
-  rmse <- sqrt(mean((plot_dt$y_mean - plot_dt$theory)^2, na.rm = TRUE))
-
-  # Calculate Pearson correlation (R value)
-  correlation_r <- cor(plot_dt$y_mean, plot_dt$theory, use = "complete.obs")
-  
-  return(list(
-    Metric = tools::toTitleCase(gsub("_", " ", metric_name)),
-    k_constant = round(k_fit, 3),
-    R_squared = round(r_squared, 4),
-    Correlation_R = round(correlation_r, 4),
-    RMSE = round(rmse, 4)
-  ))
-}
-
-target_metrics <- c("shannon_entropy", "zurek_entropy", "kolmogorov_complexity")
-stats_list <- lapply(target_metrics, calculate_fit_stats, data_summary = dt_summary)
-stats_df <- as.data.frame(do.call(rbind, stats_list))
-
-# Render as Markdown table
-knitr::kable(stats_df)
-```
-
-### Summary and Conclusion
-
-The quantitative analysis of the physical data ($P \ge 1.0$) provides strong evidence that the **Zurek entropy** best aligns with the hypothesized **holographic principle** scaling.
-
-The Zurek and Kolmogorov complexity metrics both exhibit outstanding fits to the $y \propto \sqrt{P}$ theory curve, with R-squared ($R^2$) values exceeding 0.97. This suggests that the algorithmic information and erasure metrics strongly adhere to this theoretical scaling behavior within the physical regime. In contrast, the Shannon entropy metric yields a very poor fit to the same model, confirming the visual observation that the Shannon component is likely the source of the structured, "quantized" deviations from the continuous holographic theory curve.
