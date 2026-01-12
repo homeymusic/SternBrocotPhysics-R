@@ -36,8 +36,7 @@ dt_summary <- dt_summary[momentum >= 1.0]
 # 2. Sensitivity-based Jump Detection
 # Now working only with the physical data range
 z_diffs <- abs(diff(dt_summary$zurek_entropy_median))
-# Threshold: 5% of max jump to filter out numerical noise
-threshold <- max(z_diffs, na.rm = TRUE) * 0.05 
+threshold <- max(z_diffs, na.rm = TRUE) * 0.0001
 jump_indices <- which(z_diffs > threshold)
 
 # 3. Dynamic Build with Integer Plateau logic
@@ -63,50 +62,64 @@ p_markers <- dt_summary$momentum[jump_indices]
 # Introduction content pulled from external file
 ```
 ```{r jump-fluctuations, fig.width=10, fig.height=3 * length(jumps), echo=F}
-# 1. Setup Plotting Grid
-par(mfrow = c(length(jumps), 3), mar = c(4, 4, 3, 1), oma = c(2, 2, 5, 1))
+
+# 1. Setup Plotting Grid using base R graphics functions
+graphics::par(mfrow = c(length(jumps), 3), mar = c(4, 4, 3, 1), oma = c(2, 2, 5, 1))
 
 # 2. Execution Loop
 for (j in seq_along(jumps)) {
   for (p in seq_along(jumps[[j]]$p_vals)) {
 
     current_p <- jumps[[j]]$p_vals[p]
-    f_name <- sprintf("micro_macro_erasures_P_%013.6f.csv.gz", round(current_p, 6))
+    f_name <- base::sprintf("micro_macro_erasures_P_%013.6f.csv.gz", base::round(current_p, 6))
     f_path <- here::here("data-raw", "outputs", "01_micro_macro_erasures", f_name)
 
     # CRITICAL FILTER: Check file existence AND P >= 1.0 rule
-    if (file.exists(f_path) && current_p >= 1.0) {
+    if (base::file.exists(f_path) && current_p >= 1.0) {
+      # Use data.table::fread explicitly
       raw_fluc <- data.table::fread(f_path, select = "fluctuation")$fluctuation
 
       # DYNAMIC BIN WIDTH: Determine range per-file, but keep exactly 401 bins (402 breakpoints)
-      f_range <- range(raw_fluc, na.rm = TRUE)
-      panel_breaks <- seq(f_range[1], f_range[2], length.out = 402)
+      f_range <- base::range(raw_fluc, na.rm = TRUE)
+      
+      # FIX: Explicitly use the min (f_range[1]) and max (f_range[2]) values
+      panel_breaks <- base::seq(from = f_range[1], to = f_range[2], length.out = 402)
+      
+      # Generate histogram object (plot=FALSE) to get the counts
+      h <- graphics::hist(raw_fluc, breaks = panel_breaks, plot = FALSE)
+      
+      # Create the dynamic main title string
+      plot_title <- base::paste0(
+        jumps[[j]]$n, " at P = ", base::round(current_p, 2)      )
       
       # Using black as color per your previous instruction
-      hist(
+      graphics::hist(
         raw_fluc,
-        breaks = panel_breaks, # Forced 401 bins, but width is data-driven
-        main = bquote(.(jumps[[j]]$n) ~ "at" ~ P == .(round(current_p, 2))),
-        xlab = expression(delta[x]),
+        breaks = panel_breaks,
+        main = plot_title,
+        xlab = base::expression(delta[x]),
         ylab = "",
         col = "black",
         las = 1
       )
       
     } else {
-      plot.new()
-      text(0.5, 0.5, paste("P =", current_p, "\n excluded"), cex = 0.8)
+      graphics::plot.new()
+      graphics::text(0.5, 0.5, base::paste("P =", current_p, "\n excluded"), cex = 0.8)
     }
   }
 }
 
-# 3. Matrix Annotations
-mtext("Automated Detection of Transition Phases (P >= 1.0)", side = 3, line = 2, outer = TRUE, cex = 1.5, font = 2)
-mtext("LOWER PLATEAU", side = 3, line = 0, outer = TRUE, adj = 0.15, font = 2, col = "steelblue")
-mtext("JUMP POINT", side = 3, line = 0, outer = TRUE, adj = 0.5, font = 2, col = "firebrick")
-mtext("UPPER PLATEAU", side = 3, line = 0, outer = TRUE, adj = 0.85, font = 2, col = "steelblue")
-```
+# 3. Matrix Annotations 
+graphics::mtext("Automated Detection of Transition Phases (P >= 1.0)", side = 3, line = 2, outer = TRUE, cex = 1.5, font = 2)
+graphics::mtext("LOWER PLATEAU", side = 3, line = 0, outer = TRUE, adj = 0.15, font = 2, col = "steelblue")
+graphics::mtext("JUMP POINT", side = 3, line = 0, outer = TRUE, adj = 0.5, font = 2, col = "firebrick")
+graphics::mtext("UPPER PLATEAU", side = 3, line = 0, outer = TRUE, adj = 0.85, font = 2, col = "steelblue")
 
+
+
+
+```
 
 ```{r plot-all-measures, fig.width=6, fig.height=6, echo=F, results='asis'}
 # --- Plotting function for aggregated metrics ---
@@ -221,7 +234,7 @@ render_dual_plot <- function(metric_name, data_summary, transition_markers) {
     scale_color_manual(values = c("Mean" = "firebrick", "Median" = "blue", "Theory (sqrt P)" = "forestgreen")) +
     labs(
       title = paste(tools::toTitleCase(metric_name), "vs. Momentum (P >= 1.0)"),
-      subtitle = bquote("Holographic Fit:" ~ y %prop% sqrt(P) ~ (k %approx% .(round(k_fit, 3)))),
+      subtitle = bquote("Holographic Fit:" ~ y %prop% sqrt(P) ~ (k ~ .(round(k_fit, 3)))),
       x = "Momentum (P)", y = "Value", color = "Series"
     ) +
     theme_minimal() +
