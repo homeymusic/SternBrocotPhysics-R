@@ -35,6 +35,6 @@ theory curve.
 
 ![](man/figures/README-jump-fluctuations-1.png)<!-- -->
 
-![](man/figures/README-jump-fluctuations-custom-1.png)<!-- -->
+![](man/figures/README-distriubtions-for-manuscript-1.png)<!-- -->
 
 ![](man/figures/README-plot-complexity-vs-denominator-1.png)<!-- -->

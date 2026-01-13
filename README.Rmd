@@ -22,6 +22,7 @@ knitr::opts_chunk$set(
   message = FALSE,
   fig.crop = TRUE
 )
+manuscript_dir <- here::here("manuscript")
 ```
 
 ```{r jump-detection, echo=F}
@@ -61,14 +62,22 @@ p_markers <- dt_summary$momentum[jump_indices]
 ```{r introduction, child = 'inst/readme/introduction.Rmd'}
 ```
 
-
 ```{r plot-all-metrics-with-residuals, fig.width=8, fig.height=8, echo=FALSE, results='asis'}
-# dt_summary is already filtered P >= 1.0
+# 1. Define the Metric-to-Title Map
+metric_titles <- c(
+  "zurek_entropy"        = "Total Entropy S = K + H",
+  "kolmogorov_complexity" = "Kolmogorov Complexity K",
+  "shannon_entropy"      = "Shannon Entropy H"
+)
 
-# Function to generate the two-panel plot for any given metric
+# Function to generate the two-panel plot
 render_dual_plot <- function(metric_name, data_summary, transition_markers) {
   
-  # 1. Prepare data for the specific metric
+  # Retrieve clean title from map; fallback to metric_name if missing
+  clean_title <- metric_titles[metric_name]
+  if (is.na(clean_title)) clean_title <- metric_name
+
+  # Prepare data
   m_mean   <- paste0(metric_name, "_mean")
   m_median <- paste0(metric_name, "_median")
   m_sd     <- paste0(metric_name, "_sd")
@@ -80,80 +89,59 @@ render_dual_plot <- function(metric_name, data_summary, transition_markers) {
     y_sd     = as.numeric(get(m_sd))
   )]
 
-  # Ensure any P<1 data is removed before sqrt(P) calculation
   plot_dt <- plot_dt[momentum >= 1.0]
-
-  # 2. Calculate 'k' constant and the theory line (y = k * sqrt(P))
-  # Remove P=0 which causes issues with sqrt(P) in the denominator
   plot_dt_fit <- plot_dt[momentum > 0.001] 
   k_fit <- mean(plot_dt_fit$y_mean / sqrt(plot_dt_fit$momentum), na.rm = TRUE)
   plot_dt[, theory := k_fit * sqrt(momentum)]
   plot_dt[, residuals := y_mean - theory]
 
-  # 3. Plot 1: Main Data vs Theory
+  # Main Plot
   p_main <- ggplot(plot_dt, aes(x = momentum)) +
-    # Only show vlines for physical P >= 1.0
-    geom_vline(xintercept = transition_markers[transition_markers >= 1.0], color = "grey70", linetype = "dashed", alpha = 0.5) +
+    geom_vline(xintercept = transition_markers[transition_markers >= 1.0], 
+               color = "grey70", linetype = "dashed", alpha = 0.5) +
     geom_ribbon(aes(ymin = y_mean - y_sd, ymax = y_mean + y_sd), fill = "gray60", alpha = 0.1) +
     geom_line(aes(y = y_mean, color = "Mean"), linewidth = 1) +
     geom_line(aes(y = y_med, color = "Median"), linewidth = 1) +
-    geom_line(
-      aes(y = theory, color = "Theory (K = sqrt P)"), 
-      linewidth = 0.8, 
-      alpha = 0.8, 
-      linetype = "dashed"  # or "twodash", "dotted", "longdash"
-    ) +
+    geom_line(aes(y = theory, color = "Theory (K = sqrt P)"), 
+              linewidth = 0.8, alpha = 0.8, linetype = "dashed") +
     scale_color_manual(values = c("Mean" = "gray40", "Median" = "black", "Theory (K = sqrt P)" = "gray60")) +
     labs(
-      title = paste(tools::toTitleCase(metric_name), "vs. Momentum (P >= 1.0)"),
+      title = paste(clean_title, "vs. Normalized Momentum"),
       subtitle = bquote("Holographic Fit:" ~ S %prop% sqrt(P) ~ (k ~ .(round(k_fit, 3)))),
       x = "Momentum (P)", y = "Value", color = "Series"
     ) +
     theme_minimal() +
-    theme(legend.position = "bottom", plot.title = element_text(face = "bold"),
-          axis.text.x = element_blank(), axis.title.x = element_blank())
+    theme(legend.position = "bottom", 
+          plot.title = element_text(face = "bold"),
+          axis.text.x = element_blank(), 
+          axis.title.x = element_blank())
 
-  # 4. Plot 2: Residuals Plot (Mean - Theory)
+  # Residuals Plot
   p_residuals <- ggplot(plot_dt, aes(x = momentum, y = residuals)) +
     geom_bar(stat = "identity", fill = "gray50", alpha = 0.6) +
     geom_hline(yintercept = 0, color = "gray60", linetype = "solid", linewidth = 1) +
     labs(y = "Residual", x = "Momentum (P)") +
-    theme_minimal() +
-    theme(plot.title = element_blank())
+    theme_minimal()
 
-    # 5. Combine using cowplot
-  combined <- cowplot::plot_grid(
-    p_main, p_residuals, 
-    ncol = 1, 
-    align = "v", 
-    rel_heights = c(3, 1)
-  )
-  
+  combined <- cowplot::plot_grid(p_main, p_residuals, ncol = 1, align = "v", rel_heights = c(3, 1))
   return(combined)
 }
 
-# --- Execute the loop for the three main metrics ---
-target_metrics <- c("zurek_entropy", "kolmogorov_complexity", "shannon_entropy")
+# --- Execute loop ---
+target_metrics <- names(metric_titles)
 
 for (metric in target_metrics) {
   if (paste0(metric, "_mean") %in% names(dt_summary)) {
-    
-    # 1. Generate the combined plot object
     p_final <- render_dual_plot(metric, dt_summary, p_markers)
     
-    # 2. Save it (using the dimensions from your chunk header)
     ggplot2::ggsave(
-      filename = path.expand(sprintf("~/Downloads/dual_plot_%s.pdf", metric)), 
-      plot = p_final,
-      width = 8, 
-      height = 8,
-      device = "pdf"
+      filename = file.path(manuscript_dir, sprintf("%s.pdf", metric)),
+      plot = p_final, width = 8, height = 8, device = "pdf"
     )
-    
-    # 3. Print to Rmd
     print(p_final)
   }
 }
+
 ```
 
 ### Fit Statistics: Holographic Theory ($S \propto \sqrt{P}$)
@@ -291,7 +279,7 @@ combined_plot <- patchwork::wrap_plots(plot_list, ncol = 3) +
 combined_plot
 
 ggplot2::ggsave(
-  filename = path.expand("~/Downloads/jump-fluctuations.pdf"), 
+  filename = file.path(manuscript_dir, "distributions_at_transitions.pdf"),
   plot = combined_plot, 
   width = 10, 
   height = 3 * length(jumps)
@@ -310,7 +298,8 @@ n_rows <- length(subset_jumps)
 dynamic_height <- 3 * n_rows
 ```
 
-```{r jump-fluctuations-custom, fig.width=10, fig.height=dynamic_height, echo=FALSE}
+```{r distriubtions-for-manuscript, fig.width=10, fig.height=dynamic_height, echo=FALSE}
+
 # 1. Setup list for plots
 plot_list <- vector("list", n_rows * 3)
 counter   <- 1
@@ -362,7 +351,7 @@ combined_plot
 
 # 4. Save
 ggplot2::ggsave(
-  filename = path.expand("~/Downloads/jump-fluctuations-custom.pdf"), 
+  filename = file.path(manuscript_dir, "distributions.pdf"),
   plot = combined_plot, width = 10, height = dynamic_height
 )
 ```
@@ -382,7 +371,7 @@ p_scatter <- ggplot(dt_summary, aes(x = shannon_entropy_mean, y = kolmogorov_com
 
 # 2. Save it using the path that worked for you
 ggplot2::ggsave(
-  filename = path.expand("~/Downloads/entropy_vs_complexity_gray.pdf"), 
+  filename = file.path(manuscript_dir, "entropy_vs_complexity.pdf"),
   plot = p_scatter, 
   width = 8, 
   height = 6,
