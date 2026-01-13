@@ -31,7 +31,7 @@ dt_summary <- data.table::fread(summary_path)
 data.table::setorder(dt_summary, momentum)
 
 # CRITICAL FILTER: Remove unphysical data where P < 1.0
-dt_summary <- dt_summary[momentum >= 1.0]
+dt_summary <- dt_summary[momentum > 0.0]
 
 # 2. Sensitivity-based Jump Detection
 # Now working only with the physical data range
@@ -47,11 +47,6 @@ jumps <- lapply(seq_along(jump_indices), function(i) {
   # Logic: Plateau below at floor - 0.1, Plateau above at ceiling + 0.1
   list(
     n = paste("Transition", i),
-    # p_vals = c(
-    #   (floor(m_at * 10) / 10) - 0.1,   # LOWER PLATEAU (e.g., 13.4 -> 13.3)
-    #   m_at,                           # JUMP POINT    (e.g., 13.42)
-    #   (ceiling(m_at * 10) / 10) + 0.1 # UPPER PLATEAU (e.g., 13.4 -> 13.5)
-    # )
     p_vals = c(
       floor(m_at),
       m_at,       
@@ -96,7 +91,7 @@ render_dual_plot <- function(metric_name, data_summary, transition_markers) {
   plot_dt[, residuals := y_mean - theory]
 
   # 3. Plot 1: Main Data vs Theory
-  p_main <- ggplot(plot_dt, aes(x = sqrt(momentum))) +
+  p_main <- ggplot(plot_dt, aes(x = momentum)) +
     # Only show vlines for physical P >= 1.0
     geom_vline(xintercept = transition_markers[transition_markers >= 1.0], color = "grey70", linetype = "dashed", alpha = 0.5) +
     geom_ribbon(aes(ymin = y_mean - y_sd, ymax = y_mean + y_sd), fill = "gray60", alpha = 0.1) +
@@ -303,16 +298,18 @@ ggplot2::ggsave(
 
 ```
 
-```{r jump-fluctuations-custom, fig.width=10, echo=FALSE}
+```{r setup-custom-height, echo=FALSE}
 # --- CONFIGURATION ---
 max_rows <- 7
 subset_jumps <- if(length(jumps) > max_rows) jumps[1:max_rows] else jumps
 n_rows <- length(subset_jumps)
 
-# Dynamically set chunk height for the output
-knitr::opts_chunk$set(fig.height = 3 * n_rows)
+# Calculate the height needed for the next chunk
+dynamic_height <- 3 * n_rows
+```
 
-# 1. Setup list for plots (each jump has 3 p_vals)
+```{r jump-fluctuations-custom, fig.width=10, fig.height=dynamic_height, echo=FALSE}
+# 1. Setup list for plots
 plot_list <- vector("list", n_rows * 3)
 counter   <- 1
 
@@ -327,25 +324,17 @@ for (j in seq_len(n_rows)) {
     if (file.exists(f_path) && current_p >= 1.0) {
       raw_fluc <- data.table::fread(f_path, select = "fluctuation")$fluctuation
       f_range  <- range(raw_fluc, na.rm = TRUE)
-      
       panel_breaks <- seq(from = f_range[1], to = f_range[2], length.out = 402)
       h <- graphics::hist(raw_fluc, breaks = panel_breaks, plot = FALSE)
       
-      plot_df <- data.frame(
-        x = h$breaks[-length(h$breaks)], 
-        y = h$counts
-      )
+      plot_df <- data.frame(x = h$breaks[-length(h$breaks)], y = h$counts)
       
       p_obj <- ggplot2::ggplot(plot_df, ggplot2::aes(x = x, y = y)) +
         ggplot2::geom_ribbon(ggplot2::aes(ymin = 0, ymax = y), fill = "black", alpha = 0.3) +
         ggplot2::geom_step(direction = "hv", color = "black", linewidth = 0.2) +
-        ggplot2::labs(
-          title = paste0(subset_jumps[[j]]$n, " at P = ", round(current_p, 2)),
-          x = expression(delta[x]), y = ""
-        ) +
-        ggplot2::theme_minimal() +
-        ggplot2::theme(plot.title = ggplot2::element_text(size = 10))
-      
+        ggplot2::labs(title = paste0(subset_jumps[[j]]$n, " at P = ", round(current_p, 2)),
+                      x = expression(delta[x]), y = "") +
+        ggplot2::theme_minimal()
     } else {
       p_obj <- ggplot2::ggplot() + 
         ggplot2::annotate("text", x = 0.5, y = 0.5, label = paste("P =", current_p, "\n excluded")) +
@@ -356,25 +345,19 @@ for (j in seq_len(n_rows)) {
   }
 }
 
-# 3. Assemble Grid
+# 3. Assemble and Print Grid
 combined_plot <- patchwork::wrap_plots(plot_list, ncol = 3) + 
   patchwork::plot_annotation(
     title = "Automated Detection of Transition Phases (P >= 1.0)",
-    subtitle = "LOWER PLATEAU                      JUMP POINT                      UPPER PLATEAU",
-    theme = ggplot2::theme(
-      plot.title = ggplot2::element_text(hjust = 0.5, face = "bold", size = 14),
-      plot.subtitle = ggplot2::element_text(hjust = 0.5, size = 10, face = "bold")
-    )
+    subtitle = "LOWER PLATEAU                      JUMP POINT                      UPPER PLATEAU"
   )
 
 combined_plot
 
-# 4. Save with dynamic height
+# 4. Save
 ggplot2::ggsave(
   filename = path.expand("~/Downloads/jump-fluctuations-custom.pdf"), 
-  plot = combined_plot, 
-  width = 10, 
-  height = 3 * n_rows
+  plot = combined_plot, width = 10, height = dynamic_height
 )
 ```
 
