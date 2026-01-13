@@ -248,7 +248,7 @@ for (j in seq_along(jumps)) {
         ggplot2::geom_step(direction = "hv", color = "black", linewidth = 0.2) +
         ggplot2::labs(
           title = paste0(jumps[[j]]$n, " at P = ", round(current_p, 2)),
-          x = expression(delta[x]),
+          x = "q",
           y = ""
         ) +
         ggplot2::theme_minimal() +
@@ -328,7 +328,7 @@ for (j in seq_len(n_rows)) {
         ggplot2::geom_ribbon(ggplot2::aes(ymin = 0, ymax = y), fill = "black", alpha = 0.3) +
         ggplot2::geom_step(direction = "hv", color = "black", linewidth = 0.2) +
         ggplot2::labs(title = paste0(subset_jumps[[j]]$n, " at P = ", round(current_p, 2)),
-                      x = expression(delta[x]), y = "") +
+                      x = "q", y = "") +
         ggplot2::theme_minimal()
     } else {
       p_obj <- ggplot2::ggplot() + 
