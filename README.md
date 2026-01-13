@@ -29,9 +29,9 @@ theory curve.
 
 | Metric                | k_constant | R_squared | Correlation_R | RMSE   |
 |:----------------------|:-----------|:----------|:--------------|:-------|
-| Shannon Entropy       | 0.124      | -10.9065  | 0.4125        | 0.2822 |
-| Zurek Entropy         | 1.086      | 0.9522    | 0.9908        | 0.4701 |
-| Kolmogorov Complexity | 0.963      | 0.985     | 0.9938        | 0.2583 |
+| Shannon Entropy       | 0.092      | -30.4099  | 0.2784        | 0.3248 |
+| Zurek Entropy         | 1.004      | 0.8743    | 0.9889        | 0.9061 |
+| Kolmogorov Complexity | 0.912      | 0.9417    | 0.9907        | 0.6118 |
 
 ![](man/figures/README-jump-fluctuations-1.png)<!-- -->
 
