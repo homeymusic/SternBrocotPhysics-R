@@ -96,9 +96,9 @@ render_dual_plot <- function(metric_name, data_summary, transition_markers) {
     geom_vline(xintercept = transition_markers[transition_markers >= 1.0], color = "grey70", linetype = "dashed", alpha = 0.5) +
     geom_ribbon(aes(ymin = y_mean - y_sd, ymax = y_mean + y_sd), fill = "gray60", alpha = 0.1) +
     geom_line(aes(y = y_mean, color = "Mean"), linewidth = 1) +
-    geom_line(aes(y = y_med, color = "Median"), linewidth = 1, linetype = "dashed") +
+    geom_line(aes(y = y_med, color = "Median"), linewidth = 1) +
     geom_line(
-      aes(y = theory, color = "Theory (K = sqrt P)"), # EXACT MATCH HERE
+      aes(y = theory, color = "Theory (K = sqrt P)"), 
       linewidth = 0.8, 
       alpha = 0.8, 
       linetype = "dashed"  # or "twodash", "dotted", "longdash"
