@@ -96,7 +96,7 @@ render_dual_plot <- function(metric_name, data_summary, transition_markers) {
   plot_dt[, residuals := y_mean - theory]
 
   # 3. Plot 1: Main Data vs Theory
-  p_main <- ggplot(plot_dt, aes(x = momentum)) +
+  p_main <- ggplot(plot_dt, aes(x = sqrt(momentum))) +
     # Only show vlines for physical P >= 1.0
     geom_vline(xintercept = transition_markers[transition_markers >= 1.0], color = "grey70", linetype = "dashed", alpha = 0.5) +
     geom_ribbon(aes(ymin = y_mean - y_sd, ymax = y_mean + y_sd), fill = "gray60", alpha = 0.1) +
