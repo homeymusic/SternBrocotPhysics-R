@@ -19,15 +19,15 @@ if (!dir.exists(raw_directory)) {
 microstates_count <- 1e6 + 1
 microstates <- seq(from = -1, to = 1, length.out = microstates_count)
 
-run_and_save_erasure_experiment <- function(normalized_action) {
-  uncertainty <- (pi / 4)  * (1 / sqrt(normalized_action))
+run_and_save_erasure_experiment <- function(normalized_momentum) {
+  uncertainty <- (pi / 4)  * (1 / normalized_momentum)
 
   # Run updated C++ function with Fisher, Denom, and De Gosson metrics
   results <- SternBrocotPhysics::erase_by_uncertainty(microstates, uncertainty)
 
-  experiment_raw_data <- cbind(normalized_action = normalized_action, results)
+  experiment_raw_data <- cbind(momentum = normalized_momentum, results)
 
-  file_name <- sprintf("micro_macro_erasures_A_%013.6f.csv.gz", round(normalized_action, 6))
+  file_name <- sprintf("micro_macro_erasures_P_%013.6f.csv.gz", round(normalized_momentum, 6))
 
   data.table::fwrite(
     experiment_raw_data,
@@ -39,12 +39,12 @@ run_and_save_erasure_experiment <- function(normalized_action) {
 
 # 5. Define Momentum Range (Extended to 100)
 momenta_factor_step <- 0.01
-momenta_factor_min  <- 50 + momenta_factor_step
+momenta_factor_min  <- 0 + momenta_factor_step
 momenta_factor_max  <- 100
 momenta_factors <- seq(from = momenta_factor_min, to = momenta_factor_max, by = momenta_factor_step)
 
 future.apply::future_lapply(
-  normalized_actions,
+  momenta_factors,
   run_and_save_erasure_experiment,
   future.seed = TRUE,
   future.packages = c("SternBrocotPhysics", "data.table") # Load packages efficiently
