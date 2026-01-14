@@ -31,7 +31,6 @@ summary_path <- here::here("data-raw", "outputs", "02_aggregated_summary", "02_a
 dt_summary <- data.table::fread(summary_path)
 data.table::setorder(dt_summary, momentum)
 
-# CRITICAL FILTER: Remove unphysical data where P < 1.0
 dt_summary <- dt_summary[momentum > 0.0]
 
 # 2. Sensitivity-based Jump Detection
@@ -44,7 +43,6 @@ jump_indices <- which(z_diffs > threshold)
 jumps <- lapply(seq_along(jump_indices), function(i) {
   idx <- jump_indices[i]
   m_at <- dt_summary$momentum[idx + 1]
-  
   # Logic: Plateau below at floor - 0.1, Plateau above at ceiling + 0.1
   list(
     n = paste("Transition", i),

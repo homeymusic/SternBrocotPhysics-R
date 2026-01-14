@@ -20,7 +20,7 @@ microstates_count <- 1e6 + 1
 microstates <- seq(from = -1, to = 1, length.out = microstates_count)
 
 run_and_save_erasure_experiment <- function(normalized_momentum) {
-  uncertainty <- (pi / 4)  * (1 / normalized_momentum)
+  uncertainty <- 1 / normalized_momentum
 
   # Run updated C++ function with Fisher, Denom, and De Gosson metrics
   results <- SternBrocotPhysics::erase_by_uncertainty(microstates, uncertainty)
