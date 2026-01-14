@@ -119,7 +119,10 @@ p_main <- ggplot(plot_dt, aes(x = momentum)) +
   ) +
   labs(
     title = "Landauer Energy E vs. Normalized Momentum P",
-    subtitle = bquote("Holographic Projection:" ~ E ~ "~" ~ sqrt(bar(P)) ~ "(" * k == .(stats_df$k_constant) * "," ~ R^2 == .(stats_df$R_squared) * ")"),
+    subtitle = latex2exp::TeX(paste0(
+      "Holographic Projection: $\\frac{E}{k_B T \\ln 2} \\approx \\sqrt{\\bar{P}}$ ",
+      "($k = ", stats_df$k_constant, "$, $R^2 = ", stats_df$R_squared, "$)"
+    )),
     x = norm_p_title,
     y = latex2exp::TeX("Landauer Energy $k_B T \\ln 2$"),
     color = "Series"
@@ -130,7 +133,7 @@ p_main <- ggplot(plot_dt, aes(x = momentum)) +
 p_res <- ggplot(plot_dt, aes(x = momentum, y = residuals)) +
   geom_bar(stat = "identity", fill = "gray60", alpha = 0.4) +
   geom_hline(yintercept = 0, color = "gray60", linetype = "solid", linewidth = 1) +
-  labs(y = latex2exp::TeX("$E - \\sqrt{\\bar{P}}$"), x = norm_p_title) +
+  labs(y = latex2exp::TeX("$\\frac{E}{k_B T \\ln 2} - \\sqrt{\\bar{P}}$"), x = norm_p_title) +
   theme_minimal()
 
 p_final <- cowplot::plot_grid(p_main, p_res, ncol = 1, align = "v", rel_heights = c(3, 1))
