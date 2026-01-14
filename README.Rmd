@@ -62,113 +62,83 @@ p_markers <- dt_summary$momentum[jump_indices]
 
 ```{r introduction, child = 'inst/readme/introduction.Rmd'}
 ```
-### Fit Statistics: Holographic Theory ($S ~ \sqrt{P}$)
+### Fit Statistics: Holographic Theory ($E \propto \sqrt{P}$)
 
-The quantitative analysis of the physical data ($P \ge 1.0$) provides strong evidence that the **Zurek entropy** best aligns with the hypothesized **holographic principle** scaling.
+The quantitative analysis of the physical data ($P \ge 1.0$) provides strong 
+evidence that the **Landauer Energy** best
+aligns with the hypothesized **holographic principle** scaling.
 
-```{r fit-statistics, echo=FALSE}
-# 1. Define Helper Function
-calculate_fit_stats <- function(metric_name, data_summary) {
-  mean_col <- paste0(metric_name, "_mean")
-  if (!(mean_col %in% names(data_summary))) return(NULL)
-  
-  plot_dt <- data_summary[momentum >= 1.0, .(
-    momentum = as.numeric(momentum),
-    y_mean   = as.numeric(get(mean_col))
-  )]
-  
-  if (nrow(plot_dt) == 0) return(NULL)
-  
-  k_fit <- mean(plot_dt$y_mean / sqrt(plot_dt$momentum), na.rm = TRUE)
-  theory <- k_fit * sqrt(plot_dt$momentum)
-  
-  ss_total <- sum((plot_dt$y_mean - mean(plot_dt$y_mean))^2)
-  ss_residual <- sum((plot_dt$y_mean - theory)^2)
-  
-  return(list(
-    Metric = metric_name,
-    Label = tools::toTitleCase(gsub("_", " ", metric_name)),
-    k_constant = round(k_fit, 3),
-    R_squared = round(1 - (ss_residual / ss_total), 4),
-    Correlation_R = round(cor(plot_dt$y_mean, theory), 4),
-    RMSE = round(sqrt(mean((plot_dt$y_mean - theory)^2)), 4)
-  ))
-}
+```{r landauer-analysis, echo=FALSE}
+# 1. Define Energy Scaling
+landauer_factor <- 1 
 
-# 2. Generate Stats Table
-metric_titles <- c(
-  "zurek_entropy"        = "Total Entropy S = K + H",
-  "kolmogorov_complexity" = "Kolmogorov Complexity K",
-  "shannon_entropy"      = "Shannon Entropy H"
+plot_dt <- dt_summary[momentum >= 1.0, .(
+  momentum = as.numeric(momentum),
+  y_mean   = as.numeric(kolmogorov_complexity_mean) * landauer_factor,
+  y_med    = as.numeric(kolmogorov_complexity_median) * landauer_factor,
+  y_sd     = as.numeric(kolmogorov_complexity_sd) * landauer_factor
+)]
+
+# 2. Calculate Fit Statistics
+k_fit    <- mean(plot_dt$y_mean / sqrt(plot_dt$momentum), na.rm = TRUE)
+theory   <- k_fit * sqrt(plot_dt$momentum)
+ss_total <- sum((plot_dt$y_mean - mean(plot_dt$y_mean))^2)
+ss_res   <- sum((plot_dt$y_mean - theory)^2)
+
+stats_df <- data.frame(
+  Metric = "Landauer vs Holographic",
+  k_constant = round(k_fit, 3),
+  R_squared = round(1 - (ss_res / ss_total), 4),
+  Correlation_R = round(cor(plot_dt$y_mean, theory), 4),
+  RMSE = round(sqrt(mean((plot_dt$y_mean - theory)^2)), 4)
 )
 
-target_metrics <- names(metric_titles)
-stats_list <- lapply(target_metrics, calculate_fit_stats, data_summary = dt_summary)
-names(stats_list) <- target_metrics
-stats_df <- as.data.frame(do.call(rbind, stats_list))
-
-# 3. Render Table
-knitr::kable(stats_df[, -1], row.names = FALSE)
+# Render Table
+knitr::kable(stats_df, row.names = FALSE)
 ```
 
-The Zurek and Kolmogorov complexity metrics both exhibit outstanding fits to the theory curve. In contrast, the Shannon entropy metric yields a very poor fit, confirming it is likely the source of the structured, "quantized" deviations.
+```{r plot-landauer-energy, fig.width=8, fig.height=8, echo=FALSE}
+# 3. Visualization
+plot_dt[, theory := k_fit * sqrt(momentum)]
+plot_dt[, residuals := y_mean - theory]
 
-```{r plot-all-metrics-with-residuals, fig.width=8, fig.height=8, echo=FALSE, results='asis'}
-render_dual_plot <- function(metric_name, data_summary, transition_markers, m_stats) {
-  
-  clean_title <- metric_titles[metric_name]
-  
-  plot_dt <- data_summary[momentum >= 1.0, .(
-    momentum = as.numeric(momentum),
-    y_mean   = as.numeric(get(paste0(metric_name, "_mean"))),
-    y_med    = as.numeric(get(paste0(metric_name, "_median"))),
-    y_sd     = as.numeric(get(paste0(metric_name, "_sd")))
-  )]
+norm_p_title = latex2exp::TeX("Normalized Momentum $p / \\sqrt{(m h \\omega) / 2\\pi}$")
+p_main <- ggplot(plot_dt, aes(x = momentum)) +
+  geom_vline(xintercept = p_markers[p_markers >= 1.0], 
+             color = "grey70", linetype = "dashed", alpha = 0.5) +
+  geom_ribbon(aes(ymin = y_mean - y_sd, ymax = y_mean + y_sd), fill = "gray60", alpha = 0.1) +
+  geom_line(aes(y = y_mean, color = "Mean"), linewidth = 1) +
+  geom_line(aes(y = y_med, color = "Median"), linewidth = 1) +
+  geom_line(aes(y = theory, color = "Holographic Theory"), 
+            linewidth = 0.8, alpha = 0.8, linetype = "dashed") +
+  scale_color_manual(values = c("Mean" = "gray40", "Median" = "black", "Holographic Theory" = "gray60")) +
+  labs(
+    title = "Landauer Energy vs. Normalized Momentum P",
+    subtitle = bquote("Holographic Projection:" ~ E ~ "~" ~ sqrt(P) ~ "(" * k == .(stats_df$k_constant) * "," ~ R^2 == .(stats_df$R_squared) * ")"),
+    x = norm_p_title,
+    y = latex2exp::TeX("Landauer Energy $k_B T \\ln 2$"),
+    color = "Series"
+  ) +
+  theme_minimal() + 
+  theme(legend.position = "bottom", axis.text.x = element_blank())  
 
-  k_val <- m_stats$k_constant
-  r_val <- m_stats$Correlation_R
-  plot_dt[, theory := k_val * sqrt(momentum)]
-  plot_dt[, residuals := y_mean - theory]
+p_res <- ggplot(plot_dt, aes(x = momentum, y = residuals)) +
+  geom_bar(stat = "identity", fill = "gray60", alpha = 0.4) +
+  geom_hline(yintercept = 0, color = "gray60", linetype = "solid", linewidth = 1) +
+  labs(y = "Residual", x = norm_p_title) +
+  theme_minimal()
 
-  p_main <- ggplot(plot_dt, aes(x = momentum)) +
-    geom_vline(xintercept = transition_markers[transition_markers >= 1.0], 
-               color = "grey70", linetype = "dashed", alpha = 0.5) +
-    geom_ribbon(aes(ymin = y_mean - y_sd, ymax = y_mean + y_sd), fill = "gray60", alpha = 0.1) +
-    geom_line(aes(y = y_mean, color = "Mean"), linewidth = 1) +
-    geom_line(aes(y = y_med, color = "Median"), linewidth = 1) +
-    geom_line(aes(y = theory, color = "Holographic Theory"), 
-              linewidth = 0.8, alpha = 0.8, linetype = "dashed") +
-    scale_color_manual(values = c("Mean" = "gray40", "Median" = "black", "Holographic Theory" = "gray60")) +
-    labs(
-      title = paste(clean_title, "vs. Normalized Momentum P"),
-      subtitle = bquote("Holographic Scaling:" ~ sqrt(P) ~ "(" * k == .(k_val) * "," ~ r == .(r_val) * ")"),
-      x = latex2exp::TeX("$P = p / \\sqrt{(m h \\omega) / 2\\pi}$"),
-      y = "Entropy [bits]",
-      color = "Series"
-    ) +
-    theme_minimal() +
-    theme(legend.position = "bottom", axis.text.x = element_blank())  
-  
-  p_residuals <- ggplot(plot_dt, aes(x = momentum, y = residuals)) +
-    geom_bar(stat = "identity", fill = "gray50", alpha = 0.6) +
-    geom_hline(yintercept = 0, color = "gray60", linetype = "solid", linewidth = 1) +
-    labs(y = "Residual", x = "Momentum (P)") +
-    theme_minimal()
+p_final <- cowplot::plot_grid(p_main, p_res, ncol = 1, align = "v", rel_heights = c(3, 1))
 
-  return(cowplot::plot_grid(p_main, p_residuals, ncol = 1, align = "v", rel_heights = c(3, 1)))
-}
+ggplot2::ggsave(
+  filename = file.path(manuscript_dir, "landauer_momentum.pdf"),
+  plot = p_final, 
+  width = 8, 
+  height = 8, 
+  device = "pdf"
+)
 
-for (metric in target_metrics) {
-  if (paste0(metric, "_mean") %in% names(dt_summary)) {
-    p_final <- render_dual_plot(metric, dt_summary, p_markers, stats_list[[metric]])
-    
-    ggplot2::ggsave(
-      filename = file.path(manuscript_dir, sprintf("%s.pdf", metric)),
-      plot = p_final, width = 8, height = 8, device = "pdf"
-    )
-    print(p_final)
-  }
-}
+print(p_final)
 ```
 
 ```{r jump-fluctuations, fig.width=10, fig.height=3 * length(jumps), echo=FALSE}
@@ -319,30 +289,4 @@ ggplot2::ggsave(
   filename = file.path(manuscript_dir, "distributions.pdf"),
   plot = combined_plot, width = 10, height = dynamic_height
 )
-```
-
-```{r plot-complexity-vs-denominator, fig.width=8, fig.height=6, echo=FALSE}
-# 1. Assign to a variable
-p_scatter <- ggplot(dt_summary, aes(x = shannon_entropy_mean, y = kolmogorov_complexity_mean, color = momentum)) +
-  geom_point(alpha = 0.7, size = 0.05) +
-  scale_color_gradient(low = "gray20", high = "gray80") + 
-  labs(
-    title = "Scatter Plot: Shannon Entropy vs. Kolmogorov Complexity (P >= 1.0)",
-    x = "Mean Shannon Entropy",
-    y = "Mean Kolmogorov Complexity",
-    color = "Momentum (P)"
-  ) +
-  theme_minimal()
-
-# 2. Save it using the path that worked for you
-ggplot2::ggsave(
-  filename = file.path(manuscript_dir, "entropy_vs_complexity.pdf"),
-  plot = p_scatter, 
-  width = 8, 
-  height = 6,
-  device = "pdf"
-)
-
-# 3. Display it in the Rmd
-p_scatter
 ```
