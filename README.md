@@ -29,7 +29,7 @@ theory curve.
 
 | Metric                | k_constant | R_squared | Correlation_R | RMSE   |
 |:----------------------|:-----------|:----------|:--------------|:-------|
-| Shannon Entropy       | 0.12       | -6.0606   | 0.4733        | 0.2627 |
+| Shannon Entropy       | 0.12       | -6.0703   | 0.4732        | 0.2627 |
 | Zurek Entropy         | 0.979      | 0.9689    | 0.9908        | 0.3604 |
 | Kolmogorov Complexity | 0.859      | 0.9883    | 0.9946        | 0.2156 |
 

@@ -5,8 +5,8 @@ output:
 ---
 ```{r setup, include=FALSE}
 knitr::opts_knit$set(root.dir = here::here())
-library(data.table)
-library(ggplot2)
+library("ggplot2")
+knitr::opts_chunk$set(fig.showtext = TRUE, dpi = 300)
 ```
 
 ```{r build-and-load, echo=F, message=F, include=F}
@@ -90,9 +90,11 @@ render_dual_plot <- function(metric_name, data_summary, transition_markers) {
     y_sd     = as.numeric(get(m_sd))
   )]
 
+  holographic_label = paste("Holographic Theory", expression(K = sqrt(P)))
+  
   plot_dt <- plot_dt[momentum >= 1.0]
   plot_dt_fit <- plot_dt[momentum > 0.001] 
-  k_fit <- mean(plot_dt_fit$y_mean / sqrt(plot_dt_fit$momentum), na.rm = TRUE)
+  k_fit <- mean(plot_dt_fit$y_mean / (sqrt(plot_dt_fit$momentum)), na.rm = TRUE)
   plot_dt[, theory := k_fit * sqrt(momentum)]
   plot_dt[, residuals := y_mean - theory]
 
@@ -103,20 +105,22 @@ render_dual_plot <- function(metric_name, data_summary, transition_markers) {
     geom_ribbon(aes(ymin = y_mean - y_sd, ymax = y_mean + y_sd), fill = "gray60", alpha = 0.1) +
     geom_line(aes(y = y_mean, color = "Mean"), linewidth = 1) +
     geom_line(aes(y = y_med, color = "Median"), linewidth = 1) +
-    geom_line(aes(y = theory, color = "Theory (K = sqrt P)"), 
+    geom_line(aes(y = theory, color = holographic_label), 
               linewidth = 0.8, alpha = 0.8, linetype = "dashed") +
-    scale_color_manual(values = c("Mean" = "gray40", "Median" = "black", "Theory (K = sqrt P)" = "gray60")) +
+    scale_color_manual(values = c("Mean" = "gray40", "Median" = "black", holographic_label = "gray60")) +
     labs(
-      title = paste(clean_title, "vs. Normalized Momentum"),
-      subtitle = bquote("Holographic Fit:" ~ S %prop% sqrt(P) ~ (k ~ .(round(k_fit, 3)))),
-      x = "Momentum (P)", y = "Value", color = "Series"
+      title = paste(clean_title, "vs. Normalized Momentum P"),
+      subtitle = bquote("Holographic Fit:" ~ sqrt(P) ~ (k ~ .(round(k_fit, 3)))),
+      x = latex2exp::TeX(sprintf("%s $P = p / \\sqrt{(m h \\omega) / 2\\pi}$", "Normalized Momentum")),
+      y = latex2exp::TeX(sprintf("%s $[bits]$", clean_title)),
+      color = "Series"
     ) +
     theme_minimal() +
-    theme(legend.position = "bottom", 
-          plot.title = element_text(face = "bold"),
-          axis.text.x = element_blank(), 
-          axis.title.x = element_blank())
-
+    theme(
+      legend.position = "bottom", 
+      axis.text.x = element_blank()
+    )  
+  
   # Residuals Plot
   p_residuals <- ggplot(plot_dt, aes(x = momentum, y = residuals)) +
     geom_bar(stat = "identity", fill = "gray50", alpha = 0.6) +

@@ -25,6 +25,7 @@ Suggests:
     ggplot2,
     here,
     knitr,
+    latex2exp,
     osfr,
     patchwork,
     rmarkdown,
