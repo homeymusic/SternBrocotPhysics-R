@@ -17,4 +17,4 @@ hypothesized **holographic principle** scaling.
 
 ![](man/figures/README-jump-fluctuations-1.png)<!-- -->
 
-![](man/figures/README-distriubtions-for-manuscript-1.png)<!-- -->
+![](man/figures/README-distributions-for-manuscript-1.png)<!-- -->

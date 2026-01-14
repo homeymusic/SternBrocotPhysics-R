@@ -148,145 +148,90 @@ ggplot2::ggsave(
 
 print(p_final)
 ```
+```{r distribution-helper, echo=FALSE}
+# --- CORE PLOTTING FUNCTION ---
+generate_physics_grid <- function(jumps_subset) {
+  num_jumps <- length(jumps_subset)
+  plot_list <- vector("list", num_jumps * 3)
+  counter   <- 1
+
+  for (j in seq_len(num_jumps)) {
+    for (p in seq_along(jumps_subset[[j]]$p_vals)) {
+      
+      current_p <- jumps_subset[[j]]$p_vals[p]
+      f_name    <- sprintf("micro_macro_erasures_P_%013.6f.csv.gz", round(current_p, 6))
+      f_path    <- here::here("data-raw", "outputs", "01_micro_macro_erasures", f_name)
+      
+      # Physics Scaling
+      action <- current_p * current_p
+
+      if (file.exists(f_path) && current_p >= 1.0) {
+        raw_fluc <- data.table::fread(f_path, select = "fluctuation")$fluctuation * action
+        f_range  <- range(raw_fluc, na.rm = TRUE)
+        panel_breaks <- seq(from = f_range[1], to = f_range[2], length.out = 402)
+        h <- graphics::hist(raw_fluc, breaks = panel_breaks, plot = FALSE)
+        
+        plot_df <- data.frame(x = h$breaks[-length(h$breaks)], y = h$counts)
+        
+        p_obj <- ggplot2::ggplot(plot_df, ggplot2::aes(x = x, y = y)) +
+          ggplot2::geom_ribbon(ggplot2::aes(ymin = 0, ymax = y), fill = "black", alpha = 0.3) +
+          ggplot2::geom_step(direction = "hv", color = "black", linewidth = 0.2) +
+          ggplot2::labs(
+            # PRECISION FIX: 4 digits after decimal
+            title = paste0(jumps_subset[[j]]$n, " at P = ", sprintf("%.3f", current_p)),
+            x = "q", y = ""
+          ) +
+          ggplot2::theme_minimal() +
+          ggplot2::theme(plot.title = ggplot2::element_text(size = 10))
+      } else {
+        p_obj <- ggplot2::ggplot() + 
+          ggplot2::annotate("text", x = 0.5, y = 0.5, 
+                            label = paste("P =", sprintf("%.3f", current_p), "\n excluded")) +
+          ggplot2::theme_void()
+      }
+      plot_list[[counter]] <- p_obj
+      counter <- counter + 1
+    }
+  }
+
+  # Assemble with Patchwork
+  patchwork::wrap_plots(plot_list, ncol = 3) + 
+    patchwork::plot_annotation(
+      title = "Automated Detection of Transition Phases (P >= 1.0)",
+      subtitle = "LOWER PLATEAU, TRANSITION, UPPER PLATEAU",
+      theme = ggplot2::theme(
+        plot.title = ggplot2::element_text(hjust = 0.5, face = "bold", size = 14),
+        plot.subtitle = ggplot2::element_text(hjust = 0.5, size = 10, face = "bold")
+      )
+    )
+}
+```
 
 ```{r jump-fluctuations, fig.width=10, fig.height=3 * length(jumps), echo=FALSE}
-
-# 1. Setup list for plots
-plot_list <- vector("list", length(jumps) * 3)
-counter   <- 1
-
-# 2. Execution Loop
-for (j in seq_along(jumps)) {
-  for (p in seq_along(jumps[[j]]$p_vals)) {
-    
-    current_p <- jumps[[j]]$p_vals[p]
-    f_name    <- sprintf("micro_macro_erasures_P_%013.6f.csv.gz", round(current_p, 6))
-    f_path    <- here::here("data-raw", "outputs", "01_micro_macro_erasures", f_name)
-    
-    momentum <- current_p
-    length   <- momentum
-    action   <- length * momentum
-
-    if (file.exists(f_path) && current_p >= 1.0) {
-      raw_fluc <- data.table::fread(f_path, select = "fluctuation")$fluctuation * action
-      f_range  <- range(raw_fluc, na.rm = TRUE)
-      
-      # Use range indices for seq()
-      panel_breaks <- seq(from = f_range[1], to = f_range[2], length.out = 402)
-      h <- graphics::hist(raw_fluc, breaks = panel_breaks, plot = FALSE)
-      
-      # Dataframe for plotting
-      plot_df <- data.frame(
-        x = h$breaks[-length(h$breaks)], 
-        y = h$counts
-      )
-      
-      p_obj <- ggplot2::ggplot(plot_df, ggplot2::aes(x = x, y = y)) +
-        ggplot2::geom_ribbon(
-          ggplot2::aes(ymin = 0, ymax = y), 
-          fill = "black", 
-          alpha = 0.3, 
-          color = NA
-        ) +
-        ggplot2::geom_step(direction = "hv", color = "black", linewidth = 0.2) +
-        ggplot2::labs(
-          title = paste0(jumps[[j]]$n, " at P = ", round(current_p, 2)),
-          x = "q",
-          y = ""
-        ) +
-        ggplot2::theme_minimal() +
-        ggplot2::theme(plot.title = ggplot2::element_text(size = 10))
-      
-    } else {
-      p_obj <- ggplot2::ggplot() + 
-        ggplot2::annotate("text", x = 0.5, y = 0.5, 
-                          label = paste("P =", current_p, "\n excluded")) +
-        ggplot2::theme_void()
-    }
-    plot_list[[counter]] <- p_obj
-    counter <- counter + 1
-  }
-}
-
-# 3. Assemble Grid
-combined_plot <- patchwork::wrap_plots(plot_list, ncol = 3) + 
-  patchwork::plot_annotation(
-    title = "Automated Detection of Transition Phases (P >= 1.0)",
-    subtitle = "LOWER PLATEAU                      JUMP POINT                      UPPER PLATEAU",
-    theme = ggplot2::theme(
-      plot.title = ggplot2::element_text(hjust = 0.5, face = "bold", size = 14),
-      plot.subtitle = ggplot2::element_text(hjust = 0.5, size = 10, face = "bold")
-    )
-  )
-
-combined_plot
-
+# 1. Full call for Readme
+full_plot <- generate_physics_grid(jumps)
+full_plot
+```
+```{r subset-config, echo=FALSE}
+# --- SINGLE SOURCE OF TRUTH ---
+max_rows      <- 7 
+subset_idx    <- 1:min(length(jumps), max_rows)
+subset_jumps  <- jumps[subset_idx]
+dynamic_h     <- 3 * length(subset_jumps)
 ```
 
-```{r setup-custom-height, echo=FALSE}
-# --- CONFIGURATION ---
-max_rows <- 7
-subset_jumps <- if(length(jumps) > max_rows) jumps[1:max_rows] else jumps
-n_rows <- length(subset_jumps)
+```{r distributions-for-manuscript, fig.width=10, fig.height=dynamic_h, echo=FALSE}
+# Now fig.height is dynamically tied to the actual number of rows
+subset_plot <- generate_physics_grid(subset_jumps)
 
-# Calculate the height needed for the next chunk
-dynamic_height <- 3 * n_rows
-```
+# Display in the Readme
+subset_plot
 
-```{r distriubtions-for-manuscript, fig.width=10, fig.height=dynamic_height, echo=FALSE}
-
-# 1. Setup list for plots
-plot_list <- vector("list", n_rows * 3)
-counter   <- 1
-
-# 2. Execution Loop
-for (j in seq_len(n_rows)) {
-  for (p in seq_along(subset_jumps[[j]]$p_vals)) {
-    
-    current_p <- subset_jumps[[j]]$p_vals[p]
-    f_name    <- sprintf("micro_macro_erasures_P_%013.6f.csv.gz", round(current_p, 6))
-    f_path    <- here::here("data-raw", "outputs", "01_micro_macro_erasures", f_name)
-    
-    momentum <- current_p
-    length   <- momentum
-    action   <- length * momentum
-    
-    if (file.exists(f_path) && current_p >= 1.0) {
-      raw_fluc <- data.table::fread(f_path, select = "fluctuation")$fluctuation * action
-      f_range  <- range(raw_fluc, na.rm = TRUE)
-      panel_breaks <- seq(from = f_range[1], to = f_range[2], length.out = 402)
-      h <- graphics::hist(raw_fluc, breaks = panel_breaks, plot = FALSE)
-      
-      plot_df <- data.frame(x = h$breaks[-length(h$breaks)], y = h$counts)
-      
-      p_obj <- ggplot2::ggplot(plot_df, ggplot2::aes(x = x, y = y)) +
-        ggplot2::geom_ribbon(ggplot2::aes(ymin = 0, ymax = y), fill = "black", alpha = 0.3) +
-        ggplot2::geom_step(direction = "hv", color = "black", linewidth = 0.2) +
-        ggplot2::labs(title = paste0(subset_jumps[[j]]$n, " at P = ", round(current_p, 2)),
-                      x = "q", y = "") +
-        ggplot2::theme_minimal()
-    } else {
-      p_obj <- ggplot2::ggplot() + 
-        ggplot2::annotate("text", x = 0.5, y = 0.5, label = paste("P =", current_p, "\n excluded")) +
-        ggplot2::theme_void()
-    }
-    plot_list[[counter]] <- p_obj
-    counter <- counter + 1
-  }
-}
-
-# 3. Assemble and Print Grid
-combined_plot <- patchwork::wrap_plots(plot_list, ncol = 3) + 
-  patchwork::plot_annotation(
-    title = "Automated Detection of Transition Phases (P >= 1.0)",
-    subtitle = "LOWER PLATEAU                      JUMP POINT                      UPPER PLATEAU"
-  )
-
-combined_plot
-
-# 4. Save
+# Save PDF with exact same dimensions
 ggplot2::ggsave(
   filename = file.path(manuscript_dir, "distributions.pdf"),
-  plot = combined_plot, width = 10, height = dynamic_height
+  plot   = subset_plot, 
+  width  = 10, 
+  height = dynamic_h
 )
 ```
