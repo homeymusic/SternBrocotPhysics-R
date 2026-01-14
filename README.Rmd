@@ -110,11 +110,11 @@ p_main <- ggplot(plot_dt, aes(x = momentum)) +
   geom_line(aes(y = y_mean, color = "Mean"), linewidth = 1) +
   geom_line(aes(y = y_med, color = "Median"), linewidth = 1) +
   geom_line(aes(y = theory, color = "Holographic Theory"), 
-            linewidth = 0.8, alpha = 0.8, linetype = "dashed") +
+            linewidth = 0.75, alpha = 0.75) +
   scale_color_manual(values = c("Mean" = "gray40", "Median" = "black", "Holographic Theory" = "gray60")) +
   labs(
     title = "Landauer Energy vs. Normalized Momentum P",
-    subtitle = bquote("Holographic Projection:" ~ E ~ "~" ~ sqrt(P) ~ "(" * k == .(stats_df$k_constant) * "," ~ R^2 == .(stats_df$R_squared) * ")"),
+    subtitle = bquote("Holographic Projection:" ~ E ~ "~" ~ sqrt(bar(P)) ~ "(" * k == .(stats_df$k_constant) * "," ~ R^2 == .(stats_df$R_squared) * ")"),
     x = norm_p_title,
     y = latex2exp::TeX("Landauer Energy $k_B T \\ln 2$"),
     color = "Series"
@@ -125,7 +125,7 @@ p_main <- ggplot(plot_dt, aes(x = momentum)) +
 p_res <- ggplot(plot_dt, aes(x = momentum, y = residuals)) +
   geom_bar(stat = "identity", fill = "gray60", alpha = 0.4) +
   geom_hline(yintercept = 0, color = "gray60", linetype = "solid", linewidth = 1) +
-  labs(y = "Residual", x = norm_p_title) +
+  labs(y = latex2exp::TeX("$E - \\sqrt{\\bar{P}}$"), x = norm_p_title) +
   theme_minimal()
 
 p_final <- cowplot::plot_grid(p_main, p_res, ncol = 1, align = "v", rel_heights = c(3, 1))
@@ -212,14 +212,6 @@ combined_plot <- patchwork::wrap_plots(plot_list, ncol = 3) +
   )
 
 combined_plot
-
-ggplot2::ggsave(
-  filename = file.path(manuscript_dir, "distributions_at_transitions.pdf"),
-  plot = combined_plot, 
-  width = 10, 
-  height = 3 * length(jumps)
-)
-
 
 ```
 
