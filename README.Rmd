@@ -197,7 +197,7 @@ generate_physics_grid <- function(jumps_subset) {
   # Assemble with Patchwork
   patchwork::wrap_plots(plot_list, ncol = 3) + 
     patchwork::plot_annotation(
-      title = "Automated Detection of Transition Phases (P >= 1.0)",
+      title = "Automated Detection of Median Momentum Transitions",
       subtitle = "LOWER PLATEAU, TRANSITION, UPPER PLATEAU",
       theme = ggplot2::theme(
         plot.title = ggplot2::element_text(hjust = 0.5, face = "bold", size = 14),
