@@ -38,13 +38,15 @@ run_and_save_erasure_experiment <- function(normalized_momentum) {
 }
 
 # 5. Define Momentum Range (Extended to 100)
-momenta_factor_step <- 0.01
-momenta_factor_min  <- 100 + momenta_factor_step
-momenta_factor_max  <- 200
-momenta_factors <- seq(from = momenta_factor_min, to = momenta_factor_max, by = momenta_factor_step)
+normalized_momentum_step <- 0.01
+normalized_momentum_min  <- 0.005  # Half of your original step
+normalized_momentum_max  <- 100.995 # The last midpoint before 101
+normalized_momentums <- seq(from = normalized_momentum_min,
+                            to = normalized_momentum_max,
+                            by = normalized_momentum_step)
 
 future.apply::future_lapply(
-  momenta_factors,
+  normalized_momentums,
   run_and_save_erasure_experiment,
   future.seed = TRUE,
   future.packages = c("SternBrocotPhysics", "data.table") # Load packages efficiently

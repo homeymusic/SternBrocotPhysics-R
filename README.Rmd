@@ -47,9 +47,12 @@ jumps <- lapply(seq_along(jump_indices), function(i) {
   list(
     n = paste("Transition", i),
     p_vals = c(
-      floor(m_at),
+      m_at-1,
       m_at,       
-      ceiling(m_at)
+      m_at+1
+      # floor(m_at),
+      # m_at,       
+      # ceiling(m_at)
     )
   )
 })
