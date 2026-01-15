@@ -35,7 +35,7 @@ dt_summary <- dt_summary[momentum > 0.0]
 
 # 2. Sensitivity-based Jump Detection
 # Now working only with the physical data range
-z_diffs <- abs(diff(dt_summary$zurek_entropy_median))
+z_diffs <- abs(diff(dt_summary$kolmogorov_complexity_median))
 threshold <- max(z_diffs, na.rm = TRUE) * 0.0001
 jump_indices <- which(z_diffs > threshold)
 
@@ -62,14 +62,15 @@ p_markers <- dt_summary$momentum[jump_indices]
 
 ```{r introduction, child = 'inst/readme/introduction.Rmd'}
 ```
-### Fit Statistics: Holographic Theory ($E \propto \sqrt{P}$)
+
+### Fit Statistics: Holographic Theory ($A \propto \sqrt{P}$)
 
 The quantitative analysis of the physical data ($P \ge 1.0$) provides strong 
-evidence that the **Landauer Energy** best
+evidence that the **Landauer Action** best
 aligns with the hypothesized **holographic principle** scaling.
 
 ```{r landauer-analysis, echo=FALSE}
-# 1. Define Energy Scaling
+# 1. Define Action Scaling
 landauer_factor <- 1 
 
 plot_dt <- dt_summary[momentum >= 1.0, .(
@@ -97,34 +98,34 @@ stats_df <- data.frame(
 knitr::kable(stats_df, row.names = FALSE)
 ```
 
-```{r plot-landauer-energy, fig.width=8, fig.height=8, echo=FALSE}
+```{r plot-landauer-action, fig.width=8, fig.height=8, echo=FALSE}
 # 3. Visualization
 plot_dt[, theory := k_fit * sqrt(momentum)]
 plot_dt[, residuals := y_mean - theory]
 
-norm_p_title = latex2exp::TeX("Normalized Momentum $p / \\sqrt{(m h \\omega) / 2\\pi}$")
+norm_p_title = latex2exp::TeX("Normalized Momentum P  [$p / \\sqrt{(m h \\omega) / 2\\pi}$]")
 holographic_label = latex2exp::TeX("Holographic Projection $\\sqrt{\\bar{P}}$")
 
 p_main <- ggplot(plot_dt, aes(x = momentum)) +
   geom_vline(xintercept = p_markers[p_markers >= 1.0], 
              color = "grey70", linetype = "dashed", alpha = 0.5) +
   geom_ribbon(aes(ymin = y_mean - y_sd, ymax = y_mean + y_sd), fill = "gray60", alpha = 0.1) +
-  geom_line(aes(y = y_mean, color = "E Mean"), linewidth = 1) +
-  geom_line(aes(y = y_med, color = "E Median"), linewidth = 1) +
+  geom_line(aes(y = y_mean, color = "A Mean"), linewidth = 1) +
+  geom_line(aes(y = y_med, color = "A Median"), linewidth = 1) +
   geom_line(aes(y = theory, color = "Holo"), linewidth = 0.75, alpha = 0.75) +
   scale_color_manual(
-    values = c("E Mean" = "gray40", "E Median" = "black", "Holo" = "gray60"),
+    values = c("A Mean" = "gray40", "A Median" = "black", "Holo" = "gray60"),
     # 2. Use the TeX object as the label for the 'Holo' key
-    labels = c("E Mean" = "E Mean", "E Median" = "E Median", "Holo" = holographic_label)
+    labels = c("A Mean" = "A Mean", "A Median" = "A Median", "Holo" = holographic_label)
   ) +
   labs(
-    title = "Landauer Energy E vs. Normalized Momentum P",
+    title = "Landauer Action A vs. Normalized Momentum P",
     subtitle = latex2exp::TeX(paste0(
       "Holographic Projection: $\\frac{E}{k_B T \\ln 2} \\approx \\sqrt{\\bar{P}}$ ",
-      "($k = ", stats_df$k_constant, "$, $R^2 = ", stats_df$R_squared, "$)"
+      " ~ ($k = ", stats_df$k_constant, "$, $R^2 = ", stats_df$R_squared, "$)"
     )),
     x = norm_p_title,
-    y = latex2exp::TeX("Landauer Energy $k_B T \\ln 2$"),
+    y = latex2exp::TeX("Landauer Action $A_L$ [$k_B T \\ln 2 \\tau_0$]"),
     color = "Series"
   ) +
   theme_minimal() + 
@@ -133,7 +134,7 @@ p_main <- ggplot(plot_dt, aes(x = momentum)) +
 p_res <- ggplot(plot_dt, aes(x = momentum, y = residuals)) +
   geom_bar(stat = "identity", fill = "gray60", alpha = 0.4) +
   geom_hline(yintercept = 0, color = "gray60", linetype = "solid", linewidth = 1) +
-  labs(y = latex2exp::TeX("$\\frac{E}{k_B T \\ln 2} - \\sqrt{\\bar{P}}$"), x = norm_p_title) +
+  labs(y = latex2exp::TeX("$\\bar{A_L} - \\sqrt{P}$"), x = norm_p_title) +
   theme_minimal()
 
 p_final <- cowplot::plot_grid(p_main, p_res, ncol = 1, align = "v", rel_heights = c(3, 1))
