@@ -11,7 +11,7 @@ hypothesized **holographic principle** scaling.
 
 | Metric                  | k_constant | R_squared | Correlation_R |   RMSE |
 |:------------------------|-----------:|----------:|--------------:|-------:|
-| Landauer vs Holographic |      0.859 |    0.9883 |        0.9946 | 0.2156 |
+| Landauer vs Holographic |       0.63 |    0.7201 |        0.9992 | 0.4417 |
 
 ![](man/figures/README-plot-landauer-energy-1.png)<!-- -->
 

@@ -85,7 +85,7 @@ DataFrame erase_core(NumericVector microstate, StopPredicate stop_criteria, doub
       found[i] = (depth >= max_depth_limit);
     } else {
       const double threshold = display_uncertainty * (1.0 - 1e-15);
-      found[i] = (error < threshold);
+      found[i] = (error <= threshold);
     }
   }
 
