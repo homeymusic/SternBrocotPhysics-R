@@ -284,14 +284,14 @@ ellipse_plot <- ggplot(plot_ready) +
              scales = "free", 
              ncol = 3) +
   scale_fill_manual(values = c("q" = "black", "p" = "gray40"),
-                    labels = c("q" = "Q-ellipse", "p" = "P-ellipse")) +
+                    labels = c("q" = "Q", "p" = "P")) +
   scale_color_manual(values = c("q" = "black", "p" = "gray40"),
-                     labels = c("q" = "Q-ellipse", "p" = "P-ellipse")) +
+                     labels = c("q" = "Q", "p" = "P")) +
   labs(
     x = "q [q_0]",
     y = "p [p_0]",
-    fill = "Geometry",
-    color = "Geometry",
+    fill = "Conjugate Pair",
+    color = "Conjugate Pair",
 
     
         title = "Conjugate Quanta of Action",
