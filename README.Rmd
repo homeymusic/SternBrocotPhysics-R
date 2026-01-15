@@ -168,7 +168,8 @@ generate_physics_grid <- function(jumps_subset) {
       f_path    <- here::here("data-raw", "outputs", "01_micro_macro_erasures", f_name)
       
       # Physics Scaling
-      action <- current_p * current_p
+      current_q = current_p
+      action <- current_q * current_p
 
       if (file.exists(f_path) && current_p >= 1.0) {
         raw_fluc <- data.table::fread(f_path, select = "fluctuation")$fluctuation * action
