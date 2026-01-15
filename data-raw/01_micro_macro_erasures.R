@@ -38,7 +38,7 @@ run_and_save_erasure_experiment <- function(normalized_momentum) {
 }
 
 # 5. Define Momentum Range (Extended to 100)
-normalized_momentum_step <- 0.025
+normalized_momentum_step <- 0.01
 normalized_momentum_min  <- 0.0 + normalized_momentum_step
 normalized_momentum_max  <- 101
 normalized_momenta       <- seq(from = normalized_momentum_min,

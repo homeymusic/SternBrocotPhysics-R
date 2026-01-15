@@ -178,7 +178,7 @@ generate_physics_grid <- function(jumps_subset) {
           ggplot2::geom_step(direction = "hv", color = "black", linewidth = 0.2) +
           ggplot2::labs(
             # PRECISION FIX: 4 digits after decimal
-            title = paste0(jumps_subset[[j]]$n, " at P = ", sprintf("%.3f", current_p)),
+            title = paste0(jumps_subset[[j]]$n, " at P = ", sprintf("%.2f", current_p)),
             x = "q", y = ""
           ) +
           ggplot2::theme_minimal() +
@@ -186,7 +186,7 @@ generate_physics_grid <- function(jumps_subset) {
       } else {
         p_obj <- ggplot2::ggplot() + 
           ggplot2::annotate("text", x = 0.5, y = 0.5, 
-                            label = paste("P =", sprintf("%.3f", current_p), "\n excluded")) +
+                            label = paste("P =", sprintf("%.2f", current_p), "\n excluded")) +
           ggplot2::theme_void()
       }
       plot_list[[counter]] <- p_obj
