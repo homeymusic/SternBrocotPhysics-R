@@ -21,7 +21,9 @@ Imports:
 Suggests: 
     bit64,
     cowplot,
+    dplyr,
     future.apply,
+    ggforce,
     ggplot2,
     here,
     knitr,

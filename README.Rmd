@@ -3,10 +3,14 @@ title: "Stern-Brocot Physics"
 output:
   github_document: default
 ---
+
 ```{r setup, include=FALSE}
 knitr::opts_knit$set(root.dir = here::here())
-library("ggplot2")
 knitr::opts_chunk$set(fig.showtext = TRUE, dpi = 300)
+library(ggplot2)
+library(ggforce)
+library(dplyr)
+library(tidyr)
 ```
 
 ```{r build-and-load, echo=F, message=F, include=F}
@@ -232,6 +236,84 @@ subset_plot
 ggplot2::ggsave(
   filename = file.path(manuscript_dir, "distributions.pdf"),
   plot   = subset_plot, 
+  width  = 10, 
+  height = dynamic_h
+)
+```
+
+# Ellipse Parameterization (A = PQ)
+
+This visualization shows two overlapping ellipses centered at (0,0) where $A = PQ$. 
+
+```{r experimental_ellipses, fig.width=10, fig.height=3 * length(jumps), echo=FALSE}
+# 1. Extract and format labels with 2-decimal precision
+ellipse_data <- lapply(jumps, function(j) {
+  data.frame(
+    transition_name = j$n,
+    P_value = j$p_vals,
+    Q_value = j$p_vals,
+    p_label = factor(sprintf("P = Q = %.2f", j$p_vals), 
+                     levels = sprintf("P = Q = %.2f", j$p_vals))
+  )
+}) %>% bind_rows()
+
+# 2. Calculate radii and axis limits
+plot_ready <- ellipse_data %>%
+  mutate(
+    q_radius_x = Q_value,
+    q_radius_y = 1/P_value,
+    p_radius_x = 1/Q_value,
+    p_radius_y = P_value,
+    lim = pmax(q_radius_x, p_radius_y) * 1.1 
+  ) %>%
+  pivot_longer(
+    cols = starts_with("q_radius") | starts_with("p_radius"),
+    names_to = c("ellipse_type", ".value"),
+    names_pattern = "(.*)_radius_(.*)"
+  )
+
+# 3. Generate the plot object
+ellipse_plot <- ggplot(plot_ready) +
+  # Reduced linewidth for better resolution at high P, Q values
+  geom_ellipse(aes(x0 = 0, y0 = 0, a = x, b = y, angle = 0, 
+                   fill = ellipse_type, color = ellipse_type), 
+               linewidth = 0.2, alpha = 0.5) +
+  geom_blank(aes(x = lim, y = lim)) +
+  geom_blank(aes(x = -lim, y = -lim)) +
+  facet_wrap(transition_name ~ p_label, 
+             scales = "free", 
+             ncol = 3) +
+  scale_fill_manual(values = c("q" = "black", "p" = "gray40"),
+                    labels = c("q" = "Q-ellipse", "p" = "P-ellipse")) +
+  scale_color_manual(values = c("q" = "black", "p" = "gray40"),
+                     labels = c("q" = "Q-ellipse", "p" = "P-ellipse")) +
+  labs(
+    x = "q [q_0]",
+    y = "p [p_0]",
+    fill = "Geometry",
+    color = "Geometry",
+
+    
+        title = "Conjugate Quanta of Action",
+          subtitle = "LOWER PLATEAU, TRANSITION, UPPER PLATEAU",
+  ) +
+  theme_minimal() +
+  theme(
+    aspect.ratio = 1,
+    legend.position = "bottom",
+    strip.text = element_text(face = "bold", size = 8)
+  )
+
+# Print the plot to the Rmd output
+ellipse_plot
+
+# 4. Save the plot to the manuscripts directory
+num_transitions <- length(unique(ellipse_data$transition_name))
+dynamic_h <- num_transitions * 3
+
+ggplot2::ggsave(
+  filename = here::here(manuscript_dir, "conjugate_quanta.pdf"),
+  plot   = ellipse_plot, 
   width  = 10, 
   height = dynamic_h
 )

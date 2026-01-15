@@ -19,3 +19,10 @@ hypothesized **holographic principle** scaling.
 ![](man/figures/README-jump-fluctuations-1.png)<!-- -->
 
 ![](man/figures/README-distributions-for-manuscript-1.png)<!-- -->
+
+# Ellipse Parameterization (A = PQ)
+
+This visualization shows two overlapping ellipses centered at (0,0)
+where $A = PQ$.
+
+![](man/figures/README-experimental_ellipses-1.png)<!-- -->
