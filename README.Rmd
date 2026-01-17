@@ -67,92 +67,71 @@ p_markers <- dt_summary$momentum[jump_indices]
 ```{r introduction, child = 'inst/readme/introduction.Rmd'}
 ```
 
-### Fit Statistics: Holographic Theory ($A \propto \sqrt{P}$)
-
-The quantitative analysis of the physical data ($P \ge 1.0$) provides strong 
-evidence that the **Landauer Action** best
-aligns with the hypothesized **holographic principle** scaling.
-
 ```{r landauer-analysis, echo=FALSE}
-# 1. Define Action Scaling
-landauer_factor <- 1 
-
 plot_dt <- dt_summary[momentum >= 1.0, .(
   momentum = as.numeric(momentum),
-  y_mean   = as.numeric(kolmogorov_complexity_mean) * landauer_factor,
-  y_med    = as.numeric(kolmogorov_complexity_median) * landauer_factor,
-  y_sd     = as.numeric(kolmogorov_complexity_sd) * landauer_factor
+  y_mean   = as.numeric(kolmogorov_complexity_mean),
+  y_med    = as.numeric(kolmogorov_complexity_median),
+  y_sd     = as.numeric(kolmogorov_complexity_sd)
 )]
-
-# 2. Calculate Fit Statistics
-k_fit    <- mean(plot_dt$y_mean / sqrt(plot_dt$momentum), na.rm = TRUE)
-theory   <- k_fit * sqrt(plot_dt$momentum)
-ss_total <- sum((plot_dt$y_mean - mean(plot_dt$y_mean))^2)
-ss_res   <- sum((plot_dt$y_mean - theory)^2)
-
-stats_df <- data.frame(
-  Metric = "Landauer vs Holographic",
-  k_constant = round(k_fit, 3),
-  R_squared = round(1 - (ss_res / ss_total), 4),
-  Correlation_R = round(cor(plot_dt$y_mean, theory), 4),
-  RMSE = round(sqrt(mean((plot_dt$y_mean - theory)^2)), 4)
-)
-
-# Render Table
-knitr::kable(stats_df, row.names = FALSE)
 ```
+```{r plot-landauer-squeeze, echo=FALSE}
+# 1. Coordinate Transformation
+plot_dt[, delta_q := 1 / momentum]
 
-```{r plot-landauer-action, fig.width=8, fig.height=8, echo=FALSE}
-# 3. Visualization
-plot_dt[, theory := k_fit * sqrt(momentum)]
-plot_dt[, residuals := y_mean - theory]
+# 2. Dynamic Bounds & Sizing
+q_range <- range(plot_dt$delta_q, na.rm = TRUE)
+y_range <- range(c(plot_dt$y_mean + plot_dt$y_sd, plot_dt$y_mean - plot_dt$y_sd), na.rm = TRUE)
 
-norm_p_title = latex2exp::TeX("Normalized Momentum P  [$p / \\sqrt{(m h \\omega) / 2\\pi}$]")
-holographic_label = latex2exp::TeX("Holographic Projection $\\sqrt{\\bar{P}}$")
+# Set file dimensions slightly taller than width to accommodate legend/title 
+# while keeping the inner plot area square.
+dynamic_width  <- 8 
+dynamic_height <- 8.5 
 
-p_main <- ggplot(plot_dt, aes(x = momentum)) +
-  geom_vline(xintercept = p_markers[p_markers >= 1.0], 
-             color = "grey70", linetype = "dashed", alpha = 0.5) +
+# 3. Filter Markers
+q_markers <- 1 / p_markers
+valid_q_markers <- q_markers[q_markers >= min(q_range) & q_markers <= max(q_range)]
+
+# 4. Visualization
+norm_q_title <- latex2exp::TeX("Normalized Coordinate Squeeze $\\Delta Q = 1/P$ \\[$q_0$\\]")
+plot_title <- latex2exp::TeX("Landauer Action $A_L$ vs. de Gosson Squeeze $\\Delta Q$")
+
+p_main <- ggplot(plot_dt, aes(x = delta_q)) +
+  geom_vline(xintercept = valid_q_markers, color = "grey70", linetype = "dashed", alpha = 0.5) +
   geom_ribbon(aes(ymin = y_mean - y_sd, ymax = y_mean + y_sd), fill = "gray60", alpha = 0.1) +
   geom_line(aes(y = y_mean, color = "A Mean"), linewidth = 1) +
   geom_line(aes(y = y_med, color = "A Median"), linewidth = 1) +
-  geom_line(aes(y = theory, color = "Holo"), linewidth = 0.75, alpha = 0.75) +
   scale_color_manual(
-    values = c("A Mean" = "gray40", "A Median" = "black", "Holo" = "gray60"),
-    # 2. Use the TeX object as the label for the 'Holo' key
-    labels = c("A Mean" = "A Mean", "A Median" = "A Median", "Holo" = holographic_label)
+    values = c("A Mean" = "gray40", "A Median" = "black"),
+    labels = c("A Mean" = "A Mean", "A Median" = "A Median")
   ) +
+  scale_x_reverse(expand = c(0, 0)) + 
   labs(
-    title = "Landauer Action A vs. Normalized Momentum P",
-    subtitle = latex2exp::TeX(paste0(
-      "Holographic Projection: $\\frac{E}{k_B T \\ln 2} \\approx \\sqrt{\\bar{P}}$ ",
-      " ~ ($k = ", stats_df$k_constant, "$, $R^2 = ", stats_df$R_squared, "$)"
-    )),
-    x = norm_p_title,
-    y = latex2exp::TeX("Landauer Action $A_L$ [$k_B T \\ln 2 \\tau_0$]"),
+    title = plot_title,
+    x = norm_q_title,
+    y = latex2exp::TeX("Action $A_L$ [$k_B T \\ln 2 \\tau_0$]"),
     color = "Series"
   ) +
   theme_minimal() + 
-  theme(legend.position = "bottom", axis.text.x = element_blank())  
+  theme(
+    legend.position = "bottom",
+    # FORCES the plotting panel to be a perfect square
+    aspect.ratio = 1 
+  ) +
+  coord_cartesian(xlim = q_range, ylim = y_range, expand = TRUE)
 
-p_res <- ggplot(plot_dt, aes(x = momentum, y = residuals)) +
-  geom_bar(stat = "identity", fill = "gray60", alpha = 0.4) +
-  geom_hline(yintercept = 0, color = "gray60", linetype = "solid", linewidth = 1) +
-  labs(y = latex2exp::TeX("$\\bar{A_L} - \\sqrt{P}$"), x = norm_p_title) +
-  theme_minimal()
-
-p_final <- cowplot::plot_grid(p_main, p_res, ncol = 1, align = "v", rel_heights = c(3, 1))
-
+# 5. Save with Cairo PDF
 ggplot2::ggsave(
-  filename = file.path(manuscript_dir, "landauer_momentum.pdf"),
-  plot = p_final, 
-  width = 8, 
-  height = 8, 
-  device = "pdf"
+  filename = file.path(manuscript_dir, "landauer_squeeze.pdf"),
+  plot = p_main, 
+  width = dynamic_width, 
+  height = dynamic_height, 
+  device = grDevices::cairo_pdf
 )
 
-print(p_final)
+print(p_main)
 ```
+
 ```{r distribution-helper, echo=FALSE}
 # --- CORE PLOTTING FUNCTION ---
 generate_physics_grid <- function(jumps_subset) {
