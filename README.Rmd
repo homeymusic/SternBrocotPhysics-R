@@ -92,8 +92,8 @@ q_markers <- 1 / p_markers
 valid_q_markers <- q_markers[q_markers >= min(q_range) & q_markers <= max(q_range)]
 
 # 4. Visualization
-norm_q_title <- latex2exp::TeX("Normalized Coordinate Squeeze $\\Delta Q = 1/P$ \\[$q_0$\\]")
-plot_title <- latex2exp::TeX("Landauer Action $A_L$ vs. Squeeze $\\Delta Q$")
+norm_q_title <- latex2exp::TeX("Normalized de Gosson Coordinate Squeeze $\\Delta Q = 1/P$ \\[$q_0$\\]")
+plot_title <- latex2exp::TeX("Landauer Action $A_L$ vs. de Gosson Squeeze $\\Delta Q$")
 
 p_main <- ggplot(plot_dt, aes(x = delta_q)) +
   geom_vline(xintercept = valid_q_markers, color = "grey70", linetype = "dashed", alpha = 0.5) +
