@@ -79,58 +79,49 @@ plot_dt <- dt_summary[momentum >= 1.0, .(
 # 1. Coordinate Transformation
 plot_dt[, delta_q := 1 / momentum]
 
-# 2. Dynamic Bounds & Sizing
+# 2. Dynamic Bounds (Filtered to visible X-range)
 q_range <- range(plot_dt$delta_q, na.rm = TRUE)
-y_range <- range(c(plot_dt$y_mean + plot_dt$y_sd, plot_dt$y_mean - plot_dt$y_sd), na.rm = TRUE)
 
-# File dimensions slightly taller to accommodate the legend while keeping area square
-dynamic_width  <- 8 
-dynamic_height <- 8.5 
+# Find Y-range ONLY for points where delta_q is within our q_range
+visible_data <- plot_dt[delta_q >= q_range[1] & delta_q <= q_range[2]]
+y_range <- range(c(visible_data$y_mean + visible_data$y_sd, 
+                   visible_data$y_mean - visible_data$y_sd), na.rm = TRUE)
 
-# 3. Filter Markers
-q_markers <- 1 / p_markers
-valid_q_markers <- q_markers[q_markers >= min(q_range) & q_markers <= max(q_range)]
+# Calculate spans and a landscape-biased ratio
+q_span <- diff(q_range)
+y_span <- diff(y_range)
 
-# 4. Visualization
-norm_q_title <- latex2exp::TeX("Normalized de Gosson Coordinate Squeeze $\\Delta Q = 1/P$ \\[$q_0$\\]")
-plot_title <- latex2exp::TeX("Landauer Action $A_L$ vs. de Gosson Squeeze $\\Delta Q$")
+# Force a landscape aspect ratio: Height is 50% of Width unless data is very tall
+# This prevents the "too much vertical space" issue
+data_aspect_ratio <- pmin(0.5, y_span / q_span) 
+
+# 3. Visualization
+norm_q_title <- latex2exp::TeX("Normalized Coordinate Uncertainty $\\Delta Q = 2/P$ \\[$q_0$\\]")
+plot_title <- latex2exp::TeX("Landauer Action $A_L$ vs. Coordinate Uncertainty $\\Delta Q$")
 
 p_main <- ggplot(plot_dt, aes(x = delta_q)) +
-  geom_vline(xintercept = valid_q_markers, color = "grey70", linetype = "dashed", alpha = 0.5) +
-  geom_ribbon(aes(ymin = y_mean - y_sd, ymax = y_mean + y_sd), fill = "gray60", alpha = 0.1) +
+  geom_vline(xintercept = 1/p_markers, color = "grey70", linetype = "dashed", alpha = 0.5) +
+  geom_ribbon(aes(ymin = y_mean - y_sd, ymax = y_mean + y_sd), fill = "gray50", alpha = 0.1) +
   geom_line(aes(y = y_mean, color = "A Mean"), linewidth = 1) +
   geom_line(aes(y = y_med, color = "A Median"), linewidth = 1) +
-  scale_color_manual(
-    values = c("A Mean" = "gray40", "A Median" = "black"),
-    labels = c("A Mean" = "A Mean", "A Median" = "A Median")
-  ) +
-  # Explicitly set breaks to include 0; add a tiny expansion so the label isn't cut
-  scale_x_reverse(
-    breaks = seq(0, 1, by = 0.2), 
-    expand = c(0.02, 0.02) 
-  ) + 
-  labs(
-    title = plot_title,
-    x = norm_q_title,
-    y = latex2exp::TeX("Action $A_L$ [$k_B T \\ln 2 \\tau_0$]"),
-    color = "Series"
-  ) +
+  scale_color_manual(values = c("A Mean" = "gray30", "A Median" = "black")) +
+  scale_x_reverse(breaks = seq(0, 1, by = 0.2), expand = c(0.02, 0.02)) + 
+  labs(title = plot_title, x = norm_q_title, y = "Action $A_L$", color = "Series") +
   theme_minimal() + 
   theme(
     legend.position = "bottom",
-    aspect.ratio = 1,
-    # Ensure axis text has enough room to breathe
+    aspect.ratio = data_aspect_ratio, # This makes it "wider than tall"
     axis.title.x = element_text(margin = margin(t = 10))
   ) +
-  # clip = "off" ensures labels on the very edge (like 0) are still rendered
-  coord_cartesian(xlim = q_range, ylim = y_range, clip = "off")
+  # coord_cartesian "zooms" into the data-heavy area
+  coord_cartesian(xlim = q_range, ylim = y_range, expand = FALSE, clip = "off")
 
-# 5. Save with Cairo PDF
+# 4. Save
 ggplot2::ggsave(
   filename = file.path(manuscript_dir, "landauer_squeeze.pdf"),
   plot = p_main, 
-  width = dynamic_width, 
-  height = dynamic_height, 
+  width = 8, 
+  height = (8 * data_aspect_ratio) + 1, 
   device = grDevices::cairo_pdf
 )
 
