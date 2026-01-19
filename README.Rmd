@@ -128,66 +128,9 @@ ggplot2::ggsave(
 print(p_main)
 ```
 ```{r distribution-helper, echo=FALSE}
-# --- CORE PLOTTING FUNCTION ---
+# --- CORE PLOTTING FUNCTION (OPTIMIZED) ---
 generate_physics_grid <- function(jumps_subset) {
   
-  # --- INTERNAL HELPER: NON-BLOCKING SYMMETRIC HYSTERESIS ---
-  find_nodes_outward <- function(df, scan_direction = "right") {
-    if (is.null(df) || nrow(df) < 2) return(NULL)
-    
-    # Sort outward from the origin
-    df <- if(scan_direction == "right") df[order(df$x), ] else df[order(-df$x), ]
-    
-    h_max   <- max(df$y, na.rm = TRUE)
-    h_min   <- min(df$y, na.rm = TRUE)
-    h_range <- h_max - h_min
-    h_avg   <- mean(df$y, na.rm = TRUE)
-    
-    # Weighted Standard Deviation (System Spread)
-    x_mean <- sum(df$x * df$y) / sum(df$y)
-    x_sd   <- sqrt(sum(df$y * (df$x - x_mean)^2) / sum(df$y))
-    
-    # Gabor Linear Uncertainty (1/4 pi) with moderated adaptive scaling
-    thresh <- (1 / (4 * pi)) / (1 + sqrt(x_sd))
-
-    # Significance Filter: Discard noise using the relative Gabor limit
-    if (h_range < (thresh * h_avg)) return(NULL)
-
-    nodes <- data.frame(x = numeric(0), y = numeric(0))
-    ready_to_fire <- TRUE
-    accumulator   <- 0  
-    
-    for (i in seq_len(nrow(df) - 1)) {
-      # Net local change relative to dynamic range
-      local_change <- (df$y[i+1] - df$y[i]) / h_range
-      accumulator  <- accumulator + local_change
-      
-      # 1. RISE DETECTION
-      if (ready_to_fire) {
-        if (accumulator >= thresh) {
-          nodes <- rbind(nodes, df[i+1, c("x", "y")])
-          ready_to_fire <- FALSE
-          # Momentum Handover: Preserve excess rise for the immediate fall check
-          accumulator <- accumulator - thresh 
-        }
-        # Anchor to trough (Floor)
-        if (accumulator < 0) accumulator <- 0
-      } 
-      
-      # 2. FALL DETECTION (Non-blocking: checked in the same iteration)
-      if (!ready_to_fire) {
-        if (accumulator <= -thresh) {
-          ready_to_fire <- TRUE
-          # Momentum Handover: Preserve excess fall for the next rise check
-          accumulator <- accumulator + thresh
-        }
-        # Anchor to peak (Ceiling)
-        if (accumulator > 0) accumulator <- 0
-      }
-    }
-    return(nodes)
-  }
-
   num_jumps <- length(jumps_subset)
   plot_list <- vector("list", num_jumps * 3)
   counter   <- 1
@@ -195,65 +138,64 @@ generate_physics_grid <- function(jumps_subset) {
   for (j in seq_len(num_jumps)) {
     for (p in seq_along(jumps_subset[[j]]$p_vals)) {
       current_p <- jumps_subset[[j]]$p_vals[p]
-      f_name    <- sprintf("micro_macro_erasures_P_%013.6f.csv.gz", round(current_p, 6))
-      f_path    <- here::here("data-raw", "outputs", "01_micro_macro_erasures", f_name)
-      action    <- current_p * current_p
+      
+      # Target the new self-contained histogram files
+      f_name <- sprintf("histogram_P_%013.6f.csv.gz", round(current_p, 6))
+      f_path <- here::here("data-raw", "outputs", "02_aggregated_summary", "histograms", f_name)
 
-      if (file.exists(f_path) && current_p >= 1.0) {
-        raw_fluc <- data.table::fread(f_path, select = "fluctuation")$fluctuation * action
-        f_range  <- range(raw_fluc, na.rm = TRUE)
-        panel_breaks <- seq(from = f_range[1], to = f_range[2], length.out = 402)
-        h <- graphics::hist(raw_fluc, breaks = panel_breaks, plot = FALSE)
-        plot_df <- data.frame(x = h$mids, y = h$counts)
+      if (file.exists(f_path)) {
+        # 1. Read the pre-computed data
+        combined_dt <- data.table::fread(f_path)
         
-        # Scans
-        res_r <- find_nodes_outward(plot_df[plot_df$x >= 0, ], "right")
-        res_l <- find_nodes_outward(plot_df[plot_df$x < 0, ], "left")
+        # 2. Extract metadata and split data
+        node_label <- as.character(combined_dt$node_count[1])
+        hist_data  <- combined_dt[type == "hist"]
+        node_data  <- combined_dt[type == "node"]
         
-        if (is.null(res_r) || is.null(res_l)) {
-          node_label <- "NA"
-          dot_df     <- data.frame(x = numeric(0), y = numeric(0))
-        } else {
-          # Origin Unification
-          y_center <- plot_df$y[which.min(abs(plot_df$x))]
-          if(nrow(res_r) > 0 && nrow(res_l) > 0) {
-            in_l <- res_l[which.max(res_l$x), ]
-            in_r <- res_r[which.min(res_r$x), ]
-            if(y_center <= in_l$y && y_center <= in_r$y) {
-              center_dot <- data.frame(x = 0, y = y_center)
-              dot_df <- rbind(center_dot, res_l[res_l$x < in_l$x, ], res_r[res_r$x > in_r$x, ])
-            } else {
-              dot_df <- rbind(res_l, res_r)
-            }
-          } else {
-            dot_df <- rbind(res_l, res_r)
-          }
-          node_label <- as.character(nrow(dot_df))
-        }
-        
-        dot_df <- unique(dot_df[complete.cases(dot_df), ])
+        # Calculate bin width for gap-free bars
+        b_width <- if(nrow(hist_data) > 1) diff(hist_data$x[1:2]) else 0.1
 
-        p_obj <- ggplot2::ggplot(plot_df, ggplot2::aes(x = x, y = y)) +
-          ggplot2::geom_ribbon(ggplot2::aes(ymin = 0, ymax = y), fill = "black", alpha = 0.3) +
-          ggplot2::geom_step(direction = "hv", color = "black", linewidth = 0.2) +
-          ggplot2::geom_point(data = dot_df, color = "red", size = 1.2) +           
-          ggplot2::labs(title = paste0(jumps_subset[[j]]$n, " (", node_label, ") at P = ", sprintf("%.2f", current_p)), x = "q", y = "") +
-          ggplot2::theme_minimal() +
-          ggplot2::theme(plot.title = ggplot2::element_text(size = 10))
+        # 3. Generate High-Fidelity Plot
+        p_obj <- ggplot2::ggplot(hist_data, ggplot2::aes(x = x, y = y)) +
+          # Physics reference line
+          ggplot2::geom_vline(xintercept = 0, color = "grey80", linetype = "dashed", linewidth = 0.4) +
+          # Gap-free stepped area
+          ggplot2::geom_col(fill = "black", alpha = 0.25, width = b_width) +
+          # Sharp staircase outline
+          ggplot2::geom_step(direction = "hv", color = "black", linewidth = 0.3) +
+          # Pre-computed red nodes
+          ggplot2::geom_point(data = node_data, color = "red", size = 1.2, shape = 16) +
+          ggplot2::labs(
+            title = paste0(jumps_subset[[j]]$n, " (", node_label, ") at P = ", sprintf("%.2f", current_p)), 
+            x = "q", y = ""
+          ) +
+          ggplot2::theme_minimal(base_family = "mono") +
+          ggplot2::theme(
+            plot.title = ggplot2::element_text(size = 9, face = "bold"),
+            panel.grid.minor = ggplot2::element_blank()
+          )
       } else {
+        # Placeholder for missing momentum values
         p_obj <- ggplot2::ggplot() + ggplot2::theme_void() + 
-          ggplot2::annotate("text", x = 0.5, y = 0.5, label = paste("P =", sprintf("%.2f", current_p), "\n excluded"))
+          ggplot2::annotate("text", x = 0.5, y = 0.5, 
+                            label = paste("P =", sprintf("%.2f", current_p), "\n missing"),
+                            family = "mono", size = 3)
       }
+      
       plot_list[[counter]] <- p_obj
       counter <- counter + 1
     }
   }
 
+  # Assemble the grid
   patchwork::wrap_plots(plot_list, ncol = 3) + 
     patchwork::plot_annotation(
       title = "Automated Detection of Median Momentum Transitions",
-      subtitle = "NON-BLOCKING SYMMETRIC HYSTERESIS (1/4π)",
-      theme = ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5, face = "bold", size = 14))
+      subtitle = "PRE-COMPUTED GABOR NODES (1/4π)",
+      theme = ggplot2::theme(
+        plot.title = ggplot2::element_text(hjust = 0.5, face = "bold", size = 14, family = "mono"),
+        plot.subtitle = ggplot2::element_text(hjust = 0.5, size = 10, family = "mono", color = "red")
+      )
     )
 }
 ```
@@ -366,9 +308,9 @@ ggplot2::ggsave(
 ```
 
 
-```{r plot-single-histogram}
+```{r plot-single-histogram, fig.width=8, fig.asp=0.6, out.width="100%"}
 # 1. Configuration
-target_p  <- 27.29
+target_p  <- 25.24
 hist_path <- here::here("data-raw", "outputs", "02_aggregated_summary", "histograms", 
                         sprintf("histogram_P_%013.6f.csv.gz", target_p))
 
@@ -396,10 +338,10 @@ if (file.exists(hist_path)) {
     geom_point(data = node_data, color = "red", size = 1.8, shape = 16) +
     
     labs(
-      title = paste0("Momentum P = ", sprintf("%.2f", target_p)),
-      subtitle = paste0("Detected Node Count (η) = ", count_val),
-      x = "Action-Scaled Fluctuation (q)",
-      y = "Occupancy / Frequency"
+      title = paste("Momentum P:", sprintf("%.2f", target_p)),
+      subtitle = paste("Detected Node Count:", count_val),
+      x = "q",
+      y = "Count at q"
     ) +
     theme_minimal(base_family = "mono") + 
     theme(
