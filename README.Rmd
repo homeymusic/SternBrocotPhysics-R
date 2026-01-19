@@ -128,7 +128,6 @@ ggplot2::ggsave(
 print(p_main)
 ```
 ```{r distribution-helper, echo=FALSE}
-```{r distribution-helper, echo=FALSE}
 # --- CORE PLOTTING FUNCTION ---
 generate_physics_grid <- function(jumps_subset) {
   
@@ -364,4 +363,51 @@ ggplot2::ggsave(
   width  = 10, 
   height = dynamic_h
 )
+```
+
+
+```{r plot-single-histogram}
+# 1. Configuration
+target_p  <- 27.29
+hist_path <- here::here("data-raw", "outputs", "02_aggregated_summary", "histograms", 
+                        sprintf("histogram_P_%013.6f.csv.gz", target_p))
+
+if (file.exists(hist_path)) {
+  combined_dt <- data.table::fread(hist_path)
+  count_val   <- combined_dt$node_count[1]
+  hist_data   <- combined_dt[type == "hist"]
+  node_data   <- combined_dt[type == "node"]
+
+  # Calculate the exact bin width to ensure bars touch perfectly
+  bin_width <- if(nrow(hist_data) > 1) diff(hist_data$x[1:2]) else 0.1
+
+  ggplot(hist_data, aes(x = x, y = y)) +
+    # Reference axis
+    geom_vline(xintercept = 0, color = "grey80", linetype = "dashed", linewidth = 0.4) +
+    
+    # THE FIX: geom_col creates the "stepped" area look perfectly 
+    # and is guaranteed to be "gap-free" on all ggplot2 versions.
+    geom_col(fill = "black", alpha = 0.25, width = bin_width) +
+    
+    # The Outline: Standard 'hv' step sits right on top of the bars
+    geom_step(direction = "hv", color = "black", linewidth = 0.4) +
+    
+    # Precision Node Markers
+    geom_point(data = node_data, color = "red", size = 1.8, shape = 16) +
+    
+    labs(
+      title = paste0("Momentum P = ", sprintf("%.2f", target_p)),
+      subtitle = paste0("Detected Node Count (η) = ", count_val),
+      x = "Action-Scaled Fluctuation (q)",
+      y = "Occupancy / Frequency"
+    ) +
+    theme_minimal(base_family = "mono") + 
+    theme(
+      plot.title = element_text(face = "bold", size = 12),
+      plot.subtitle = element_text(color = "red", size = 10),
+      panel.grid.minor = element_blank(),
+      axis.title = element_text(size = 9),
+      panel.border = element_rect(color = "grey90", fill = NA, linewidth = 0.5)
+    )
+}
 ```
