@@ -6,6 +6,7 @@ physics using the Stern-Brocot tree.
 
 ![](man/figures/README-plot-landauer-squeeze-1.png)<!-- -->
 ![](man/figures/README-plot-node-count-momentum-1.png)<!-- -->
+![](man/figures/README-plot-node-count-action-momentum-1.png)<!-- -->
 
 ![](man/figures/README-jump-fluctuations-1.png)<!-- -->
 

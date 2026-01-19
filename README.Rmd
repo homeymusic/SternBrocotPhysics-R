@@ -168,6 +168,73 @@ ggplot2::ggsave(
 
 print(p_nodes)
 ```
+```{r plot-node-count-action-momentum, echo=FALSE}
+# 1. Prepare Merged Data
+plot_combined <- dt_summary[momentum >= 1.0, .(
+  momentum = as.numeric(momentum),
+  a_mean   = as.numeric(kolmogorov_complexity_mean),
+  a_med    = as.numeric(kolmogorov_complexity_median),
+  a_sd     = as.numeric(kolmogorov_complexity_sd),
+  nodes    = as.numeric(node_count)
+)]
+
+# 1. Scaling Math (Identity scaling for 1:1 alignment)
+# Calculate a shared range to ensure all data from both metrics is visible
+shared_range <- range(c(
+  plot_combined$a_mean + plot_combined$a_sd, 
+  plot_combined$a_mean - plot_combined$a_sd,
+  plot_combined$nodes
+), na.rm = TRUE)
+
+# 2. Combined Grayscale Visualization
+p_combined <- ggplot(plot_combined, aes(x = momentum)) +
+  # Reference Markers
+  geom_vline(xintercept = p_markers, color = "grey70", linetype = "dashed", alpha = 0.5) +
+  
+  # Node Count (Plotted 1:1 on the y-axis)
+  geom_point(aes(y = nodes), 
+             size = 0.2, alpha = 0.6, color = "black") +
+  
+  # Landauer Metrics
+  geom_ribbon(aes(ymin = a_mean - a_sd, ymax = a_mean + a_sd), fill = "gray50", alpha = 0.1) +
+  geom_line(aes(y = a_mean, linetype = "A Mean"), color = "gray30", linewidth = 0.8) +
+  geom_line(aes(y = a_med, linetype = "A Median"), color = "black", linewidth = 0.8) +
+  
+  # Axis Configuration: sec_axis(~ .) ensures identical left and right scales
+  scale_y_continuous(
+    name = latex2exp::TeX("Landauer Action $A_L$"),
+    sec.axis = sec_axis(~ ., name = "Node Count")
+  ) +
+  
+  # Linetype for the two Action series
+  scale_linetype_manual(values = c("A Mean" = "dashed", "A Median" = "solid")) +
+  
+  labs(
+    title = "Action and Node Count vs. Momentum (1:1 Scale)",
+    x = "Momentum (P)",
+    linetype = "Series"
+  ) +
+  theme_minimal() + 
+  theme(
+    legend.position = "bottom",
+    aspect.ratio = 0.4,
+    axis.title.x = element_text(margin = margin(t = 10))
+  ) +
+  coord_cartesian(
+    xlim = range(plot_combined$momentum), 
+    ylim = shared_range, 
+    expand = FALSE, 
+    clip = "off"
+  )
+
+# 3. Save
+ggplot2::ggsave(
+  filename = file.path(manuscript_dir, "combined_grayscale.pdf"),
+  plot = p_combined, width = 8, height = 4.5, device = grDevices::cairo_pdf
+)
+
+print(p_combined)
+```
 
 ```{r distribution-helper, echo=FALSE}
 # --- CORE PLOTTING FUNCTION (OPTIMIZED) ---
