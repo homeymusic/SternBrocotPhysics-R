@@ -19,6 +19,7 @@ all_files    <- list.files(raw_dir, pattern = "\\.csv\\.gz$", full.names = TRUE)
 
 # --- WORKER LOGIC ---
 process_file_full <- function(f, out_path) {
+  # Compile C++ helper inside worker if not present
   if (!exists("find_nodes_cpp")) {
     try(Rcpp::sourceCpp(code = '
       #include <Rcpp.h>
@@ -67,7 +68,6 @@ process_file_full <- function(f, out_path) {
 
     run_detection <- function(sub_df, scan_dir) {
       if (is.null(sub_df) || nrow(sub_df) < 2) return(NULL)
-      # FIX 1: Corrected argument name to scan_dir
       sub_df <- if(scan_dir == "right") sub_df[order(x), ] else sub_df[order(-x), ]
       h_range <- max(sub_df$y, na.rm = TRUE) - min(sub_df$y, na.rm = TRUE)
       x_sd <- sqrt(sum(sub_df$y * (sub_df$x - (sum(sub_df$x * sub_df$y)/sum(sub_df$y)))^2) / sum(sub_df$y))
@@ -79,7 +79,6 @@ process_file_full <- function(f, out_path) {
     res_r <- run_detection(plot_df[x >= 0], "right")
     res_l <- run_detection(plot_df[x < 0], "left")
 
-    # FIX 2: Safer unification logic to prevent rbind errors
     y_center <- plot_df$y[which.min(abs(plot_df$x))]
     dot_df <- data.table(x = numeric(0), y = numeric(0))
 
@@ -97,7 +96,6 @@ process_file_full <- function(f, out_path) {
 
     final_node_count <- nrow(unique(dot_df[complete.cases(dot_df)]))
 
-    # 5. WRITE SELF-CONTAINED FILE
     output_dt <- rbind(
       data.table(type = "hist", node_count = final_node_count, x = plot_df$x, y = plot_df$y),
       data.table(type = "node", node_count = final_node_count, x = dot_df$x,  y = dot_df$y),
@@ -105,12 +103,10 @@ process_file_full <- function(f, out_path) {
     )
     data.table::fwrite(output_dt, full_hist_path, compress = "gzip")
 
-    # 6. RETURN SUMMARY (FLAT UNDERSCORE NAMES)
     summary_cols <- c("fluctuation", "kolmogorov_complexity", "shannon_entropy",
                       "zurek_entropy", "numerator", "denominator")
 
     res_summary <- dt[, {
-      # FIX 3: Added median to satisfy the README Contract
       means <- lapply(.SD, mean); sds   <- lapply(.SD, sd)
       mins  <- lapply(.SD, min);  maxs  <- lapply(.SD, max)
       meds  <- lapply(.SD, median)
@@ -133,18 +129,45 @@ process_file_full <- function(f, out_path) {
   })
 }
 
-# --- EXECUTION ---
-message(paste("Processing", length(all_files), "files..."))
+# --- INCREMENTAL EXECUTION LOGIC ---
+# Check existing results to avoid re-processing
+if (file.exists(summary_file)) {
+  # Only read the momentum column to check progress efficiently
+  existing_done <- data.table::fread(summary_file, select = "momentum")$momentum
+  message(paste("Found existing summary with", length(existing_done), "records."))
+} else {
+  existing_done <- numeric(0)
+}
 
-results <- future.apply::future_lapply(
-  all_files,
-  process_file_full,
-  out_path = hist_dir,
-  future.seed = TRUE,
-  future.scheduling = 1,
-  future.packages = c("data.table", "Rcpp")
-)
+# Extract momentum from filenames to compare against existing_done
+all_momenta <- as.numeric(gsub(".*_P_([0-9.]+)\\.csv\\.gz", "\\1", all_files))
+files_to_process <- all_files[!(all_momenta %in% existing_done)]
 
-new_summary <- data.table::rbindlist(results, fill = TRUE)
-data.table::fwrite(new_summary[order(momentum)], summary_file, compress = "gzip")
+if (length(files_to_process) > 0) {
+  message(paste("Processing", length(files_to_process), "new files..."))
+
+  results <- future.apply::future_lapply(
+    files_to_process,
+    process_file_full,
+    out_path = hist_dir,
+    future.seed = TRUE,
+    future.scheduling = 1,
+    future.packages = c("data.table", "Rcpp")
+  )
+
+  new_summary <- data.table::rbindlist(results, fill = TRUE)
+
+  if (nrow(new_summary) > 0) {
+    # If file exists, append without column names. If not, write new with names.
+    is_append <- file.exists(summary_file)
+    data.table::fwrite(new_summary, summary_file,
+                       append = is_append,
+                       col.names = !is_append,
+                       compress = "gzip")
+    message("New data appended successfully.")
+  }
+} else {
+  message("All files are already up to date in the summary.")
+}
+
 message("Done.")
