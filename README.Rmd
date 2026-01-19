@@ -133,17 +133,26 @@ generate_physics_grid <- function(jumps_subset) {
 find_nodes_outward <- function(df, scan_direction = "right") {
   if (is.null(df) || nrow(df) < 2) return(NULL)
   
+  # Sort outward from the origin
   df <- if(scan_direction == "right") df[order(df$x), ] else df[order(-df$x), ]
   
-  # DC Noise Removal: Isolate the dynamic signal from the baseline
-  h_max   <- max(df$y, na.rm = TRUE)
-  h_min   <- min(df$y, na.rm = TRUE)
-  h_range <- h_max - h_min
+  h_range <- max(df$y, na.rm = TRUE) - min(df$y, na.rm = TRUE)
   h_avg   <- mean(df$y, na.rm = TRUE)
-  thresh  <- 1 / (4 * pi)
+  
+  # Calculate Positional Standard Deviation (spread of the wavefunction)
+  # We weight the x-values by the counts (y) to get the physical spread
+  x_mean <- sum(df$x * df$y) / sum(df$y)
+  x_sd   <- sqrt(sum(df$y * (df$x - x_mean)^2) / sum(df$y))
+  
+  # Gabor Constant (1/4 pi)
+  gabor_const <- 1 / (4 * pi)
+  
+  # ADAPTIVE THRESHOLD: Inversely relate threshold to spread.
+  # As spread (SD) increases, we become MORE sensitive to small ripples.
+  # (Added a small 1+ term to prevent division by zero or excessive sensitivity)
+  thresh <- gabor_const / (1 + sqrt(x_sd))
 
-  # REFINED SIGNIFICANCE: Ensure the signal 'exists' above the baseline
-  # High-energy QHO check: Is the range significant compared to local mean?
+  # Significance Filter (Relative to mean)
   if (h_range < (thresh * h_avg)) return(NULL)
 
   nodes <- data.frame(x = numeric(0), y = numeric(0))
@@ -151,8 +160,7 @@ find_nodes_outward <- function(df, scan_direction = "right") {
   accumulator   <- 0  
   
   for (i in seq_len(nrow(df) - 1)) {
-    # DC-INDEPENDENT CHANGE: 
-    # Normalizing by h_range effectively 'strips' the DC offset (h_min)
+    # Net local change relative to dynamic range
     local_change <- (df$y[i+1] - df$y[i]) / h_range
     accumulator  <- accumulator + local_change
     
@@ -173,8 +181,6 @@ find_nodes_outward <- function(df, scan_direction = "right") {
   }
   return(nodes)
 }
-
-
 
   num_jumps <- length(jumps_subset)
   plot_list <- vector("list", num_jumps * 3)
