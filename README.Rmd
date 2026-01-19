@@ -130,45 +130,54 @@ print(p_main)
 ```{r distribution-helper, echo=FALSE}
 # --- CORE PLOTTING FUNCTION ---
 generate_physics_grid <- function(jumps_subset) {
-  # --- INTERNAL HELPER: CUMULATIVE STATE-BASED DETECTION ---
-  find_nodes_outward <- function(df, scan_direction = "right") {
-    # Return NULL specifically for noise-level distributions
-    if (is.null(df) || nrow(df) < 2) return(NULL)
-    
-    # Sort outward from 0
-    df <- if(scan_direction == "right") df[order(df$x), ] else df[order(-df$x), ]
-    
-    h_max   <- max(df$y, na.rm = TRUE)
-    h_min   <- min(df$y, na.rm = TRUE)
-    h_range <- h_max - h_min
-    h_avg   <- mean(df$y, na.rm = TRUE)
-    thresh  <- 1 / (4 * pi)
+find_nodes_outward <- function(df, scan_direction = "right") {
+  if (is.null(df) || nrow(df) < 2) return(NULL)
+  
+  # Sort outward from the origin
+  df <- if(scan_direction == "right") df[order(df$x), ] else df[order(-df$x), ]
+  
+  h_range <- max(df$y, na.rm = TRUE) - min(df$y, na.rm = TRUE)
+  h_avg   <- mean(df$y, na.rm = TRUE)
+  
+  # The ONLY threshold used for all logic
+  thresh <- 1 / (4 * pi)
 
-    # 1. SIGNIFICANCE FILTER: Use Gabor uncertainty to identify pure noise
-    if (h_range < (thresh * h_avg)) return(NULL)
+  # Significance Filter (Relative to mean)
+  if (h_range < (thresh * h_avg)) return(NULL)
 
-    # 2. DETECTOR: Returns empty df (0 nodes) or populated df (>0 nodes)
-    nodes <- data.frame(x = numeric(0), y = numeric(0))
-    ready_to_fire <- TRUE
-    cumulative_rise <- 0  
-    reset_val <- 0
+  nodes <- data.frame(x = numeric(0), y = numeric(0))
+  ready_to_fire <- TRUE
+  accumulator   <- 0  
+  
+  for (i in seq_len(nrow(df) - 1)) {
+    # Net local change relative to global range
+    local_change <- (df$y[i+1] - df$y[i]) / h_range
+    accumulator  <- accumulator + local_change
     
-    for (i in seq_len(nrow(df) - 1)) {
-      local_change <- (df$y[i+1] - df$y[i]) / h_range
-      if (ready_to_fire) {
-        cumulative_rise <- cumulative_rise + local_change
-        if (cumulative_rise >= thresh) {
-          nodes <- rbind(nodes, df[i+1, c("x", "y")])
-          ready_to_fire <- FALSE
-          cumulative_rise <- 0 
-        }
-        if (local_change < 0) cumulative_rise <- 0
-      } else {
-        if (local_change <= reset_val) ready_to_fire <- TRUE
+    if (ready_to_fire) {
+      # 1. Searching for Rise: Cumulative net change must exceed 1/(4*pi)
+      if (accumulator >= thresh) {
+        nodes <- rbind(nodes, df[i+1, c("x", "y")])
+        ready_to_fire <- FALSE
+        accumulator   <- 0 # Reset to track the required fall
       }
+      # Clamp floor: If we are 'falling' while looking for a rise, reset to 0
+      if (accumulator < 0) accumulator <- 0
+      
+    } else {
+      # 2. Searching for Fall (Symmetrical Reset): 
+      # Must fall by the same 1/(4*pi) relative to the node just found
+      if (accumulator <= -thresh) {
+        ready_to_fire <- TRUE
+        accumulator   <- 0 # Reset to track the next rise
+      }
+      # Clamp ceiling: If we are still rising after firing, reset to 0
+      if (accumulator > 0) accumulator <- 0
     }
-    return(nodes)
   }
+  return(nodes)
+}
+
 
   num_jumps <- length(jumps_subset)
   plot_list <- vector("list", num_jumps * 3)
