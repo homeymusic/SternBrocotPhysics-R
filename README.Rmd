@@ -142,12 +142,10 @@ generate_physics_grid <- function(jumps_subset) {
     h_range <- h_max - h_min
     h_avg   <- mean(df$y, na.rm = TRUE)
 
-    # --- SANITY CHECK: SIGNAL-TO-NOISE RATIO ---
-    # If the total variation is less than 5% of the average height, 
-    # it's likely a uniform distribution with noise. Skip node detection.
-    if (h_range < (0.05 * h_avg)) return(empty_result)
+    thresh <- 1 / (4 * pi)
+    if (h_range < (thresh * h_avg)) return(empty_result)
 
-    thresh <- 1 / (4 * pi); reset_val <- 0 
+    reset_val <- 0 
     nodes <- empty_result; ready_to_fire <- TRUE; cumulative_rise <- 0  
     
     for (i in seq_len(nrow(df) - 1)) {
@@ -201,12 +199,15 @@ generate_physics_grid <- function(jumps_subset) {
         }
         
         dot_df <- unique(dot_df[complete.cases(dot_df), ])
-
+        node_count <- nrow(dot_df)
         p_obj <- ggplot2::ggplot(plot_df, ggplot2::aes(x = x, y = y)) +
           ggplot2::geom_ribbon(ggplot2::aes(ymin = 0, ymax = y), fill = "black", alpha = 0.3) +
           ggplot2::geom_step(direction = "hv", color = "black", linewidth = 0.2) +
           ggplot2::geom_point(data = dot_df, color = "red", size = 1.2) +           
-          ggplot2::labs(title = paste0(jumps_subset[[j]]$n, " at P = ", sprintf("%.2f", current_p)), x = "q", y = "") +
+          ggplot2::labs(
+            title = paste0(jumps_subset[[j]]$n, " # of Nodes: ", node_count, " at P = ", sprintf("%.2f", current_p)), 
+            x = "q", y = ""
+          ) +
           ggplot2::theme_minimal() +
           ggplot2::theme(plot.title = ggplot2::element_text(size = 10))
       } else {
