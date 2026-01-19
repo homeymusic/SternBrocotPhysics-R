@@ -133,16 +133,17 @@ generate_physics_grid <- function(jumps_subset) {
 find_nodes_outward <- function(df, scan_direction = "right") {
   if (is.null(df) || nrow(df) < 2) return(NULL)
   
-  # Sort outward from the origin
   df <- if(scan_direction == "right") df[order(df$x), ] else df[order(-df$x), ]
   
-  h_range <- max(df$y, na.rm = TRUE) - min(df$y, na.rm = TRUE)
+  # DC Noise Removal: Isolate the dynamic signal from the baseline
+  h_max   <- max(df$y, na.rm = TRUE)
+  h_min   <- min(df$y, na.rm = TRUE)
+  h_range <- h_max - h_min
   h_avg   <- mean(df$y, na.rm = TRUE)
-  
-  # The ONLY threshold used for all logic
-  thresh <- 1 / (4 * pi)
+  thresh  <- 1 / (4 * pi)
 
-  # Significance Filter (Relative to mean)
+  # REFINED SIGNIFICANCE: Ensure the signal 'exists' above the baseline
+  # High-energy QHO check: Is the range significant compared to local mean?
   if (h_range < (thresh * h_avg)) return(NULL)
 
   nodes <- data.frame(x = numeric(0), y = numeric(0))
@@ -150,33 +151,29 @@ find_nodes_outward <- function(df, scan_direction = "right") {
   accumulator   <- 0  
   
   for (i in seq_len(nrow(df) - 1)) {
-    # Net local change relative to global range
+    # DC-INDEPENDENT CHANGE: 
+    # Normalizing by h_range effectively 'strips' the DC offset (h_min)
     local_change <- (df$y[i+1] - df$y[i]) / h_range
     accumulator  <- accumulator + local_change
     
     if (ready_to_fire) {
-      # 1. Searching for Rise: Cumulative net change must exceed 1/(4*pi)
       if (accumulator >= thresh) {
         nodes <- rbind(nodes, df[i+1, c("x", "y")])
         ready_to_fire <- FALSE
-        accumulator   <- 0 # Reset to track the required fall
+        accumulator   <- 0 
       }
-      # Clamp floor: If we are 'falling' while looking for a rise, reset to 0
       if (accumulator < 0) accumulator <- 0
-      
     } else {
-      # 2. Searching for Fall (Symmetrical Reset): 
-      # Must fall by the same 1/(4*pi) relative to the node just found
       if (accumulator <= -thresh) {
         ready_to_fire <- TRUE
-        accumulator   <- 0 # Reset to track the next rise
+        accumulator   <- 0 
       }
-      # Clamp ceiling: If we are still rising after firing, reset to 0
       if (accumulator > 0) accumulator <- 0
     }
   }
   return(nodes)
 }
+
 
 
   num_jumps <- length(jumps_subset)
