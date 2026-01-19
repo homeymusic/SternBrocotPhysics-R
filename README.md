@@ -5,6 +5,7 @@ An R package for computational experiments in classical and quantum
 physics using the Stern-Brocot tree.
 
 ![](man/figures/README-plot-landauer-squeeze-1.png)<!-- -->
+![](man/figures/README-plot-node-count-momentum-1.png)<!-- -->
 
 ![](man/figures/README-jump-fluctuations-1.png)<!-- -->
 

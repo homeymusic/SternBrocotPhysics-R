@@ -76,57 +76,99 @@ plot_dt <- dt_summary[momentum >= 1.0, .(
 )]
 ```
 ```{r plot-landauer-squeeze, echo=FALSE}
-# 1. Coordinate Transformation
-plot_dt[, delta_q := 1 / momentum]
+# 1. Prepare data (use momentum directly)
+# Ensure plot_dt contains the original momentum values
+m_range_landauer <- range(plot_dt$momentum, na.rm = TRUE)
 
-# 2. Dynamic Bounds (Filtered to visible X-range)
-q_range <- range(plot_dt$delta_q, na.rm = TRUE)
+# Find Y-range for the ribbon and lines
+y_range_landauer <- range(c(plot_dt$y_mean + plot_dt$y_sd, 
+                            plot_dt$y_mean - plot_dt$y_sd), na.rm = TRUE)
 
-# Find Y-range ONLY for points where delta_q is within our q_range
-visible_data <- plot_dt[delta_q >= q_range[1] & delta_q <= q_range[2]]
-y_range <- range(c(visible_data$y_mean + visible_data$y_sd, 
-                   visible_data$y_mean - visible_data$y_sd), na.rm = TRUE)
+# Calculate spans for aspect ratio
+m_span <- diff(m_range_landauer)
+y_span <- diff(y_range_landauer)
+data_aspect_ratio_landauer <- pmin(0.5, y_span / m_span)
 
-# Calculate spans and a landscape-biased ratio
-q_span <- diff(q_range)
-y_span <- diff(y_range)
+# 2. Visualization
+# Updated title for Momentum P
+plot_title_m <- latex2exp::TeX("Landauer Action $A_L$ vs. Momentum $P$")
 
-# Force a landscape aspect ratio: Height is 50% of Width unless data is very tall
-# This prevents the "too much vertical space" issue
-data_aspect_ratio <- pmin(0.5, y_span / q_span) 
-
-# 3. Visualization
-norm_q_title <- latex2exp::TeX("Normalized Coordinate Uncertainty $\\Delta Q = 2/P$ \\[$q_0$\\]")
-plot_title <- latex2exp::TeX("Landauer Action $A_L$ vs. Coordinate Uncertainty $\\Delta Q$")
-
-p_main <- ggplot(plot_dt, aes(x = delta_q)) +
-  geom_vline(xintercept = 1/p_markers, color = "grey70", linetype = "dashed", alpha = 0.5) +
+p_main_m <- ggplot(plot_dt, aes(x = momentum)) +
+  # Use p_markers directly as x-intercepts
+  geom_vline(xintercept = p_markers, color = "grey70", linetype = "dashed", alpha = 0.5) +
   geom_ribbon(aes(ymin = y_mean - y_sd, ymax = y_mean + y_sd), fill = "gray50", alpha = 0.1) +
   geom_line(aes(y = y_mean, color = "A Mean"), linewidth = 1) +
   geom_line(aes(y = y_med, color = "A Median"), linewidth = 1) +
+  # Standard scale (no reverse)
   scale_color_manual(values = c("A Mean" = "gray30", "A Median" = "black")) +
-  scale_x_reverse(breaks = seq(0, 1, by = 0.2), expand = c(0.02, 0.02)) + 
-  labs(title = plot_title, x = norm_q_title, y = "Action $A_L$", color = "Series") +
+  labs(
+    title = plot_title_m, 
+    x = "Momentum (P)", 
+    y = "Action $A_L$", 
+    color = "Series"
+  ) +
   theme_minimal() + 
   theme(
     legend.position = "bottom",
-    aspect.ratio = data_aspect_ratio, # This makes it "wider than tall"
+    aspect.ratio = data_aspect_ratio_landauer,
     axis.title.x = element_text(margin = margin(t = 10))
   ) +
-  # coord_cartesian "zooms" into the data-heavy area
-  coord_cartesian(xlim = q_range, ylim = y_range, expand = FALSE, clip = "off")
+  # Use original momentum ranges
+  coord_cartesian(xlim = m_range_landauer, ylim = y_range_landauer, expand = FALSE, clip = "off")
+
+# 3. Save
+ggplot2::ggsave(
+  filename = file.path(manuscript_dir, "landauer_momentum.pdf"),
+  plot = p_main_m, 
+  width = 8, 
+  height = (8 * data_aspect_ratio_landauer) + 1, 
+  device = grDevices::cairo_pdf
+)
+
+print(p_main_m)
+```
+```{r plot-node-count-momentum, echo=FALSE}
+# 1. Prepare data
+plot_nodes <- dt_summary[momentum >= 1.0, .(
+  momentum = as.numeric(momentum),
+  y        = as.numeric(node_count)
+)]
+
+# 2. Dynamic Bounds (using momentum for the x-span)
+m_range <- range(plot_nodes$momentum, na.rm = TRUE)
+y_range <- range(plot_nodes$y, na.rm = TRUE)
+data_aspect_ratio <- pmin(0.5, diff(y_range) / diff(m_range))
+
+# 3. Visualization
+p_nodes <- ggplot(plot_nodes, aes(x = momentum, y = y)) +
+  # Use p_markers directly as x-intercepts
+  geom_vline(xintercept = p_markers, color = "grey70", linetype = "dashed", alpha = 0.5) +
+  geom_point(size = 0.2, alpha = 0.6, color = "black") +
+  # Standard linear scale (removed scale_x_reverse)
+  labs(
+    title = "Node Count vs. Momentum", 
+    x = "Momentum (P)", 
+    y = "Node Count"
+  ) +
+  theme_minimal() + 
+  theme(
+    aspect.ratio = data_aspect_ratio,
+    axis.title.x = element_text(margin = margin(t = 10))
+  ) +
+  coord_cartesian(xlim = m_range, ylim = y_range, expand = FALSE, clip = "off")
 
 # 4. Save
 ggplot2::ggsave(
-  filename = file.path(manuscript_dir, "landauer_squeeze.pdf"),
-  plot = p_main, 
+  filename = file.path(manuscript_dir, "node_count_momentum.pdf"),
+  plot = p_nodes, 
   width = 8, 
   height = (8 * data_aspect_ratio) + 1, 
   device = grDevices::cairo_pdf
 )
 
-print(p_main)
+print(p_nodes)
 ```
+
 ```{r distribution-helper, echo=FALSE}
 # --- CORE PLOTTING FUNCTION (OPTIMIZED) ---
 generate_physics_grid <- function(jumps_subset) {
@@ -164,9 +206,9 @@ generate_physics_grid <- function(jumps_subset) {
           # Sharp staircase outline
           ggplot2::geom_step(direction = "hv", color = "black", linewidth = 0.3) +
           # Pre-computed red nodes
-          ggplot2::geom_point(data = node_data, color = "red", size = 1.2, shape = 16) +
+          ggplot2::geom_point(data = node_data, color = "black", size = 1.2, shape = 16) +
           ggplot2::labs(
-            title = paste0(jumps_subset[[j]]$n, " (", node_label, ") at P = ", sprintf("%.2f", current_p)), 
+            title = paste0(jumps_subset[[j]]$n, " Nodes: ", node_label, " at P = ", sprintf("%.2f", current_p)), 
             x = "q", y = ""
           ) +
           ggplot2::theme_minimal(base_family = "mono") +
@@ -194,7 +236,7 @@ generate_physics_grid <- function(jumps_subset) {
       subtitle = "PRE-COMPUTED GABOR NODES (1/4π)",
       theme = ggplot2::theme(
         plot.title = ggplot2::element_text(hjust = 0.5, face = "bold", size = 14, family = "mono"),
-        plot.subtitle = ggplot2::element_text(hjust = 0.5, size = 10, family = "mono", color = "red")
+        plot.subtitle = ggplot2::element_text(hjust = 0.5, size = 10, family = "mono", color = "black")
       )
     )
 }
@@ -305,51 +347,4 @@ ggplot2::ggsave(
   width  = 10, 
   height = dynamic_h
 )
-```
-
-
-```{r plot-single-histogram, fig.width=8, fig.asp=0.6, out.width="100%"}
-# 1. Configuration
-target_p  <- 25.24
-hist_path <- here::here("data-raw", "outputs", "02_aggregated_summary", "histograms", 
-                        sprintf("histogram_P_%013.6f.csv.gz", target_p))
-
-if (file.exists(hist_path)) {
-  combined_dt <- data.table::fread(hist_path)
-  count_val   <- combined_dt$node_count[1]
-  hist_data   <- combined_dt[type == "hist"]
-  node_data   <- combined_dt[type == "node"]
-
-  # Calculate the exact bin width to ensure bars touch perfectly
-  bin_width <- if(nrow(hist_data) > 1) diff(hist_data$x[1:2]) else 0.1
-
-  ggplot(hist_data, aes(x = x, y = y)) +
-    # Reference axis
-    geom_vline(xintercept = 0, color = "grey80", linetype = "dashed", linewidth = 0.4) +
-    
-    # THE FIX: geom_col creates the "stepped" area look perfectly 
-    # and is guaranteed to be "gap-free" on all ggplot2 versions.
-    geom_col(fill = "black", alpha = 0.25, width = bin_width) +
-    
-    # The Outline: Standard 'hv' step sits right on top of the bars
-    geom_step(direction = "hv", color = "black", linewidth = 0.4) +
-    
-    # Precision Node Markers
-    geom_point(data = node_data, color = "red", size = 1.8, shape = 16) +
-    
-    labs(
-      title = paste("Momentum P:", sprintf("%.2f", target_p)),
-      subtitle = paste("Detected Node Count:", count_val),
-      x = "q",
-      y = "Count at q"
-    ) +
-    theme_minimal(base_family = "mono") + 
-    theme(
-      plot.title = element_text(face = "bold", size = 12),
-      plot.subtitle = element_text(color = "red", size = 10),
-      panel.grid.minor = element_blank(),
-      axis.title = element_text(size = 9),
-      panel.border = element_rect(color = "grey90", fill = NA, linewidth = 0.5)
-    )
-}
 ```
