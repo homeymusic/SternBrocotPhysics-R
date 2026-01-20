@@ -5,12 +5,13 @@ library(data.table)
 library(future.apply)
 library(Rcpp)
 
-# --- CONFIGURATION ---
 workers_to_use <- parallel::detectCores() / 2
 future::plan(future::multisession, workers = workers_to_use)
 
-raw_dir  <- here::here("data-raw", "outputs", "01_micro_macro_erasures")
-agg_dir  <- here::here("data-raw", "outputs", "02_aggregated_summary")
+# Updated to match External Volume from Script 01
+raw_dir  <- "/Volumes/SternBrocot/01_micro_macro_erasures"
+agg_dir  <- "/Volumes/SternBrocot/02_aggregated_summary"
+
 hist_dir <- file.path(agg_dir, "histograms")
 if (!dir.exists(hist_dir)) dir.create(hist_dir, recursive = TRUE)
 
@@ -83,13 +84,14 @@ process_file_full <- function(f, out_path) {
     dot_df <- data.table(x = numeric(0), y = numeric(0))
 
     if (!is.null(res_r) && !is.null(res_l)) {
-      in_l <- if(nrow(res_l) > 0) res_l[which.max(x)] else list(x=-Inf, y=0)
-      in_r <- if(nrow(res_r) > 0) res_r[which.min(x)] else list(x=Inf, y=0)
-      if(y_center <= in_l$y && y_center <= in_r$y) {
-        dot_df <- rbind(data.table(x = 0, y = y_center), res_l[x < in_l$x], res_r[x > in_r$x], fill=TRUE)
-      } else {
-        dot_df <- rbind(res_l, res_r, fill=TRUE)
-      }
+      # MODIFIED LOGIC START: Unconditionally include the center point
+      dot_df <- rbind(
+        data.table(x = 0, y = y_center),
+        res_l,
+        res_r,
+        fill = TRUE
+      )
+      # MODIFIED LOGIC END
     } else {
       dot_df <- rbind(res_l, res_r, fill=TRUE)
     }
