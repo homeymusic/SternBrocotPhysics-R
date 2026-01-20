@@ -8,6 +8,7 @@ output:
 knitr::opts_knit$set(root.dir = here::here())
 knitr::opts_chunk$set(fig.showtext = TRUE, dpi = 300)
 library(ggplot2)
+library(patchwork)
 library(ggforce)
 library(dplyr)
 library(tidyr)
@@ -67,55 +68,181 @@ p_markers <- dt_summary$momentum[jump_indices]
 ```{r introduction, child = 'inst/readme/introduction.Rmd'}
 ```
 
-```{r landauer-analysis, echo=FALSE}
-plot_dt <- dt_summary[momentum >= 1.0, .(
-  momentum = as.numeric(momentum),
-  y_mean   = as.numeric(kolmogorov_complexity_mean),
-  y_med    = as.numeric(kolmogorov_complexity_median),
-  y_sd     = as.numeric(kolmogorov_complexity_sd)
+```{r dual-aspect-complexity, echo=FALSE, fig.width=12, fig.height=6}
+# 1. Data Preparation
+plot_dt_q <- dt_summary[momentum > 0.0, .(
+  q_val  = 1 / as.numeric(momentum),
+  y_mean = as.numeric(kolmogorov_complexity_mean),
+  y_med  = as.numeric(kolmogorov_complexity_median),
+  y_sd   = as.numeric(kolmogorov_complexity_sd)
 )]
-```
-```{r plot-landauer-squeeze, echo=FALSE}
-# 1. Basic Title Setup
-plot_title_m <- latex2exp::TeX("Landauer Action $A_L$ vs. Momentum $P$")
 
-# 2. Visualization (Starting from a clean slate)
-p_main_m <- ggplot(plot_dt, aes(x = momentum)) +
-  # Standard Reference Lines
-  geom_vline(xintercept = p_markers, color = "grey70", linetype = "dashed", alpha = 0.5) +
-  
-  # Data Layers
+plot_dt_p <- dt_summary[momentum > 0.0, .(
+  p_val  = as.numeric(momentum),
+  y_mean = as.numeric(kolmogorov_complexity_mean),
+  y_med  = as.numeric(kolmogorov_complexity_median),
+  y_sd   = as.numeric(kolmogorov_complexity_sd)
+)]
+
+# 2. Plot A: K(Q_0) vs. Q
+p_spatial <- ggplot(plot_dt_q, aes(x = q_val)) +
+  geom_vline(xintercept = 1/p_markers, color = "grey80", linetype = "dashed", alpha = 0.5) +
   geom_ribbon(aes(ymin = y_mean - y_sd, ymax = y_mean + y_sd), fill = "gray50", alpha = 0.1) +
-  geom_line(aes(y = y_mean, color = "A Mean"), linewidth = 1) +
-  geom_line(aes(y = y_med, color = "A Median"), linewidth = 1) +
-  
-  # Scales & Labels
-  scale_color_manual(values = c("A Mean" = "gray30", "A Median" = "black")) +
+  geom_line(aes(y = y_mean, color = "Mean"), linewidth = 0.6) +
+  geom_line(aes(y = y_med, color = "Median"), linewidth = 1.0) + # Highlight jumps
+  scale_color_manual(values = c("Mean" = "gray60", "Median" = "black")) +
   labs(
-    title = plot_title_m, 
-    x = "Momentum (P)", 
-    y = "Action $A_L$", 
+    title = latex2exp::TeX("Coordinate Complexity: $K(Q_0)$ vs. $Q$"),
+    x = latex2exp::TeX("Coordinate $Q = 1/P$ [$q/q_0$]"),
+    y = "Complexity [bits]",
     color = "Series"
   ) +
-  
-  # Using standard theme without fixed aspect ratios
-  theme_minimal() + 
-  theme(legend.position = "bottom")
+  theme_minimal() +
+  theme(legend.position = "bottom", plot.title = element_text(hjust = 0.5))
 
-# 3. Save (Standard 8x6 is a common "natural" default)
+# 3. Plot B: K(P_0) vs. P
+p_momentum <- ggplot(plot_dt_p, aes(x = p_val)) +
+  geom_vline(xintercept = p_markers, color = "grey80", linetype = "dashed", alpha = 0.5) +
+  geom_ribbon(aes(ymin = y_mean - y_sd, ymax = y_mean + y_sd), fill = "gray50", alpha = 0.1) +
+  geom_line(aes(y = y_mean, color = "Mean"), linewidth = 0.6) +
+  geom_line(aes(y = y_med, color = "Median"), linewidth = 1.0) + # Highlight jumps
+  scale_color_manual(values = c("Mean" = "gray60", "Median" = "black")) +
+  labs(
+    title = latex2exp::TeX("Momentum Complexity: $K(P_0)$ vs. $P$"),
+    x =  latex2exp::TeX("Momentum P [$p/p_0$]"),
+    y = "Complexity [bits]",
+    color = "Series"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "bottom", plot.title = element_text(hjust = 0.5))
+
+# 4. Layout
+combined_blob_plot <- gridExtra::arrangeGrob(
+  p_spatial, p_momentum, 
+  ncol = 2,
+  top = grid::textGrob("Coordinate and Momentum Complexity", 
+                       gp = grid::gpar(fontsize = 16, font = 2))
+)
+
+# 5. Output and Save
+grid::grid.draw(combined_blob_plot)
+
 ggplot2::ggsave(
-  filename = file.path(manuscript_dir, "landauer_momentum_reset.pdf"),
-  plot = p_main_m, 
-  width = 8, 
-  height = 6, 
+  filename = file.path(manuscript_dir, "complexity.pdf"),
+  plot = combined_blob_plot, 
+  width = 12, 
+  height = 6,
+  device = grDevices::cairo_pdf
+)
+```
+
+```{r dual-aspect-node-count, echo=FALSE, fig.width=12, fig.height=6}
+# 1. Data Preparation
+# Aspect A: Spatial Coordinate Q
+plot_nodes_q <- dt_summary[momentum > 0.0, .(
+  q_val = 1 / as.numeric(momentum),
+  nodes = as.numeric(node_count)
+)]
+
+# Aspect B: Momentum P
+plot_nodes_p <- dt_summary[momentum > 0.0, .(
+  p_val = as.numeric(momentum),
+  nodes = as.numeric(node_count)
+)]
+
+# 2. Plot C: Node Count vs. Q
+p_nodes_spatial <- ggplot(plot_nodes_q, aes(x = q_val, y = nodes)) +
+  geom_vline(xintercept = 1/p_markers, color = "grey80", linetype = "dashed", alpha = 0.5) +
+  geom_point(size = 0.2, alpha = 0.6, color = "black") +
+  labs(
+    title = latex2exp::TeX("Coordinate Node Counts: Nodes vs. $Q$"),
+    x = latex2exp::TeX("Coordinate $Q = 1/P$ [$q/q_0$]"),
+    y = "Node Count [count]"
+  ) +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+# 3. Plot D: Node Count vs. P
+p_nodes_momentum <- ggplot(plot_nodes_p, aes(x = p_val, y = nodes)) +
+  geom_vline(xintercept = p_markers, color = "grey80", linetype = "dashed", alpha = 0.5) +
+  geom_point(size = 0.2, alpha = 0.6, color = "black") +
+  labs(
+    title = latex2exp::TeX("Momentum Node Counts: Nodes vs. $P$"),
+    x =  latex2exp::TeX("Momentum P  [$p/p_0$]"),
+    y = "Node Count [count]"
+  ) +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+# 4. Layout
+combined_nodes_plot <- gridExtra::arrangeGrob(
+  p_nodes_spatial, p_nodes_momentum, 
+  ncol = 2,
+  top = grid::textGrob("Coordinate and Momentum Node Counts", 
+                       gp = grid::gpar(fontsize = 16, font = 2))
+)
+
+# 5. Output and Save
+grid::grid.draw(combined_nodes_plot)
+
+ggplot2::ggsave(
+  filename = file.path(manuscript_dir, "nodes.pdf"),
+  plot = combined_nodes_plot, 
+  width = 12, 
+  height = 6,
   device = grDevices::cairo_pdf
 )
 
-print(p_main_m)
-
 ```
+```{r filter-valid-eigenstates-holographic, echo=FALSE, fig.width=8, fig.height=6}
+# 1. Data Preparation (Your existing P data)
+plot_nodes_p <- dt_summary[momentum > 0.0, .(
+  p_val = as.numeric(momentum),
+  nodes = as.numeric(node_count)
+)]
+
+# 2. Define the Physical Filtering Condition
+# A data point (n, P) is a valid eigenstate if n = floor(P^(1/4))
+# We create a new boolean column 'is_eigenstate' using this exact logic
+plot_nodes_p$is_eigenstate <- floor(plot_nodes_p$p_val/pi) == plot_nodes_p$nodes
+
+# --- Updated Plotting Block with Improved Physics Titles ---
+
+p_momentum_filtered <- ggplot(plot_nodes_p, aes(x = p_val, y = nodes)) +
+  # All Stern-Brocot data points (The "Rational Search")
+  geom_point(color = "grey70", size = 0.2, alpha = 0.4) +
+  geom_vline(xintercept = p_markers, color = "grey80", linetype = "dashed", alpha = 0.5) +
+  
+  # The "Snap-to" Eigenstates (The "Resonant Wave States")
+  geom_point(data = subset(plot_nodes_p, is_eigenstate == TRUE), 
+             color = "red", size = 0.3) +
+             
+  labs(
+    title = latex2exp::TeX("Schrödinger Eigenstates (red) Among All Configurations"),
+    subtitle = "Eigenstates are vanishingly sparse configurations among expanding possibilities in phase space.",
+    x = latex2exp::TeX("Momentum P [$p/p_0$]"),
+    y = latex2exp::TeX("Node Count (Coordinate $Q$ Distriubtions)"),
+    caption = "Red: Eigenstates | Grey: All Configurations"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold", size = 14),
+    plot.subtitle = element_text(hjust = 0.5, size = 10, face = "italic"),
+    axis.title = element_text(size = 11)
+  )
 
 
+# 4. Output and Save
+print(p_momentum_filtered)
+
+ggplot2::ggsave(
+  filename = file.path(manuscript_dir, "eignstates.pdf"),
+  plot = p_momentum_filtered, 
+  width = 8, 
+  height = 6,
+  device = grDevices::cairo_pdf
+)
+```
 ```{r distribution-helper, echo=FALSE}
 # --- CORE PLOTTING FUNCTION (OPTIMIZED) ---
 generate_physics_grid <- function(jumps_subset) {
@@ -179,8 +306,8 @@ generate_physics_grid <- function(jumps_subset) {
   # Assemble the grid
   patchwork::wrap_plots(plot_list, ncol = 3) + 
     patchwork::plot_annotation(
-      title = "Automated Detection of Median Momentum Transitions",
-      subtitle = "PRE-COMPUTED GABOR NODES (1/4π)",
+      title = "Coordinate Distributions Near Complexity Transitions",
+      subtitle = "Automatically Detected Transitions in Median Complexity from Changes in Momentum",
       theme = ggplot2::theme(
         plot.title = ggplot2::element_text(hjust = 0.5, face = "bold", size = 14, family = "mono"),
         plot.subtitle = ggplot2::element_text(hjust = 0.5, size = 10, family = "mono", color = "black")
@@ -294,73 +421,4 @@ ggplot2::ggsave(
   width  = 10, 
   height = dynamic_h
 )
-```
-
-```{r plot-node-count-momentum, echo=FALSE}
-# 1. Prepare data
-plot_nodes <- dt_summary[momentum > 0.0, .(
-  momentum = as.numeric(momentum),
-  y        = as.numeric(node_count)
-)]
-
-# 2. Dynamic Bounds (using momentum for the x-span)
-m_range <- range(plot_nodes$momentum, na.rm = TRUE)
-y_range <- range(plot_nodes$y, na.rm = TRUE)
-data_aspect_ratio <- pmin(0.5, diff(y_range) / diff(m_range))
-
-# 3. Visualization
-p_nodes <- ggplot(plot_nodes, aes(x = momentum, y = y)) +
-  # Use p_markers directly as x-intercepts
-  geom_vline(xintercept = p_markers, color = "grey70", linetype = "dashed", alpha = 0.5) +
-  geom_point(size = 0.2, alpha = 0.6, color = "black") +
-  # Standard linear scale (removed scale_x_reverse)
-  labs(
-    title = "Node Count vs. Momentum", 
-    x = "Momentum (P)", 
-    y = "Node Count"
-  ) +
-  theme_minimal() + 
-  theme(
-    aspect.ratio = data_aspect_ratio,
-    axis.title.x = element_text(margin = margin(t = 10))
-  ) +
-  coord_cartesian(xlim = m_range, ylim = y_range, expand = FALSE, clip = "off")
-
-# 4. Save
-ggplot2::ggsave(
-  filename = file.path(manuscript_dir, "node_count_momentum.pdf"),
-  plot = p_nodes, 
-  width = 8, 
-  height = (8 * data_aspect_ratio) + 1, 
-  device = grDevices::cairo_pdf
-)
-
-print(p_nodes)
-```
-
-
-```{r plot-complexity-node-count, echo=FALSE}
-# 1. Prepare Merged Data
-plot_combined <- dt_summary[momentum > 0.0, .(
-  a_mean   = as.numeric(kolmogorov_complexity_mean),
-  a_med    = as.numeric(kolmogorov_complexity_median),
-  a_sd     = as.numeric(kolmogorov_complexity_sd),
-  nodes    = as.numeric(node_count)
-)]
-
-# 2. Visualization with Integer-Only X-Axis
-ggplot(plot_combined, aes(y = nodes)) +
-  geom_point(aes(x = a_mean, color = "Mean"), size = 0.5, alpha = 0.5) +
-  geom_point(aes(x = a_med, color = "Median"), size = 1) +
-  # Force X-axis to only show whole numbers
-  scale_x_continuous(breaks = function(x) seq(floor(min(x)), ceiling(max(x)), by = 1)) +
-  scale_color_manual(values = c("Mean" = "gray30", "Median" = "black")) +
-  labs(
-    title = "Node Count Scaling with Complexity",
-    x = "Complexity (Integer Measures)",
-    y = "Node Count",
-    color = "Measure"
-  ) +
-  theme_minimal()
-
 ```
