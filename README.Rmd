@@ -198,6 +198,100 @@ ggplot2::ggsave(
 )
 
 ```
+
+```{r momentum-counts-histogram, echo=FALSE, warning=FALSE, message=FALSE, fig.width=10, fig.height=6}
+# Calculate the count of momentum entries per quantum number (n)
+momentum_counts <- dt_summary[momentum > 0.0, .(
+  Count = .N
+), by = .(n = as.integer(node_count))]
+
+# Plot the counts as a bar chart
+ggplot2::ggplot(momentum_counts, ggplot2::aes(x = n, y = Count)) +
+  ggplot2::geom_col(fill = "steelblue", color = "black", alpha = 0.8) +
+  ggplot2::labs(
+    title = "Data Availability: Count of Momentum Values per Quantum Number (n)",
+    x = "Quantum Number (Node Count)",
+    y = "Number of Data Points (Momentum entries)"
+  ) +
+  ggplot2::theme_minimal() +
+  ggplot2::theme(
+    plot.title = ggplot2::element_text(hjust = 0.5, face = "bold"),
+    # Rotate axis text if needed for dense X-axis labels
+    # axis.text.x = ggplot2::element_text(angle = 90, hjust = 1, vjust = 0.5) 
+  )
+```
+
+```{r setup-height-variables-lower-median, echo=FALSE, warning=FALSE, message=FALSE}
+# --- 1. Define Helper Function (DRY plotting logic) ---
+# This function creates the plot object and saves the PDF, but doesn't print it.
+generate_plot_object <- function(target_data, plot_title, file_name) {
+  cols <- 3
+  plot_storage <- vector("list", nrow(target_data))
+  
+  for (i in seq_len(nrow(target_data))) {
+    cur_n <- target_data$n[i]; cur_p <- target_data$momentum[i]
+    
+    # --- Using your original, working sprintf format ---
+    f_path <- here::here("data-raw", "outputs", "02_aggregated_summary", "histograms", 
+                         sprintf("histogram_P_%013.6f.csv.gz", round(cur_p, 6)))
+    # --------------------------------------------------------
+
+    if (file.exists(f_path)) {
+      d_temp <- data.table::fread(f_path)
+      h_pts <- d_temp[type == "hist"]; n_pts <- d_temp[type == "node"]
+      bw <- if(nrow(h_pts) > 1) diff(h_pts$x[1:2]) else 0.1
+
+      plot_storage[[i]] <- ggplot2::ggplot(h_pts, ggplot2::aes(x, y)) +
+        ggplot2::geom_col(fill = "black", alpha = 0.25, width = bw) +
+        ggplot2::geom_point(data = n_pts, size = 1.2, shape = 16) +
+        ggplot2::labs(title = paste0("n=", cur_n, " | P=", round(cur_p, 3)), x = "q", y = "") +
+        ggplot2::theme_minimal(base_family = "mono")
+    } else {
+      plot_storage[[i]] <- ggplot2::ggplot() + ggplot2::theme_void() +
+                           ggplot2::labs(title = paste("File Missing n=", cur_n, " P=", round(cur_p, 6)))
+    }
+  }
+
+  combined <- patchwork::wrap_plots(plot_storage, ncol = cols) + 
+              patchwork::plot_annotation(title = plot_title)
+              
+  height_inches <- ceiling(nrow(target_data) / cols) * 3
+  ggplot2::ggsave(file.path(manuscript_dir, file_name), combined, width = 10, height = height_inches, limitsize = FALSE)
+  
+  return(list(plot_object = combined, dynamic_height = height_inches))
+}
+
+# --- 2. Data Preparation (Median Momenta using robust indexing) ---
+
+# A. Base Data Prep (as in your working snippet)
+plot_nodes_p <- dt_summary[momentum > 0.0, .(p_val = as.numeric(momentum), nodes = as.numeric(node_count))]
+
+# B. Full Collection (All n from 0 to 100) using robust indexing
+# Select the LOWER of the two middle indices if even (.I[floor((.N+1)/2)])
+dt_full <- plot_nodes_p[nodes <= 100]
+data.table::setorder(dt_full, nodes, p_val)
+dt_full_median <- dt_full[dt_full[, .I[floor((.N+1)/2)], by = nodes]$V1][, .(n = nodes, momentum = p_val)]
+
+
+# C. Eigenstate Collection (P/pi logic) using robust indexing
+dt_eigen <- plot_nodes_p[nodes <= 100 & floor(p_val/pi) == nodes]
+data.table::setorder(dt_eigen, nodes, p_val)
+dt_eigen_median <- dt_eigen[dt_eigen[, .I[floor((.N+1)/2)], by = nodes]$V1][, .(n = nodes, momentum = p_val)]
+
+
+# --- 3. Generate Plots and Capture Dynamic Heights ---
+render_full <- generate_plot_object(dt_full_median, "Full Distribution Sequence (n=0-100, Lower Median P)", "all_nodes_median_lower.pdf")
+full_height <- render_full$dynamic_height
+
+render_eigen <- generate_plot_object(dt_eigen_median, "Eigenstate Distribution Sequence (Lower Median P)", "eigen_nodes_median_lower.pdf")
+eigen_height <- render_eigen$dynamic_height
+```
+
+```{r plot-full-grid-lower, echo=FALSE, fig.width=10, fig.height=full_height, warning=FALSE, message=FALSE}
+# This chunk displays the full 0-100 grid with correct height in the Rmd output
+render_full$plot_object
+```
+
 ```{r filter-valid-eigenstates, echo=FALSE, fig.width=8, fig.height=6}
 # 1. Data Preparation (Your existing P data)
 plot_nodes_p <- dt_summary[momentum > 0.0, .(
@@ -251,88 +345,11 @@ ggplot2::ggsave(
   device = grDevices::cairo_pdf
 )
 ```
-```{r eigen-distributions-median, echo=FALSE, warning=FALSE, message=FALSE}
-# --- 1. CONFIGURATION & SCALING ---
-max_rows_to_plot <- 200  # How many quantum numbers (rows) to show
-cols_per_row     <- 3
 
-# --- 2. DATA PREPARATION (MEDIAN MOMENTA) ---
-eigen_momenta <- plot_nodes_p[is_eigenstate == TRUE, .(
-  n = as.integer(nodes),
-  momentum = as.numeric(p_val)
-)]
-
-# Group by n, sort by momentum, and pick the middle (median) entry
-data.table::setorder(eigen_momenta, n, momentum)
-eigen_momenta_median <- eigen_momenta[eigen_momenta[, .I[ceiling(.N/2)], by = n]$V1]
-
-# Subset for the plot
-subset_eigen <- head(eigen_momenta_median, max_rows_to_plot)
-
-# DYNAMIC HEIGHT: 3 units per row (matches your jumps logic)
-dynamic_h_eigen <- ceiling(nrow(subset_eigen) / cols_per_row) * 3
+```{r plot-eigen-grid-display-lower, echo=FALSE, fig.width=10, fig.height=eigen_height, warning=FALSE, message=FALSE}
+# This chunk displays the Eigenstates grid with correct height in the Rmd output
+render_eigen$plot_object
 ```
-
-```{r plot-eigen-grid, echo=FALSE, fig.width=10, fig.height=dynamic_h_eigen, warning=FALSE, message=FALSE}
-# --- 3. GENERATE GRID ---
-plot_list <- vector("list", nrow(subset_eigen))
-
-for (i in seq_len(nrow(subset_eigen))) {
-  current_n <- subset_eigen$n[i]
-  current_p <- subset_eigen$momentum[i]
-  
-  f_name <- sprintf("histogram_P_%013.6f.csv.gz", round(current_p, 6))
-  f_path <- here::here("data-raw", "outputs", "02_aggregated_summary", "histograms", f_name)
-
-  if (file.exists(f_path)) {
-    combined_dt <- data.table::fread(f_path)
-    hist_data   <- combined_dt[type == "hist"]
-    node_data   <- combined_dt[type == "node"]
-    b_width     <- if(nrow(hist_data) > 1) diff(hist_data$x[1:2]) else 0.1
-
-    plot_list[[i]] <- ggplot2::ggplot(hist_data, ggplot2::aes(x = x, y = y)) +
-      ggplot2::geom_vline(xintercept = 0, color = "grey80", linetype = "dashed", linewidth = 0.4) +
-      ggplot2::geom_col(fill = "black", alpha = 0.25, width = b_width) +
-      ggplot2::geom_step(direction = "hv", color = "black", linewidth = 0.3) +
-      ggplot2::geom_point(data = node_data, color = "black", size = 1.2, shape = 16) +
-      ggplot2::labs(
-        title = paste0("n = ", current_n, " | P = ", sprintf("%.4f", current_p)), 
-        x = "q", y = ""
-      ) +
-      ggplot2::theme_minimal(base_family = "mono") +
-      ggplot2::theme(
-        plot.title = ggplot2::element_text(size = 9, face = "bold"),
-        panel.grid.minor = ggplot2::element_blank()
-      )
-  } else {
-    plot_list[[i]] <- ggplot2::ggplot() + ggplot2::theme_void()
-  }
-}
-
-# Assemble with Patchwork
-final_plot <- patchwork::wrap_plots(plot_list, ncol = cols_per_row) + 
-  patchwork::plot_annotation(
-    title = "Median Eigenstate Distributions",
-    subtitle = "One representative configuration per quantum number n",
-    theme = ggplot2::theme(
-      plot.title = ggplot2::element_text(hjust = 0.5, face = "bold", size = 14, family = "mono")
-    )
-  )
-
-# Display
-final_plot
-
-# Save
-ggplot2::ggsave(
-  filename = file.path(manuscript_dir, "eigen_distributions_median.pdf"),
-  plot   = final_plot, 
-  width  = 10, 
-  height = dynamic_h_eigen,
-  device = grDevices::cairo_pdf,
-  limitsize = FALSE
-)
-```
-
 
 
 ```{r distribution-helper, echo=FALSE}

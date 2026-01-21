@@ -7,9 +7,14 @@ physics using the Stern-Brocot tree.
 ![](man/figures/README-dual-aspect-complexity-1.png)<!-- -->
 
 ![](man/figures/README-dual-aspect-node-count-1.png)<!-- -->
+
+![](man/figures/README-momentum-counts-histogram-1.png)<!-- -->
+
+![](man/figures/README-plot-full-grid-lower-1.png)<!-- -->
+
 ![](man/figures/README-filter-valid-eigenstates-1.png)<!-- -->
 
-![](man/figures/README-plot-eigen-grid-1.png)<!-- -->
+![](man/figures/README-plot-eigen-grid-display-lower-1.png)<!-- -->
 
 ![](man/figures/README-distributions-for-manuscript-1.png)<!-- -->
 
