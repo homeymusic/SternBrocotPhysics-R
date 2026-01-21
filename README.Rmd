@@ -221,6 +221,90 @@ ggplot2::ggplot(momentum_counts, ggplot2::aes(x = n, y = Count)) +
   )
 ```
 
+```{r setup-height-variables-dynamic-eigen, echo=FALSE, warning=FALSE, message=FALSE}
+# --- 1. Updated Helper Function with Better Placeholder Language ---
+generate_plot_object <- function(target_data, plot_title, file_name, type = "all") {
+  cols <- 3
+  plot_storage <- vector("list", nrow(target_data))
+  
+  for (i in seq_len(nrow(target_data))) {
+    cur_n <- target_data$n[i]; cur_p <- target_data$momentum[i]
+    
+    # Check if this row is a "placeholder" (momentum is NA)
+    if (is.na(cur_p)) {
+      plot_storage[[i]] <- ggplot2::ggplot() + 
+        ggplot2::annotate("text", x = 0.5, y = 0.5, 
+                          label = paste0("n = ", cur_n, "\nNon-Schrödinger\nEigenstate"),
+                          family = "mono", fontface = "italic", size = 3, color = "red") +
+        ggplot2::theme_void() +
+        ggplot2::theme(panel.background = ggplot2::element_rect(fill = "grey98", color = "grey90"))
+      next
+    }
+
+    f_path <- here::here("data-raw", "outputs", "02_aggregated_summary", "histograms", 
+                         sprintf("histogram_P_%013.6f.csv.gz", round(cur_p, 6)))
+
+    if (file.exists(f_path)) {
+      d_temp <- data.table::fread(f_path)
+      h_pts <- d_temp[type == "hist"]; n_pts <- d_temp[type == "node"]
+      bw <- if(nrow(h_pts) > 1) diff(h_pts$x[1:2]) else 0.1
+
+      plot_storage[[i]] <- ggplot2::ggplot(h_pts, ggplot2::aes(x, y)) +
+        ggplot2::geom_col(fill = "black", alpha = 0.25, width = bw) +
+        ggplot2::geom_point(data = n_pts, size = 1.2, shape = 16) +
+        ggplot2::labs(title = paste0("n=", cur_n, " | P=", round(cur_p, 3)), x = "q", y = "") +
+        ggplot2::theme_minimal(base_family = "mono")
+    } else {
+      plot_storage[[i]] <- ggplot2::ggplot() + ggplot2::theme_void() +
+                           ggplot2::labs(title = paste("File Missing n=", cur_n))
+    }
+  }
+
+  combined <- patchwork::wrap_plots(plot_storage, ncol = cols) + 
+              patchwork::plot_annotation(title = plot_title)
+              
+  height_inches <- ceiling(nrow(target_data) / cols) * 3
+  ggplot2::ggsave(file.path(manuscript_dir, file_name), combined, width = 10, height = height_inches, limitsize = FALSE)
+  
+  return(list(plot_object = combined, dynamic_height = height_inches))
+}
+
+# --- 2. Data Preparation (Driven by Experimental Data) ---
+
+plot_nodes_p <- dt_summary[momentum > 0.0, .(
+  p_val = as.numeric(momentum), 
+  nodes = as.numeric(node_count)
+)]
+
+plot_nodes_p[, is_eigenstate := (floor(p_val / pi) == nodes)]
+max_n_found <- max(plot_nodes_p$nodes, na.rm = TRUE)
+
+# A. Full Collection (Median P)
+data.table::setorder(plot_nodes_p, nodes, p_val)
+dt_full_median <- plot_nodes_p[plot_nodes_p[, .I[floor((.N+1)/2)], by = nodes]$V1][, .(n = nodes, momentum = p_val)]
+
+# B. Eigenstate Collection (With explicit gaps for Inaccessible States)
+dt_eigen_raw <- plot_nodes_p[is_eigenstate == TRUE]
+dt_eigen_subset <- dt_eigen_raw[dt_eigen_raw[, .I[floor((.N+1)/2)], by = nodes]$V1][, .(n = nodes, momentum = p_val)]
+
+# Force a complete sequence from 0 to max_n_found to reveal the gaps
+dt_eigen_median <- data.table::data.table(n = 0:max_n_found)
+dt_eigen_median <- merge(dt_eigen_median, dt_eigen_subset, by = "n", all.x = TRUE)
+
+
+# --- 3. Generate Plots ---
+render_full <- generate_plot_object(dt_full_median, "Full Distribution Sequence", "all_nodes_median.pdf")
+full_height <- render_full$dynamic_height
+
+render_eigen <- generate_plot_object(dt_eigen_median, "Eigenstate Distribution Sequence (Showing Inaccessible Gaps)", "eigen_nodes_gaps.pdf")
+eigen_height <- render_eigen$dynamic_height
+```
+
+```{r plot-eigen-grid-display-dynamic, echo=FALSE, fig.width=10, fig.height=eigen_height, warning=FALSE, message=FALSE}
+# This displays the grid showing the "Inaccessible" placeholders for n=3, 8, 20, etc.
+render_eigen$plot_object
+```
+
 ```{r setup-height-variables-lower-median, echo=FALSE, warning=FALSE, message=FALSE}
 # --- 1. Define Helper Function (DRY plotting logic) ---
 generate_plot_object <- function(target_data, plot_title, file_name) {
