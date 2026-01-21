@@ -253,7 +253,7 @@ ggplot2::ggsave(
 ```
 ```{r eigen-distributions-median, echo=FALSE, warning=FALSE, message=FALSE}
 # --- 1. CONFIGURATION & SCALING ---
-max_rows_to_plot <- 20  # How many quantum numbers (rows) to show
+max_rows_to_plot <- 200  # How many quantum numbers (rows) to show
 cols_per_row     <- 3
 
 # --- 2. DATA PREPARATION (MEDIAN MOMENTA) ---
