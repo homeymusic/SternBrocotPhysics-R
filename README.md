@@ -4,7 +4,6 @@ Stern-Brocot Physics
 An R package for computational experiments in classical and quantum
 physics using the Stern-Brocot tree.
 
-![](man/figures/README-distribution-grid-1.png)<!-- -->
 ![](man/figures/README-dual-aspect-complexity-1.png)<!-- -->
 
 ![](man/figures/README-dual-aspect-node-count-1.png)<!-- -->

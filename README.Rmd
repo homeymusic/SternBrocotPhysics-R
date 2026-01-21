@@ -68,56 +68,6 @@ p_markers <- dt_summary$momentum[jump_indices]
 ```{r introduction, child = 'inst/readme/introduction.Rmd'}
 ```
 
-```{r distribution-grid, echo=FALSE, message=FALSE, warning=FALSE, fig.width=14, fig.height=10}
-library(ggplot2)
-library(data.table)
-library(patchwork)
-
-# 1. Identify all histogram files in the directory
-hist_dir <- here::here("data-raw", "outputs", "02_aggregated_summary", "histograms")
-all_hist_files <- list.files(hist_dir, pattern = "histogram_P_.*\\.csv\\.gz$", full.names = TRUE)
-
-# 2. Loop through and build the plot list
-plot_list <- list()
-
-for (f_path in all_hist_files) {
-  # Extract P value from filename for the title
-  current_p <- as.numeric(gsub(".*_P_([0-9.]+)\\.csv\\.gz", "\\1", basename(f_path)))
-  
-  combined_dt <- data.table::fread(f_path)
-  
-  # node_count is stored in every row; grab the first one
-  node_count <- combined_dt$node_count[1]
-  hist_data  <- combined_dt[type == "hist"]
-  node_data  <- combined_dt[type == "node"]
-  
-  # Calculate bin width
-  b_width <- if(nrow(hist_data) > 1) diff(hist_data$x[1:2]) else 0.1
-
-  p_obj <- ggplot(hist_data, aes(x = x, y = y)) +
-    geom_vline(xintercept = 0, color = "grey85", linetype = "dashed", linewidth = 0.4) +
-    geom_col(fill = "steelblue", alpha = 0.2, width = b_width) +
-    geom_step(direction = "mid", color = "black", linewidth = 0.4) +
-    geom_point(data = node_data, aes(x = x, y = y), color = "firebrick", size = 1.5, shape = 18) +
-    labs(
-      title = paste0("P = ", sprintf("%.2f", current_p)),
-      subtitle = paste0("Nodes: ", ifelse(is.na(node_count), "DC Case", node_count)),
-      x = "Fluctuation", y = "Count"
-    ) +
-    theme_minimal(base_size = 9) +
-    theme(panel.grid.minor = element_blank())
-
-  plot_list[[length(plot_list) + 1]] <- p_obj
-}
-
-# 3. Render the dynamic grid
-if (length(plot_list) > 0) {
-  # Use patchwork to auto-arrange; adjust ncol based on your preference
-  wrap_plots(plot_list, ncol = 3)
-} else {
-  cat("No histogram files found in:", hist_dir)
-}
-```
 ```{r dual-aspect-complexity, echo=FALSE, fig.width=12, fig.height=6}
 # 1. Data Preparation
 plot_dt_q <- dt_summary[momentum > 0.0, .(
@@ -135,14 +85,16 @@ plot_dt_p <- dt_summary[momentum > 0.0, .(
 )]
 
 # 2. Plot A: K(Q_0) vs. Q
+# Updated Plot A: K(Q_0) vs. Q with Log Scaling
 p_spatial <- ggplot(plot_dt_q, aes(x = q_val)) +
   geom_vline(xintercept = 1/p_markers, color = "grey80", linetype = "dashed", alpha = 0.5) +
   geom_ribbon(aes(ymin = y_mean - y_sd, ymax = y_mean + y_sd), fill = "gray50", alpha = 0.1) +
   geom_line(aes(y = y_mean, color = "Mean"), linewidth = 0.6) +
-  geom_line(aes(y = y_med, color = "Median"), linewidth = 1.0) + # Highlight jumps
+  geom_line(aes(y = y_med, color = "Median"), linewidth = 1.0) +
+  scale_x_log10() +  # Added for log scaling
   scale_color_manual(values = c("Mean" = "gray60", "Median" = "black")) +
   labs(
-    title = latex2exp::TeX("Coordinate Complexity: $K(Q_0)$ vs. $Q$"),
+    title = latex2exp::TeX("Coordinate Complexity: $K(Q_0)$ vs. $Q$ (Log Scale)"),
     x = latex2exp::TeX("Coordinate $Q = 1/P$ [$q/q_0$]"),
     y = "Complexity [bits]",
     color = "Series"
@@ -200,17 +152,19 @@ plot_nodes_p <- dt_summary[momentum > 0.0, .(
   nodes = as.numeric(node_count)
 )]
 
-# 2. Plot C: Node Count vs. Q
+# 2. Plot C: Node Count vs. Q with Log Scaling
 p_nodes_spatial <- ggplot(plot_nodes_q, aes(x = q_val, y = nodes)) +
   geom_vline(xintercept = 1/p_markers, color = "grey80", linetype = "dashed", alpha = 0.5) +
   geom_point(size = 0.2, alpha = 0.6, color = "black") +
+  scale_x_log10() +  # Added log scaling for the Q axis
   labs(
-    title = latex2exp::TeX("Coordinate Node Counts: Nodes vs. $Q$"),
+    title = latex2exp::TeX("Coordinate Node Counts: Nodes vs. $Q$ (Log Scale)"),
     x = latex2exp::TeX("Coordinate $Q = 1/P$ [$q/q_0$]"),
     y = "Node Count [count]"
   ) +
   theme_minimal() +
   theme(plot.title = element_text(hjust = 0.5))
+
 
 # 3. Plot D: Node Count vs. P
 p_nodes_momentum <- ggplot(plot_nodes_p, aes(x = p_val, y = nodes)) +
