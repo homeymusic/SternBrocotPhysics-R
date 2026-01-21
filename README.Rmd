@@ -34,7 +34,7 @@ manuscript_dir <- here::here("manuscript")
 
 # File path helper
 get_histogram_path <- function(momentum_val) {
-  here::here("data-raw", "outputs", "02_aggregated_summary", "histograms", 
+  here::here("data-raw", "outputs", "02_quantum_harmonic_oscillator", "histograms", 
              sprintf("histogram_P_%013.6f.csv.gz", round(momentum_val, 6)))
 }
 
@@ -52,8 +52,8 @@ save_plot <- function(plot_obj, filename, width = 10, height = 6) {
 
 # Data preparation helper
 prepare_plot_data <- function(dt_summary) {
-  plot_data <- dt_summary[momentum > 0.0, .(
-    p_val = as.numeric(momentum), 
+  plot_data <- dt_summary[max_momentum > 0.0, .(
+    p_val = as.numeric(max_momentum), 
     nodes = as.numeric(node_count)
   )]
   plot_data[, is_eigenstate := (floor(p_val / pi) == nodes)]
@@ -174,10 +174,10 @@ generate_physics_grid <- function(jumps_subset) {
 ```
 
 ```{r jump-detection, echo=F}
-summary_path <- here::here("data-raw", "outputs", "02_aggregated_summary", "02_aggregated_summary.csv.gz")
+summary_path <- here::here("data-raw", "outputs", "02_quantum_harmonic_oscillator", "02_quantum_harmonic_oscillator.csv.gz")
 dt_summary <- data.table::fread(summary_path)
-data.table::setorder(dt_summary, momentum)
-dt_summary <- dt_summary[momentum > 0.0]
+data.table::setorder(dt_summary, max_momentum)
+dt_summary <- dt_summary[max_momentum > 0.0]
 
 z_diffs <- abs(diff(dt_summary$kolmogorov_complexity_median))
 threshold <- max(z_diffs, na.rm = TRUE) * 0.0001
@@ -185,29 +185,29 @@ jump_indices <- which(z_diffs > threshold)
 
 jumps <- lapply(seq_along(jump_indices), function(i) {
   idx <- jump_indices[i]
-  m_at <- dt_summary$momentum[idx + 1]
+  m_at <- dt_summary$max_momentum[idx + 1]
   list(
     n = paste("Transition", i),
     p_vals = c(m_at-1, m_at, m_at+1)
   )
 })
 
-p_markers <- dt_summary$momentum[jump_indices]
+p_markers <- dt_summary$max_momentum[jump_indices]
 ```
 
 ```{r introduction, child = 'inst/readme/introduction.Rmd'}
 ```
 
 ```{r dual-aspect-complexity, echo=FALSE, fig.width=12, fig.height=6}
-plot_dt_q <- dt_summary[momentum > 0.0, .(
-  q_val = 1 / as.numeric(momentum),
+plot_dt_q <- dt_summary[max_momentum > 0.0, .(
+  q_val = 1 / as.numeric(max_momentum),
   y_mean = as.numeric(kolmogorov_complexity_mean),
   y_med = as.numeric(kolmogorov_complexity_median),
   y_sd = as.numeric(kolmogorov_complexity_sd)
 )]
 
-plot_dt_p <- dt_summary[momentum > 0.0, .(
-  p_val = as.numeric(momentum),
+plot_dt_p <- dt_summary[max_momentum > 0.0, .(
+  p_val = as.numeric(max_momentum),
   y_mean = as.numeric(kolmogorov_complexity_mean),
   y_med = as.numeric(kolmogorov_complexity_median),
   y_sd = as.numeric(kolmogorov_complexity_sd)
@@ -256,13 +256,13 @@ save_plot(combined_blob_plot, "complexity.pdf", width = 12, height = 6)
 ```
 
 ```{r dual-aspect-node-count, echo=FALSE, fig.width=12, fig.height=6}
-plot_nodes_q <- dt_summary[momentum > 0.0, .(
-  q_val = 1 / as.numeric(momentum),
+plot_nodes_q <- dt_summary[max_momentum > 0.0, .(
+  q_val = 1 / as.numeric(max_momentum),
   nodes = as.numeric(node_count)
 )]
 
-plot_nodes_p <- dt_summary[momentum > 0.0, .(
-  p_val = as.numeric(momentum),
+plot_nodes_p <- dt_summary[max_momentum > 0.0, .(
+  p_val = as.numeric(max_momentum),
   nodes = as.numeric(node_count)
 )]
 
@@ -348,7 +348,7 @@ render_eigen$plot_object
 ```
 
 ```{r momentum-counts-histogram, echo=FALSE, fig.width=10, fig.height=6}
-momentum_counts <- dt_summary[momentum > 0.0, .(Count = .N), by = .(n = as.integer(node_count))]
+momentum_counts <- dt_summary[max_momentum > 0.0, .(Count = .N), by = .(n = as.integer(node_count))]
 
 ggplot2::ggplot(momentum_counts, ggplot2::aes(x = n, y = Count)) +
   ggplot2::geom_col(fill = "steelblue", color = "black", alpha = 0.8) +

@@ -1,5 +1,5 @@
-# 02_aggregate_erasure_metrics.R
-here::i_am("data-raw/02_aggregate_erasure_metrics.R")
+# 02_quantum_harmonic_oscillator.R
+here::i_am("data-raw/02_quantum_harmonic_oscillator.R")
 
 library(data.table)
 library(future.apply)
@@ -18,7 +18,7 @@ workers_to_use <- max(1, parallel::detectCores() - 1)
 future::plan(future::multisession, workers = workers_to_use)
 
 raw_dir  <- here::here("data-raw", "outputs", "01_micro_macro_erasures")
-agg_dir  <- here::here("data-raw", "outputs", "02_aggregated_summary")
+agg_dir  <- here::here("data-raw", "outputs", "02_quantum_harmonic_oscillator")
 hist_dir <- file.path(agg_dir, "histograms")
 if (!dir.exists(hist_dir)) dir.create(hist_dir, recursive = TRUE)
 
@@ -69,8 +69,8 @@ process_file_full <- function(f, out_path, debug_on) {
   }
 
   tryCatch({
-    m_val <- as.numeric(gsub(".*_P_([0-9.]+)\\.csv\\.gz", "\\1", f))
-    hist_name <- sprintf("histogram_P_%013.6f.csv.gz", round(m_val, 6))
+    P_val <- as.numeric(gsub(".*_P_([0-9.]+)\\.csv\\.gz", "\\1", f))
+    hist_name <- sprintf("histogram_P_%013.6f.csv.gz", round(P_val, 6))
     full_hist_path <- file.path(out_path, hist_name)
 
     dt <- data.table::fread(f, select = c("found", "fluctuation", "kolmogorov_complexity",
@@ -78,7 +78,8 @@ process_file_full <- function(f, out_path, debug_on) {
     dt <- dt[found == TRUE]
     if (nrow(dt) == 0) return(NULL)
 
-    action <- m_val * m_val
+    # Classical action proportional to P²
+    action <- P_val * P_val
     raw_fluc <- dt$fluctuation * action
     f_rng <- range(raw_fluc, na.rm = TRUE)
     h <- graphics::hist(raw_fluc, breaks = seq(f_rng[1], f_rng[2], length.out = 402), plot = FALSE)
@@ -128,7 +129,7 @@ process_file_full <- function(f, out_path, debug_on) {
     # --- SUMMARY AGGREGATION ---
     summary_cols <- setdiff(names(dt), "found")
     res_dt <- dt[, c(
-      list(momentum = m_val, node_count = node_count_final),
+      list(max_momentum = P_val, node_count = node_count_final),
       setNames(lapply(.SD, mean, na.rm=TRUE),   paste0(summary_cols, "_mean")),
       setNames(lapply(.SD, median, na.rm=TRUE), paste0(summary_cols, "_median")),
       setNames(lapply(.SD, min, na.rm=TRUE),    paste0(summary_cols, "_min")),
@@ -147,6 +148,6 @@ files_to_process <- if(RUN_ALL) all_files else all_files[sapply(all_momenta, fun
 if (length(files_to_process) > 0) {
   results <- future.apply::future_lapply(files_to_process, process_file_full, out_path = hist_dir, debug_on = DEBUG_MODE, future.seed = TRUE)
   final_dt <- data.table::rbindlist(results, fill = TRUE)
-  data.table::fwrite(final_dt[order(momentum)], summary_file, compress = "gzip")
+  data.table::fwrite(final_dt[order(max_momentum)], summary_file, compress = "gzip")
   message("Done.")
 }
