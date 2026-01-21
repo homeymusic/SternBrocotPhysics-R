@@ -6,7 +6,7 @@ library(future.apply)
 library(Rcpp)
 
 # --- CONFIGURATION ---
-target_P <- c(10.27, 12.12)
+target_P <- c(1.0, 1.01, 10.27, 12.12)
 workers_to_use <- parallel::detectCores() / 2
 future::plan(future::multisession, workers = workers_to_use)
 
@@ -106,7 +106,7 @@ process_file_full <- function(f, out_path) {
     }
 
     if (nrow(dot_df) == 0) {
-      dot_df <- data.table(x = 0, y = plot_df$y[which.min(abs(plot_df$x))])
+      message("RESULT: Single peak detected. No nodes will be plotted.")
     }
 
     data.table::fwrite(rbind(data.table(type="hist", x=plot_df$x, y=plot_df$y),
