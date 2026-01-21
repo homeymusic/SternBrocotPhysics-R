@@ -7,8 +7,8 @@ library(Rcpp)
 
 # --- CONFIGURATION ---
 DEBUG_MODE <- FALSE   # Set to TRUE to see detailed step-by-step logs
-RUN_ALL    <- TRUE  # Toggle to TRUE for the full 2-hour run
-target_P   <- c(0.5, 1.01, 2.01, 3.5,10.27, 12.12, 25.47)
+RUN_ALL    <- TRUE    # Toggle to TRUE for the full 2-hour run
+target_P   <- c(0.5, 1.01, 2.01, 3.5, 10.27, 12.12, 25.47)
 
 workers_to_use <- max(1, parallel::detectCores() - 1)
 future::plan(future::multisession, workers = workers_to_use)
@@ -70,6 +70,8 @@ process_file_full <- function(f, out_path, debug_on) {
     action <- m_val * m_val
     raw_fluc <- dt$fluctuation * action
     f_rng <- range(raw_fluc, na.rm = TRUE)
+
+    # Restored original indexing to prevent breaking the sequence generation
     h <- graphics::hist(raw_fluc, breaks = seq(f_rng[1], f_rng[2], length.out = 402), plot = FALSE)
     plot_df <- data.table(x = h$mids, y = h$counts)
 
@@ -127,8 +129,21 @@ process_file_full <- function(f, out_path, debug_on) {
                              data.table(type="meta", x=node_count_final, y=NA_real_), fill=TRUE),
                        full_hist_path, compress="gzip")
 
+    # --- UPDATED SUMMARY LOGIC ---
+    # We summarize all numeric columns from the input CSV
     summary_cols <- setdiff(names(dt), "found")
-    return(dt[, c(list(momentum = m_val, node_count = node_count_final), lapply(.SD, mean), lapply(.SD, sd)), .SDcols = summary_cols])
+
+    res_dt <- dt[, c(
+      list(momentum = m_val, node_count = node_count_final),
+      setNames(lapply(.SD, mean, na.rm=TRUE),   paste0(summary_cols, "_mean")),
+      setNames(lapply(.SD, median, na.rm=TRUE), paste0(summary_cols, "_median")),
+      setNames(lapply(.SD, min, na.rm=TRUE),    paste0(summary_cols, "_min")),
+      setNames(lapply(.SD, max, na.rm=TRUE),    paste0(summary_cols, "_max")),
+      setNames(lapply(.SD, sd, na.rm=TRUE),     paste0(summary_cols, "_sd"))
+    ), .SDcols = summary_cols]
+
+    return(res_dt)
+
   }, error = function(e) { message(sprintf("CRITICAL ERROR on P %.2f: %s", m_val, e$message)); return(NULL) })
 }
 
