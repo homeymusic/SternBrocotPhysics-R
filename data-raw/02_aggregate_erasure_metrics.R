@@ -6,7 +6,6 @@ library(future.apply)
 library(Rcpp)
 
 # --- CONFIGURATION ---
-target_P <- c(1.0, 1.01, 2, 2.01, 3.5, 10.27, 12.12)
 workers_to_use <- parallel::detectCores() / 2
 future::plan(future::multisession, workers = workers_to_use)
 
@@ -145,11 +144,14 @@ process_file_full <- function(f, out_path) {
 
 # --- FORCED EXECUTION ---
 all_momenta <- as.numeric(gsub(".*_P_([0-9.]+)\\.csv\\.gz", "\\1", all_files))
-files_to_process <- all_files[sapply(all_momenta, function(m) any(abs(m - target_P) < 1e-7))]
+files_to_process <- all_files
 
 if (length(files_to_process) > 0) {
   results <- future.apply::future_lapply(files_to_process, process_file_full, out_path = hist_dir, future.seed = TRUE)
   new_summary <- data.table::rbindlist(results, fill = TRUE)
   data.table::fwrite(new_summary[order(momentum)], summary_file, compress = "gzip")
+} else {
+  message("No files found to process.")
 }
+
 message("\n--- PROCESSING COMPLETE ---")
