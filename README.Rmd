@@ -199,27 +199,6 @@ ggplot2::ggsave(
 
 ```
 
-```{r momentum-counts-histogram, echo=FALSE, warning=FALSE, message=FALSE, fig.width=10, fig.height=6}
-# Calculate the count of momentum entries per quantum number (n)
-momentum_counts <- dt_summary[momentum > 0.0, .(
-  Count = .N
-), by = .(n = as.integer(node_count))]
-
-# Plot the counts as a bar chart
-ggplot2::ggplot(momentum_counts, ggplot2::aes(x = n, y = Count)) +
-  ggplot2::geom_col(fill = "steelblue", color = "black", alpha = 0.8) +
-  ggplot2::labs(
-    title = "Data Availability: Count of Momentum Values per Quantum Number (n)",
-    x = "Quantum Number (Node Count)",
-    y = "Number of Data Points (Momentum entries)"
-  ) +
-  ggplot2::theme_minimal() +
-  ggplot2::theme(
-    plot.title = ggplot2::element_text(hjust = 0.5, face = "bold"),
-    # Rotate axis text if needed for dense X-axis labels
-    # axis.text.x = ggplot2::element_text(angle = 90, hjust = 1, vjust = 0.5) 
-  )
-```
 
 ```{r setup-height-variables-dynamic-eigen, echo=FALSE, warning=FALSE, message=FALSE}
 # --- 1. Updated Helper Function with Better Placeholder Language ---
@@ -300,10 +279,70 @@ render_eigen <- generate_plot_object(dt_eigen_median, "Eigenstate Distribution S
 eigen_height <- render_eigen$dynamic_height
 ```
 
-```{r plot-eigen-grid-display-dynamic, echo=FALSE, fig.width=10, fig.height=eigen_height, warning=FALSE, message=FALSE}
-# This displays the grid showing the "Inaccessible" placeholders for n=3, 8, 20, etc.
+
+```{r filter-valid-eigenstates, echo=FALSE, fig.width=8, fig.height=6}
+# Note: plot_nodes_p is already prepared and contains 'is_eigenstate'
+
+p_momentum_filtered <- ggplot(plot_nodes_p, aes(x = p_val, y = nodes)) +
+  # All data points
+  geom_point(color = "grey70", size = 0.2, alpha = 0.4) +
+  geom_vline(xintercept = p_markers, color = "grey80", linetype = "dashed", alpha = 0.5) +
+  
+  # The "Snap-to" Eigenstates using the column defined in setup
+  geom_point(data = plot_nodes_p[is_eigenstate == TRUE], 
+             color = "red", size = 0.3) +
+             
+  labs(
+    title = latex2exp::TeX("Schrödinger Eigenstates (red) Among All Configurations"),
+    subtitle = "Eigenstates are vanishingly sparse configurations among expanding possibilities in phase space.",
+    x = latex2exp::TeX("Momentum P [$p/p_0$]"),
+    y = latex2exp::TeX("Node Count (Coordinate $Q$ Distriubtions)"),
+    caption = "Red: Eigenstates | Grey: All Configurations"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold", size = 14),
+    plot.subtitle = element_text(hjust = 0.5, size = 10, face = "italic"),
+    axis.title = element_text(size = 11)
+  )
+
+print(p_momentum_filtered)
+
+ggplot2::ggsave(
+  filename = file.path(manuscript_dir, "eignstates.pdf"),
+  plot = p_momentum_filtered, 
+  width = 8, 
+  height = 6,
+  device = grDevices::cairo_pdf
+)
+```
+
+```{r plot-eigen-grid-display-lower, echo=FALSE, fig.width=10, fig.height=eigen_height, warning=FALSE, message=FALSE}
 render_eigen$plot_object
 ```
+
+```{r momentum-counts-histogram, echo=FALSE, warning=FALSE, message=FALSE, fig.width=10, fig.height=6}
+# Calculate the count of momentum entries per quantum number (n)
+momentum_counts <- dt_summary[momentum > 0.0, .(
+  Count = .N
+), by = .(n = as.integer(node_count))]
+
+# Plot the counts as a bar chart
+ggplot2::ggplot(momentum_counts, ggplot2::aes(x = n, y = Count)) +
+  ggplot2::geom_col(fill = "steelblue", color = "black", alpha = 0.8) +
+  ggplot2::labs(
+    title = "Data Availability: Count of Momentum Values per Quantum Number (n)",
+    x = "Quantum Number (Node Count)",
+    y = "Number of Data Points (Momentum entries)"
+  ) +
+  ggplot2::theme_minimal() +
+  ggplot2::theme(
+    plot.title = ggplot2::element_text(hjust = 0.5, face = "bold"),
+    # Rotate axis text if needed for dense X-axis labels
+    # axis.text.x = ggplot2::element_text(angle = 90, hjust = 1, vjust = 0.5) 
+  )
+```
+
 
 ```{r setup-height-variables-lower-median, echo=FALSE, warning=FALSE, message=FALSE}
 # --- 1. Define Helper Function (DRY plotting logic) ---
@@ -415,47 +454,6 @@ ggplot2::ggsave(
 
 ```{r plot-full-grid-lower, echo=FALSE, fig.width=10, fig.height=full_height, warning=FALSE, message=FALSE}
 render_full$plot_object
-```
-
-```{r filter-valid-eigenstates, echo=FALSE, fig.width=8, fig.height=6}
-# Note: plot_nodes_p is already prepared and contains 'is_eigenstate'
-
-p_momentum_filtered <- ggplot(plot_nodes_p, aes(x = p_val, y = nodes)) +
-  # All data points
-  geom_point(color = "grey70", size = 0.2, alpha = 0.4) +
-  geom_vline(xintercept = p_markers, color = "grey80", linetype = "dashed", alpha = 0.5) +
-  
-  # The "Snap-to" Eigenstates using the column defined in setup
-  geom_point(data = plot_nodes_p[is_eigenstate == TRUE], 
-             color = "red", size = 0.3) +
-             
-  labs(
-    title = latex2exp::TeX("Schrödinger Eigenstates (red) Among All Configurations"),
-    subtitle = "Eigenstates are vanishingly sparse configurations among expanding possibilities in phase space.",
-    x = latex2exp::TeX("Momentum P [$p/p_0$]"),
-    y = latex2exp::TeX("Node Count (Coordinate $Q$ Distriubtions)"),
-    caption = "Red: Eigenstates | Grey: All Configurations"
-  ) +
-  theme_minimal() +
-  theme(
-    plot.title = element_text(hjust = 0.5, face = "bold", size = 14),
-    plot.subtitle = element_text(hjust = 0.5, size = 10, face = "italic"),
-    axis.title = element_text(size = 11)
-  )
-
-print(p_momentum_filtered)
-
-ggplot2::ggsave(
-  filename = file.path(manuscript_dir, "eignstates.pdf"),
-  plot = p_momentum_filtered, 
-  width = 8, 
-  height = 6,
-  device = grDevices::cairo_pdf
-)
-```
-
-```{r plot-eigen-grid-display-lower, echo=FALSE, fig.width=10, fig.height=eigen_height, warning=FALSE, message=FALSE}
-render_eigen$plot_object
 ```
 
 ```{r distribution-helper, echo=FALSE}
