@@ -109,14 +109,24 @@ process_file_full <- function(f, out_path) {
       message("RESULT: Single peak detected. No nodes will be plotted.")
     }
 
-    data.table::fwrite(rbind(data.table(type="hist", x=plot_df$x, y=plot_df$y),
-                             data.table(type="node", x=dot_df$x, y=dot_df$y),
-                             fill=TRUE), full_hist_path, compress="gzip")
+    # Determine final node count
+    node_count_final <- nrow(dot_df)
+
+    # --- NEW: Add a meta row with the node count to the histogram file ---
+    meta_df <- data.table(type="meta", x=as.numeric(node_count_final), y=NA_real_)
+
+    all_rows_dt <- rbind(data.table(type="hist", x=plot_df$x, y=plot_df$y),
+                         data.table(type="node", x=dot_df$x, y=dot_df$y),
+                         meta_df,
+                         fill=TRUE)
+
+    data.table::fwrite(all_rows_dt, full_hist_path, compress="gzip")
 
     summary_cols <- c("fluctuation", "kolmogorov_complexity", "shannon_entropy", "zurek_entropy", "numerator", "denominator")
     res_summary <- dt[, {
       means <- lapply(.SD, mean); sds <- lapply(.SD, sd)
-      c(list(momentum = m_val, node_count = nrow(dot_df)), means, sds)
+      # Use the final node count for the summary table
+      c(list(momentum = m_val, node_count = node_count_final), means, sds)
     }, .SDcols = summary_cols]
     return(res_summary)
   }, error = function(e) {
