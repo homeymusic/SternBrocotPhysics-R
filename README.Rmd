@@ -223,7 +223,6 @@ ggplot2::ggplot(momentum_counts, ggplot2::aes(x = n, y = Count)) +
 
 ```{r setup-height-variables-lower-median, echo=FALSE, warning=FALSE, message=FALSE}
 # --- 1. Define Helper Function (DRY plotting logic) ---
-# This function creates the plot object and saves the PDF, but doesn't print it.
 generate_plot_object <- function(target_data, plot_title, file_name) {
   cols <- 3
   plot_storage <- vector("list", nrow(target_data))
@@ -231,10 +230,8 @@ generate_plot_object <- function(target_data, plot_title, file_name) {
   for (i in seq_len(nrow(target_data))) {
     cur_n <- target_data$n[i]; cur_p <- target_data$momentum[i]
     
-    # --- Using your original, working sprintf format ---
     f_path <- here::here("data-raw", "outputs", "02_aggregated_summary", "histograms", 
                          sprintf("histogram_P_%013.6f.csv.gz", round(cur_p, 6)))
-    # --------------------------------------------------------
 
     if (file.exists(f_path)) {
       d_temp <- data.table::fread(f_path)
@@ -261,62 +258,91 @@ generate_plot_object <- function(target_data, plot_title, file_name) {
   return(list(plot_object = combined, dynamic_height = height_inches))
 }
 
-# --- 2. Data Preparation (Median Momenta using robust indexing) ---
+# --- 2. Data Preparation ---
 
-# A. Base Data Prep (as in your working snippet)
-plot_nodes_p <- dt_summary[momentum > 0.0, .(p_val = as.numeric(momentum), nodes = as.numeric(node_count))]
+# A. Base Data Prep & Unified Eigenstate Logic
+plot_nodes_p <- dt_summary[momentum > 0.0, .(
+  p_val = as.numeric(momentum), 
+  nodes = as.numeric(node_count)
+)]
 
-# B. Full Collection (All n from 0 to 100) using robust indexing
-# Select the LOWER of the two middle indices if even (.I[floor((.N+1)/2)])
-dt_full <- plot_nodes_p[nodes <= 100]
+# Define logic ONCE for the entire document
+plot_nodes_p[, is_eigenstate := (floor(p_val / pi) == nodes)]
+
+# B. Full Collection (All n from 0)
+dt_full <- plot_nodes_p
 data.table::setorder(dt_full, nodes, p_val)
 dt_full_median <- dt_full[dt_full[, .I[floor((.N+1)/2)], by = nodes]$V1][, .(n = nodes, momentum = p_val)]
 
-
-# C. Eigenstate Collection (P/pi logic) using robust indexing
-dt_eigen <- plot_nodes_p[nodes <= 100 & floor(p_val/pi) == nodes]
+# C. Eigenstate Collection (Using the unified boolean column)
+dt_eigen <- plot_nodes_p[is_eigenstate == TRUE]
 data.table::setorder(dt_eigen, nodes, p_val)
 dt_eigen_median <- dt_eigen[dt_eigen[, .I[floor((.N+1)/2)], by = nodes]$V1][, .(n = nodes, momentum = p_val)]
 
-
-# --- 3. Generate Plots and Capture Dynamic Heights ---
-render_full <- generate_plot_object(dt_full_median, "Full Distribution Sequence (n=0-100, Lower Median P)", "all_nodes_median_lower.pdf")
+# --- 3. Generate Plots ---
+render_full <- generate_plot_object(dt_full_median, "Full Distribution Sequence (n, Lower Median P)", "all_nodes_median_lower.pdf")
 full_height <- render_full$dynamic_height
 
 render_eigen <- generate_plot_object(dt_eigen_median, "Eigenstate Distribution Sequence (Lower Median P)", "eigen_nodes_median_lower.pdf")
 eigen_height <- render_eigen$dynamic_height
 ```
 
+```{r plot-median-distribution, echo=FALSE, fig.width=8, fig.height=6}
+# 1. Identify which points in the main set are the selected medians
+# We use a semi-join logic to flag the specific (nodes, p_val) pairs found in dt_full_median
+plot_nodes_p[, is_median := FALSE]
+plot_nodes_p[dt_full_median, on = .(nodes = n, p_val = momentum), is_median := TRUE]
+
+# 2. Generate the Plot
+p_median_highlighted <- ggplot(plot_nodes_p, aes(x = p_val, y = nodes)) +
+  # All Stern-Brocot data points (The background)
+  geom_point(color = "grey70", size = 0.2, alpha = 0.4) +
+  geom_vline(xintercept = p_markers, color = "grey80", linetype = "dashed", alpha = 0.5) +
+  
+  # The Selected Median configurations in BLUE
+  geom_point(data = plot_nodes_p[is_median == TRUE], 
+             color = "blue", size = 0.3) +
+             
+  labs(
+    title = latex2exp::TeX("Median Configurations (blue) Across Node Counts"),
+    subtitle = "Highlighting the lower-median momentum P for each node count n.",
+    x = latex2exp::TeX("Momentum P [$p/p_0$]"),
+    y = latex2exp::TeX("Node Count (Coordinate $Q$ Distributions)"),
+    caption = "Blue: Selected Medians | Grey: All Configurations"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold", size = 14),
+    plot.subtitle = element_text(hjust = 0.5, size = 10, face = "italic"),
+    axis.title = element_text(size = 11)
+  )
+
+# 3. Output and Save
+print(p_median_highlighted)
+
+ggplot2::ggsave(
+  filename = file.path(manuscript_dir, "median_distribution.pdf"),
+  plot = p_median_highlighted, 
+  width = 8, 
+  height = 6,
+  device = grDevices::cairo_pdf
+)
+```
+
 ```{r plot-full-grid-lower, echo=FALSE, fig.width=10, fig.height=full_height, warning=FALSE, message=FALSE}
-# This chunk displays the full 0-100 grid with correct height in the Rmd output
 render_full$plot_object
 ```
 
 ```{r filter-valid-eigenstates, echo=FALSE, fig.width=8, fig.height=6}
-# 1. Data Preparation (Your existing P data)
-plot_nodes_p <- dt_summary[momentum > 0.0, .(
-  p_val = as.numeric(momentum),
-  nodes = as.numeric(node_count)
-)]
-
-# 2. Define the Physical Filtering Condition
-# A data point (n, P) is a valid eigenstate if n = floor(P^(1/4))
-# We create a new boolean column 'is_eigenstate' using this exact logic
-plot_nodes_p$is_eigenstate <- floor(plot_nodes_p$p_val/pi) == plot_nodes_p$nodes
-
-eigen_momenta <- plot_nodes_p[is_eigenstate == TRUE, .(
-  n = as.integer(nodes),
-  momentum = p_val
-)]
-# --- Updated Plotting Block with Improved Physics Titles ---
+# Note: plot_nodes_p is already prepared and contains 'is_eigenstate'
 
 p_momentum_filtered <- ggplot(plot_nodes_p, aes(x = p_val, y = nodes)) +
-  # All Stern-Brocot data points (The "Rational Search")
+  # All data points
   geom_point(color = "grey70", size = 0.2, alpha = 0.4) +
   geom_vline(xintercept = p_markers, color = "grey80", linetype = "dashed", alpha = 0.5) +
   
-  # The "Snap-to" Eigenstates (The "Resonant Wave States")
-  geom_point(data = subset(plot_nodes_p, is_eigenstate == TRUE), 
+  # The "Snap-to" Eigenstates using the column defined in setup
+  geom_point(data = plot_nodes_p[is_eigenstate == TRUE], 
              color = "red", size = 0.3) +
              
   labs(
@@ -333,8 +359,6 @@ p_momentum_filtered <- ggplot(plot_nodes_p, aes(x = p_val, y = nodes)) +
     axis.title = element_text(size = 11)
   )
 
-
-# 4. Output and Save
 print(p_momentum_filtered)
 
 ggplot2::ggsave(
@@ -347,10 +371,8 @@ ggplot2::ggsave(
 ```
 
 ```{r plot-eigen-grid-display-lower, echo=FALSE, fig.width=10, fig.height=eigen_height, warning=FALSE, message=FALSE}
-# This chunk displays the Eigenstates grid with correct height in the Rmd output
 render_eigen$plot_object
 ```
-
 
 ```{r distribution-helper, echo=FALSE}
 # --- CORE PLOTTING FUNCTION (OPTIMIZED) ---
@@ -427,7 +449,7 @@ generate_physics_grid <- function(jumps_subset) {
 
 ```{r subset-config, echo=FALSE}
 # --- SINGLE SOURCE OF TRUTH ---
-max_rows      <- 100
+max_rows      <- 300
 subset_idx    <- 1:min(length(jumps), max_rows)
 subset_jumps  <- jumps[subset_idx]
 dynamic_h     <- 3 * length(subset_jumps)
