@@ -194,7 +194,7 @@ ggplot2::ggsave(
 )
 
 ```
-```{r filter-valid-eigenstates-holographic, echo=FALSE, fig.width=8, fig.height=6}
+```{r filter-valid-eigenstates, echo=FALSE, fig.width=8, fig.height=6}
 # 1. Data Preparation (Your existing P data)
 plot_nodes_p <- dt_summary[momentum > 0.0, .(
   p_val = as.numeric(momentum),
