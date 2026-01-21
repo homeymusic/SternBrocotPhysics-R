@@ -6,7 +6,7 @@ library(future.apply)
 library(Rcpp)
 
 # --- CONFIGURATION ---
-target_P <- c(1.0, 1.01, 10.27, 12.12)
+target_P <- c(1.0, 1.01, 2, 2.01, 3.5, 10.27, 12.12)
 workers_to_use <- parallel::detectCores() / 2
 future::plan(future::multisession, workers = workers_to_use)
 
@@ -67,53 +67,63 @@ process_file_full <- function(f, out_path) {
     f_rng <- range(raw_fluc, na.rm = TRUE)
     h <- graphics::hist(raw_fluc, breaks = seq(f_rng[1], f_rng[2], length.out = 402), plot = FALSE)
     plot_df <- data.table(x = h$mids, y = h$counts)
-    global_h_range <- max(plot_df$y, na.rm = TRUE) - min(plot_df$y, na.rm = TRUE)
 
-    run_detection <- function(sub_df, scan_dir, label = "") {
-      if (is.null(sub_df) || nrow(sub_df) < 2) return(NULL)
-      sub_df <- if(scan_dir == "right") sub_df[order(x), ] else sub_df[order(-x), ]
-      x_sd <- sqrt(sum(sub_df$y * (sub_df$x - (sum(sub_df$x * sub_df$y)/sum(sub_df$y)))^2) / sum(sub_df$y))
-      thresh <- (1 / (4 * pi)) / (1 + sqrt(x_sd))
-      out <- find_nodes_cpp(sub_df, thresh, global_h_range)
-      if(label != "") {
-        message(sprintf("  DEBUG [%s]: Max Acc: %.6f | Gabor Thresh: %.6f | Nodes: %d",
-                        label, out$max_acc, thresh, nrow(out$nodes)))
+    # --- UNIFORM DISTRIBUTION CHECK ---
+    # Check if all deviations from the mean are less than 1/(4*pi) of the mean
+    mean_y <- mean(plot_df$y, na.rm = TRUE)
+    is_dc_case <- all(abs(plot_df$y - mean_y) < (mean_y / (4 * pi)))
+
+    if (is_dc_case) {
+      message(sprintf("RESULT: Near-DC Uniform distribution detected for P: %.2f", m_val))
+      node_count_final <- NA_real_
+      dot_df <- data.table(x = numeric(0), y = numeric(0))
+    } else {
+      global_h_range <- max(plot_df$y, na.rm = TRUE) - min(plot_df$y, na.rm = TRUE)
+
+      run_detection <- function(sub_df, scan_dir, label = "") {
+        if (is.null(sub_df) || nrow(sub_df) < 2) return(NULL)
+        sub_df <- if(scan_dir == "right") sub_df[order(x), ] else sub_df[order(-x), ]
+        x_sd <- sqrt(sum(sub_df$y * (sub_df$x - (sum(sub_df$x * sub_df$y)/sum(sub_df$y)))^2) / sum(sub_df$y))
+        thresh <- (1 / (4 * pi)) / (1 + sqrt(x_sd))
+        out <- find_nodes_cpp(sub_df, thresh, global_h_range)
+        if(label != "") {
+          message(sprintf("  DEBUG [%s]: Max Acc: %.6f | Gabor Thresh: %.6f | Nodes: %d",
+                          label, out$max_acc, thresh, nrow(out$nodes)))
+        }
+        return(as.data.table(out$nodes))
       }
-      return(as.data.table(out$nodes))
-    }
 
-    message(sprintf("\n--- START Target P: %.2f ---", m_val))
-    res_r <- run_detection(plot_df[x >= 0], "right", "Primary Right")
-    res_l <- run_detection(plot_df[x < 0], "left", "Primary Left")
-    dot_df <- unique(rbind(res_l, res_r, fill = TRUE)[complete.cases(x, y)])
+      message(sprintf("\n--- START Target P: %.2f ---", m_val))
+      res_r <- run_detection(plot_df[x >= 0], "right", "Primary Right")
+      res_l <- run_detection(plot_df[x < 0], "left", "Primary Left")
+      dot_df <- unique(rbind(res_l, res_r, fill = TRUE)[complete.cases(x, y)])
 
-    if (nrow(res_l) > 0 && nrow(res_r) > 0) {
-      left_inner  <- res_l[which.max(x)]
-      right_inner <- res_r[which.min(x)]
-      # EXCLUDE the boundary points (the trough walls) to check only the floor
-      gap_df <- plot_df[x > left_inner$x & x < right_inner$x]
+      if (nrow(res_l) > 0 && nrow(res_r) > 0) {
+        left_inner  <- res_l[which.max(x)]
+        right_inner <- res_r[which.min(x)]
+        gap_df <- plot_df[x > left_inner$x & x < right_inner$x]
+        center_scan <- run_detection(gap_df, "right", "Gap Verification")
 
-      center_scan <- run_detection(gap_df, "right", "Gap Verification")
-
-      if (nrow(center_scan) == 0) {
-        message("RESULT: No Gabor Peak in interior gap. MERGING to center.")
-        dot_df <- dot_df[!(x == left_inner$x | x == right_inner$x)]
-        y_center <- plot_df$y[which.min(abs(plot_df$x))]
-        dot_df <- rbind(dot_df, data.table(x = 0, y = y_center))[order(x)]
-      } else {
-        message("RESULT: Gabor Peak confirmed in interior. KEEPING modes.")
+        if (nrow(center_scan) == 0) {
+          message("RESULT: No Gabor Peak in interior gap. MERGING to center.")
+          dot_df <- dot_df[!(x == left_inner$x | x == right_inner$x)]
+          y_center <- plot_df$y[which.min(abs(plot_df$x))]
+          dot_df <- rbind(dot_df, data.table(x = 0, y = y_center))[order(x)]
+        } else {
+          message("RESULT: Gabor Peak confirmed in interior. KEEPING modes.")
+        }
       }
+
+      if (nrow(dot_df) == 0) {
+        message("RESULT: Single peak detected. No nodes will be plotted.")
+      }
+
+      node_count_final <- as.numeric(nrow(dot_df))
     }
 
-    if (nrow(dot_df) == 0) {
-      message("RESULT: Single peak detected. No nodes will be plotted.")
-    }
-
-    # Determine final node count
-    node_count_final <- nrow(dot_df)
-
-    # --- NEW: Add a meta row with the node count to the histogram file ---
-    meta_df <- data.table(type="meta", x=as.numeric(node_count_final), y=NA_real_)
+    # --- SAVE HISTOGRAM & META ---
+    # Using NA_real_ for node_count in meta_df ensures data type consistency
+    meta_df <- data.table(type="meta", x=node_count_final, y=NA_real_)
 
     all_rows_dt <- rbind(data.table(type="hist", x=plot_df$x, y=plot_df$y),
                          data.table(type="node", x=dot_df$x, y=dot_df$y),
@@ -125,7 +135,6 @@ process_file_full <- function(f, out_path) {
     summary_cols <- c("fluctuation", "kolmogorov_complexity", "shannon_entropy", "zurek_entropy", "numerator", "denominator")
     res_summary <- dt[, {
       means <- lapply(.SD, mean); sds <- lapply(.SD, sd)
-      # Use the final node count for the summary table
       c(list(momentum = m_val, node_count = node_count_final), means, sds)
     }, .SDcols = summary_cols]
     return(res_summary)
