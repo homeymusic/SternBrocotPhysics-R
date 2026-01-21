@@ -7,7 +7,7 @@ library(Rcpp)
 
 # --- CONFIGURATION ---
 DEBUG_MODE <- FALSE
-RUN_ALL    <- FALSE
+RUN_ALL    <- TRUE
 original_P <- c(0.5, 1.01, 2.01, 3.5, 10.27, 12.12, 25.47)
 sampled_P  <- seq(0.01, 300, length.out = 10)
 
