@@ -15,7 +15,6 @@ library(tidyr)
 ```
 
 ```{r build-and-load, echo=F, message=F, include=F}
-# Rebuild the package and load it into the environment
 pkgbuild::compile_dll() 
 devtools::load_all(".")
 
@@ -30,187 +29,55 @@ knitr::opts_chunk$set(
 manuscript_dir <- here::here("manuscript")
 ```
 
-```{r jump-detection, echo=F}
-# 1. Load Summary
-summary_path <- here::here("data-raw", "outputs", "02_aggregated_summary", "02_aggregated_summary.csv.gz")
-dt_summary <- data.table::fread(summary_path)
-data.table::setorder(dt_summary, momentum)
+```{r helper-functions, echo=FALSE}
+# --- CONSOLIDATED HELPER FUNCTIONS ---
 
-dt_summary <- dt_summary[momentum > 0.0]
+# File path helper
+get_histogram_path <- function(momentum_val) {
+  here::here("data-raw", "outputs", "02_aggregated_summary", "histograms", 
+             sprintf("histogram_P_%013.6f.csv.gz", round(momentum_val, 6)))
+}
 
-# 2. Sensitivity-based Jump Detection
-# Now working only with the physical data range
-z_diffs <- abs(diff(dt_summary$kolmogorov_complexity_median))
-threshold <- max(z_diffs, na.rm = TRUE) * 0.0001
-jump_indices <- which(z_diffs > threshold)
-
-# 3. Dynamic Build with Integer Plateau logic
-jumps <- lapply(seq_along(jump_indices), function(i) {
-  idx <- jump_indices[i]
-  m_at <- dt_summary$momentum[idx + 1]
-  # Logic: Plateau below at floor - 0.1, Plateau above at ceiling + 0.1
-  list(
-    n = paste("Transition", i),
-    p_vals = c(
-      m_at-1,
-      m_at,       
-      m_at+1
-      # floor(m_at),
-      # m_at,       
-      # ceiling(m_at)
-    )
+# Standardized save function
+save_plot <- function(plot_obj, filename, width = 10, height = 6) {
+  ggplot2::ggsave(
+    filename = file.path(manuscript_dir, filename),
+    plot = plot_obj, 
+    width = width, 
+    height = height,
+    device = grDevices::cairo_pdf,
+    limitsize = FALSE
   )
-})
+}
 
-p_markers <- dt_summary$momentum[jump_indices]
-```
+# Data preparation helper
+prepare_plot_data <- function(dt_summary) {
+  plot_data <- dt_summary[momentum > 0.0, .(
+    p_val = as.numeric(momentum), 
+    nodes = as.numeric(node_count)
+  )]
+  plot_data[, is_eigenstate := (floor(p_val / pi) == nodes)]
+  return(plot_data)
+}
 
-```{r introduction, child = 'inst/readme/introduction.Rmd'}
-```
+# Median selection helper
+get_median_by_nodes <- function(dt, node_col = "nodes", p_col = "p_val") {
+  data.table::setorderv(dt, c(node_col, p_col))
+  dt[dt[, .I[floor((.N+1)/2)], by = node_col]$V1][, 
+     .(n = nodes, momentum = p_val)]
+}
 
-```{r dual-aspect-complexity, echo=FALSE, fig.width=12, fig.height=6}
-# 1. Data Preparation
-plot_dt_q <- dt_summary[momentum > 0.0, .(
-  q_val  = 1 / as.numeric(momentum),
-  y_mean = as.numeric(kolmogorov_complexity_mean),
-  y_med  = as.numeric(kolmogorov_complexity_median),
-  y_sd   = as.numeric(kolmogorov_complexity_sd)
-)]
-
-plot_dt_p <- dt_summary[momentum > 0.0, .(
-  p_val  = as.numeric(momentum),
-  y_mean = as.numeric(kolmogorov_complexity_mean),
-  y_med  = as.numeric(kolmogorov_complexity_median),
-  y_sd   = as.numeric(kolmogorov_complexity_sd)
-)]
-
-# 2. Plot A: K(Q_0) vs. Q
-# Updated Plot A: K(Q_0) vs. Q with Log Scaling
-p_spatial <- ggplot(plot_dt_q, aes(x = q_val)) +
-  geom_vline(xintercept = 1/p_markers, color = "grey80", linetype = "dashed", alpha = 0.5) +
-  geom_ribbon(aes(ymin = y_mean - y_sd, ymax = y_mean + y_sd), fill = "gray50", alpha = 0.1) +
-  geom_line(aes(y = y_mean, color = "Mean"), linewidth = 0.6) +
-  geom_line(aes(y = y_med, color = "Median"), linewidth = 1.0) +
-  scale_x_log10() +  # Added for log scaling
-  scale_color_manual(values = c("Mean" = "gray60", "Median" = "black")) +
-  labs(
-    title = latex2exp::TeX("Coordinate Complexity: $K(Q_0)$ vs. $Q$ (Log Scale)"),
-    x = latex2exp::TeX("Coordinate $Q = 1/P$ [$q/q_0$]"),
-    y = "Complexity [bits]",
-    color = "Series"
-  ) +
-  theme_minimal() +
-  theme(legend.position = "bottom", plot.title = element_text(hjust = 0.5))
-
-# 3. Plot B: K(P_0) vs. P
-p_momentum <- ggplot(plot_dt_p, aes(x = p_val)) +
-  geom_vline(xintercept = p_markers, color = "grey80", linetype = "dashed", alpha = 0.5) +
-  geom_ribbon(aes(ymin = y_mean - y_sd, ymax = y_mean + y_sd), fill = "gray50", alpha = 0.1) +
-  geom_line(aes(y = y_mean, color = "Mean"), linewidth = 0.6) +
-  geom_line(aes(y = y_med, color = "Median"), linewidth = 1.0) + # Highlight jumps
-  scale_color_manual(values = c("Mean" = "gray60", "Median" = "black")) +
-  labs(
-    title = latex2exp::TeX("Momentum Complexity: $K(P_0)$ vs. $P$"),
-    x =  latex2exp::TeX("Momentum P [$p/p_0$]"),
-    y = "Complexity [bits]",
-    color = "Series"
-  ) +
-  theme_minimal() +
-  theme(legend.position = "bottom", plot.title = element_text(hjust = 0.5))
-
-# 4. Layout
-combined_blob_plot <- gridExtra::arrangeGrob(
-  p_spatial, p_momentum, 
-  ncol = 2,
-  top = grid::textGrob("Coordinate and Momentum Complexity", 
-                       gp = grid::gpar(fontsize = 16, font = 2))
-)
-
-# 5. Output and Save
-grid::grid.draw(combined_blob_plot)
-
-ggplot2::ggsave(
-  filename = file.path(manuscript_dir, "complexity.pdf"),
-  plot = combined_blob_plot, 
-  width = 12, 
-  height = 6,
-  device = grDevices::cairo_pdf
-)
-```
-
-```{r dual-aspect-node-count, echo=FALSE, fig.width=12, fig.height=6}
-# 1. Data Preparation
-# Aspect A: Spatial Coordinate Q
-plot_nodes_q <- dt_summary[momentum > 0.0, .(
-  q_val = 1 / as.numeric(momentum),
-  nodes = as.numeric(node_count)
-)]
-
-# Aspect B: Momentum P
-plot_nodes_p <- dt_summary[momentum > 0.0, .(
-  p_val = as.numeric(momentum),
-  nodes = as.numeric(node_count)
-)]
-
-# 2. Plot C: Node Count vs. Q with Log Scaling
-p_nodes_spatial <- ggplot(plot_nodes_q, aes(x = q_val, y = nodes)) +
-  geom_vline(xintercept = 1/p_markers, color = "grey80", linetype = "dashed", alpha = 0.5) +
-  geom_point(size = 0.2, alpha = 0.6, color = "black") +
-  scale_x_log10() +  # Added log scaling for the Q axis
-  labs(
-    title = latex2exp::TeX("Coordinate Node Counts: Nodes vs. $Q$ (Log Scale)"),
-    x = latex2exp::TeX("Coordinate $Q = 1/P$ [$q/q_0$]"),
-    y = "Node Count [count]"
-  ) +
-  theme_minimal() +
-  theme(plot.title = element_text(hjust = 0.5))
-
-
-# 3. Plot D: Node Count vs. P
-p_nodes_momentum <- ggplot(plot_nodes_p, aes(x = p_val, y = nodes)) +
-  geom_vline(xintercept = p_markers, color = "grey80", linetype = "dashed", alpha = 0.5) +
-  geom_point(size = 0.2, alpha = 0.6, color = "black") +
-  labs(
-    title = latex2exp::TeX("Momentum Node Counts: Nodes vs. $P$"),
-    x =  latex2exp::TeX("Momentum P  [$p/p_0$]"),
-    y = "Node Count [count]"
-  ) +
-  theme_minimal() +
-  theme(plot.title = element_text(hjust = 0.5))
-
-# 4. Layout
-combined_nodes_plot <- gridExtra::arrangeGrob(
-  p_nodes_spatial, p_nodes_momentum, 
-  ncol = 2,
-  top = grid::textGrob("Coordinate and Momentum Node Counts", 
-                       gp = grid::gpar(fontsize = 16, font = 2))
-)
-
-# 5. Output and Save
-grid::grid.draw(combined_nodes_plot)
-
-ggplot2::ggsave(
-  filename = file.path(manuscript_dir, "nodes.pdf"),
-  plot = combined_nodes_plot, 
-  width = 12, 
-  height = 6,
-  device = grDevices::cairo_pdf
-)
-
-```
-
-
-```{r setup-height-variables-dynamic-eigen, echo=FALSE, warning=FALSE, message=FALSE}
-# --- 1. Updated Helper Function with Better Placeholder Language ---
-generate_plot_object <- function(target_data, plot_title, file_name, type = "all") {
+# Unified plot generation function
+generate_plot_grid <- function(target_data, plot_title, file_name, show_placeholders = FALSE) {
   cols <- 3
   plot_storage <- vector("list", nrow(target_data))
   
   for (i in seq_len(nrow(target_data))) {
-    cur_n <- target_data$n[i]; cur_p <- target_data$momentum[i]
+    cur_n <- target_data$n[i]
+    cur_p <- target_data$momentum[i]
     
-    # Check if this row is a "placeholder" (momentum is NA)
-    if (is.na(cur_p)) {
+    # Handle placeholders for inaccessible states
+    if (is.na(cur_p) && show_placeholders) {
       plot_storage[[i]] <- ggplot2::ggplot() + 
         ggplot2::annotate("text", x = 0.5, y = 0.5, 
                           label = paste0("n = ", cur_n, "\nNon-Schrödinger\nEigenstate"),
@@ -219,13 +86,15 @@ generate_plot_object <- function(target_data, plot_title, file_name, type = "all
         ggplot2::theme(panel.background = ggplot2::element_rect(fill = "grey98", color = "grey90"))
       next
     }
+    
+    if (is.na(cur_p)) next
 
-    f_path <- here::here("data-raw", "outputs", "02_aggregated_summary", "histograms", 
-                         sprintf("histogram_P_%013.6f.csv.gz", round(cur_p, 6)))
+    f_path <- get_histogram_path(cur_p)
 
     if (file.exists(f_path)) {
       d_temp <- data.table::fread(f_path)
-      h_pts <- d_temp[type == "hist"]; n_pts <- d_temp[type == "node"]
+      h_pts <- d_temp[type == "hist"]
+      n_pts <- d_temp[type == "node"]
       bw <- if(nrow(h_pts) > 1) diff(h_pts$x[1:2]) else 0.1
 
       plot_storage[[i]] <- ggplot2::ggplot(h_pts, ggplot2::aes(x, y)) +
@@ -243,60 +112,219 @@ generate_plot_object <- function(target_data, plot_title, file_name, type = "all
               patchwork::plot_annotation(title = plot_title)
               
   height_inches <- ceiling(nrow(target_data) / cols) * 3
-  ggplot2::ggsave(file.path(manuscript_dir, file_name), combined, width = 10, height = height_inches, limitsize = FALSE)
+  save_plot(combined, file_name, width = 10, height = height_inches)
   
   return(list(plot_object = combined, dynamic_height = height_inches))
 }
 
-# --- 2. Data Preparation (Driven by Experimental Data) ---
+# Physics grid for transitions
+generate_physics_grid <- function(jumps_subset) {
+  num_jumps <- length(jumps_subset)
+  plot_list <- vector("list", num_jumps * 3)
+  counter <- 1
 
-plot_nodes_p <- dt_summary[momentum > 0.0, .(
-  p_val = as.numeric(momentum), 
+  for (j in seq_len(num_jumps)) {
+    for (p in seq_along(jumps_subset[[j]]$p_vals)) {
+      current_p <- jumps_subset[[j]]$p_vals[p]
+      f_path <- get_histogram_path(current_p)
+
+      if (file.exists(f_path)) {
+        combined_dt <- data.table::fread(f_path)
+        node_label <- as.character(combined_dt$node_count[1])
+        hist_data <- combined_dt[type == "hist"]
+        node_data <- combined_dt[type == "node"]
+        b_width <- if(nrow(hist_data) > 1) diff(hist_data$x[1:2]) else 0.1
+
+        p_obj <- ggplot2::ggplot(hist_data, ggplot2::aes(x = x, y = y)) +
+          ggplot2::geom_vline(xintercept = 0, color = "grey80", linetype = "dashed", linewidth = 0.4) +
+          ggplot2::geom_col(fill = "black", alpha = 0.25, width = b_width) +
+          ggplot2::geom_step(direction = "hv", color = "black", linewidth = 0.3) +
+          ggplot2::geom_point(data = node_data, color = "black", size = 1.2, shape = 16) +
+          ggplot2::labs(
+            title = paste0(jumps_subset[[j]]$n, " Nodes: ", node_label, " at P = ", sprintf("%.2f", current_p)), 
+            x = "q", y = ""
+          ) +
+          ggplot2::theme_minimal(base_family = "mono") +
+          ggplot2::theme(
+            plot.title = ggplot2::element_text(size = 9, face = "bold"),
+            panel.grid.minor = ggplot2::element_blank()
+          )
+      } else {
+        p_obj <- ggplot2::ggplot() + ggplot2::theme_void() + 
+          ggplot2::annotate("text", x = 0.5, y = 0.5, 
+                            label = paste("P =", sprintf("%.2f", current_p), "\nmissing"),
+                            family = "mono", size = 3)
+      }
+      
+      plot_list[[counter]] <- p_obj
+      counter <- counter + 1
+    }
+  }
+
+  patchwork::wrap_plots(plot_list, ncol = 3) + 
+    patchwork::plot_annotation(
+      title = "Coordinate Distributions Near Complexity Transitions",
+      subtitle = "Automatically Detected Transitions in Median Complexity from Changes in Momentum",
+      theme = ggplot2::theme(
+        plot.title = ggplot2::element_text(hjust = 0.5, face = "bold", size = 14, family = "mono"),
+        plot.subtitle = ggplot2::element_text(hjust = 0.5, size = 10, family = "mono", color = "black")
+      )
+    )
+}
+```
+
+```{r jump-detection, echo=F}
+summary_path <- here::here("data-raw", "outputs", "02_aggregated_summary", "02_aggregated_summary.csv.gz")
+dt_summary <- data.table::fread(summary_path)
+data.table::setorder(dt_summary, momentum)
+dt_summary <- dt_summary[momentum > 0.0]
+
+z_diffs <- abs(diff(dt_summary$kolmogorov_complexity_median))
+threshold <- max(z_diffs, na.rm = TRUE) * 0.0001
+jump_indices <- which(z_diffs > threshold)
+
+jumps <- lapply(seq_along(jump_indices), function(i) {
+  idx <- jump_indices[i]
+  m_at <- dt_summary$momentum[idx + 1]
+  list(
+    n = paste("Transition", i),
+    p_vals = c(m_at-1, m_at, m_at+1)
+  )
+})
+
+p_markers <- dt_summary$momentum[jump_indices]
+```
+
+```{r introduction, child = 'inst/readme/introduction.Rmd'}
+```
+
+```{r dual-aspect-complexity, echo=FALSE, fig.width=12, fig.height=6}
+plot_dt_q <- dt_summary[momentum > 0.0, .(
+  q_val = 1 / as.numeric(momentum),
+  y_mean = as.numeric(kolmogorov_complexity_mean),
+  y_med = as.numeric(kolmogorov_complexity_median),
+  y_sd = as.numeric(kolmogorov_complexity_sd)
+)]
+
+plot_dt_p <- dt_summary[momentum > 0.0, .(
+  p_val = as.numeric(momentum),
+  y_mean = as.numeric(kolmogorov_complexity_mean),
+  y_med = as.numeric(kolmogorov_complexity_median),
+  y_sd = as.numeric(kolmogorov_complexity_sd)
+)]
+
+p_spatial <- ggplot(plot_dt_q, aes(x = q_val)) +
+  geom_vline(xintercept = 1/p_markers, color = "grey80", linetype = "dashed", alpha = 0.5) +
+  geom_ribbon(aes(ymin = y_mean - y_sd, ymax = y_mean + y_sd), fill = "gray50", alpha = 0.1) +
+  geom_line(aes(y = y_mean, color = "Mean"), linewidth = 0.6) +
+  geom_line(aes(y = y_med, color = "Median"), linewidth = 1.0) +
+  scale_x_log10() +
+  scale_color_manual(values = c("Mean" = "gray60", "Median" = "black")) +
+  labs(
+    title = latex2exp::TeX("Coordinate Complexity: $K(Q_0)$ vs. $Q$ (Log Scale)"),
+    x = latex2exp::TeX("Coordinate $Q = 1/P$ [$q/q_0$]"),
+    y = "Complexity [bits]",
+    color = "Series"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "bottom", plot.title = element_text(hjust = 0.5))
+
+p_momentum <- ggplot(plot_dt_p, aes(x = p_val)) +
+  geom_vline(xintercept = p_markers, color = "grey80", linetype = "dashed", alpha = 0.5) +
+  geom_ribbon(aes(ymin = y_mean - y_sd, ymax = y_mean + y_sd), fill = "gray50", alpha = 0.1) +
+  geom_line(aes(y = y_mean, color = "Mean"), linewidth = 0.6) +
+  geom_line(aes(y = y_med, color = "Median"), linewidth = 1.0) +
+  scale_color_manual(values = c("Mean" = "gray60", "Median" = "black")) +
+  labs(
+    title = latex2exp::TeX("Momentum Complexity: $K(P_0)$ vs. $P$"),
+    x = latex2exp::TeX("Momentum P [$p/p_0$]"),
+    y = "Complexity [bits]",
+    color = "Series"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "bottom", plot.title = element_text(hjust = 0.5))
+
+combined_blob_plot <- gridExtra::arrangeGrob(
+  p_spatial, p_momentum, 
+  ncol = 2,
+  top = grid::textGrob("Coordinate and Momentum Complexity", 
+                       gp = grid::gpar(fontsize = 16, font = 2))
+)
+
+grid::grid.draw(combined_blob_plot)
+save_plot(combined_blob_plot, "complexity.pdf", width = 12, height = 6)
+```
+
+```{r dual-aspect-node-count, echo=FALSE, fig.width=12, fig.height=6}
+plot_nodes_q <- dt_summary[momentum > 0.0, .(
+  q_val = 1 / as.numeric(momentum),
   nodes = as.numeric(node_count)
 )]
 
-plot_nodes_p[, is_eigenstate := (floor(p_val / pi) == nodes)]
-max_n_found <- max(plot_nodes_p$nodes, na.rm = TRUE)
+plot_nodes_p <- dt_summary[momentum > 0.0, .(
+  p_val = as.numeric(momentum),
+  nodes = as.numeric(node_count)
+)]
 
-# A. Full Collection (Median P)
-data.table::setorder(plot_nodes_p, nodes, p_val)
-dt_full_median <- plot_nodes_p[plot_nodes_p[, .I[floor((.N+1)/2)], by = nodes]$V1][, .(n = nodes, momentum = p_val)]
+p_nodes_spatial <- ggplot(plot_nodes_q, aes(x = q_val, y = nodes)) +
+  geom_vline(xintercept = 1/p_markers, color = "grey80", linetype = "dashed", alpha = 0.5) +
+  geom_point(size = 0.2, alpha = 0.6, color = "black") +
+  scale_x_log10() +
+  labs(
+    title = latex2exp::TeX("Coordinate Node Counts: Nodes vs. $Q$ (Log Scale)"),
+    x = latex2exp::TeX("Coordinate $Q = 1/P$ [$q/q_0$]"),
+    y = "Node Count [count]"
+  ) +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5))
 
-# B. Eigenstate Collection (With explicit gaps for Inaccessible States)
-dt_eigen_raw <- plot_nodes_p[is_eigenstate == TRUE]
-dt_eigen_subset <- dt_eigen_raw[dt_eigen_raw[, .I[floor((.N+1)/2)], by = nodes]$V1][, .(n = nodes, momentum = p_val)]
+p_nodes_momentum <- ggplot(plot_nodes_p, aes(x = p_val, y = nodes)) +
+  geom_vline(xintercept = p_markers, color = "grey80", linetype = "dashed", alpha = 0.5) +
+  geom_point(size = 0.2, alpha = 0.6, color = "black") +
+  labs(
+    title = latex2exp::TeX("Momentum Node Counts: Nodes vs. $P$"),
+    x = latex2exp::TeX("Momentum P [$p/p_0$]"),
+    y = "Node Count [count]"
+  ) +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5))
 
-# Force a complete sequence from 0 to max_n_found to reveal the gaps
-dt_eigen_median <- data.table::data.table(n = 0:max_n_found)
-dt_eigen_median <- merge(dt_eigen_median, dt_eigen_subset, by = "n", all.x = TRUE)
+combined_nodes_plot <- gridExtra::arrangeGrob(
+  p_nodes_spatial, p_nodes_momentum, 
+  ncol = 2,
+  top = grid::textGrob("Coordinate and Momentum Node Counts", 
+                       gp = grid::gpar(fontsize = 16, font = 2))
+)
 
-
-# --- 3. Generate Plots ---
-render_full <- generate_plot_object(dt_full_median, "Full Distribution Sequence", "all_nodes_median.pdf")
-full_height <- render_full$dynamic_height
-
-render_eigen <- generate_plot_object(dt_eigen_median, "Eigenstate Distribution Sequence (Showing Inaccessible Gaps)", "eigen_nodes_gaps.pdf")
-eigen_height <- render_eigen$dynamic_height
+grid::grid.draw(combined_nodes_plot)
+save_plot(combined_nodes_plot, "nodes.pdf", width = 12, height = 6)
 ```
 
+```{r prepare-eigenstate-data, echo=FALSE}
+# Prepare all eigenstate and median data once
+plot_nodes_p <- prepare_plot_data(dt_summary)
+max_n_found <- max(plot_nodes_p$nodes, na.rm = TRUE)
+
+# Full collection median
+dt_full_median <- get_median_by_nodes(plot_nodes_p)
+
+# Eigenstate collection with gaps
+dt_eigen_raw <- plot_nodes_p[is_eigenstate == TRUE]
+dt_eigen_subset <- get_median_by_nodes(dt_eigen_raw)
+dt_eigen_median <- data.table::data.table(n = 0:max_n_found)
+dt_eigen_median <- merge(dt_eigen_median, dt_eigen_subset, by = "n", all.x = TRUE)
+```
 
 ```{r filter-valid-eigenstates, echo=FALSE, fig.width=8, fig.height=6}
-# Note: plot_nodes_p is already prepared and contains 'is_eigenstate'
-
 p_momentum_filtered <- ggplot(plot_nodes_p, aes(x = p_val, y = nodes)) +
-  # All data points
   geom_point(color = "grey70", size = 0.2, alpha = 0.4) +
   geom_vline(xintercept = p_markers, color = "grey80", linetype = "dashed", alpha = 0.5) +
-  
-  # The "Snap-to" Eigenstates using the column defined in setup
-  geom_point(data = plot_nodes_p[is_eigenstate == TRUE], 
-             color = "red", size = 0.3) +
-             
+  geom_point(data = plot_nodes_p[is_eigenstate == TRUE], color = "red", size = 0.3) +
   labs(
     title = latex2exp::TeX("Schrödinger Eigenstates (red) Among All Configurations"),
     subtitle = "Eigenstates are vanishingly sparse configurations among expanding possibilities in phase space.",
     x = latex2exp::TeX("Momentum P [$p/p_0$]"),
-    y = latex2exp::TeX("Node Count (Coordinate $Q$ Distriubtions)"),
+    y = latex2exp::TeX("Node Count (Coordinate $Q$ Distributions)"),
     caption = "Red: Eigenstates | Grey: All Configurations"
   ) +
   theme_minimal() +
@@ -307,27 +335,21 @@ p_momentum_filtered <- ggplot(plot_nodes_p, aes(x = p_val, y = nodes)) +
   )
 
 print(p_momentum_filtered)
-
-ggplot2::ggsave(
-  filename = file.path(manuscript_dir, "eignstates.pdf"),
-  plot = p_momentum_filtered, 
-  width = 8, 
-  height = 6,
-  device = grDevices::cairo_pdf
-)
+save_plot(p_momentum_filtered, "eigenstates.pdf", width = 8, height = 6)
 ```
 
-```{r plot-eigen-grid-display-lower, echo=FALSE, fig.width=10, fig.height=eigen_height, warning=FALSE, message=FALSE}
+```{r generate-eigenstate-plots, echo=FALSE}
+render_full <- generate_plot_grid(dt_full_median, "Full Distribution Sequence", "all_nodes_median.pdf")
+render_eigen <- generate_plot_grid(dt_eigen_median, "Eigenstate Distribution Sequence (Showing Inaccessible Gaps)", "eigen_nodes_gaps.pdf", show_placeholders = TRUE)
+```
+
+```{r plot-eigen-grid, echo=FALSE, fig.width=10, fig.height=render_eigen$dynamic_height}
 render_eigen$plot_object
 ```
 
-```{r momentum-counts-histogram, echo=FALSE, warning=FALSE, message=FALSE, fig.width=10, fig.height=6}
-# Calculate the count of momentum entries per quantum number (n)
-momentum_counts <- dt_summary[momentum > 0.0, .(
-  Count = .N
-), by = .(n = as.integer(node_count))]
+```{r momentum-counts-histogram, echo=FALSE, fig.width=10, fig.height=6}
+momentum_counts <- dt_summary[momentum > 0.0, .(Count = .N), by = .(n = as.integer(node_count))]
 
-# Plot the counts as a bar chart
 ggplot2::ggplot(momentum_counts, ggplot2::aes(x = n, y = Count)) +
   ggplot2::geom_col(fill = "steelblue", color = "black", alpha = 0.8) +
   ggplot2::labs(
@@ -336,96 +358,17 @@ ggplot2::ggplot(momentum_counts, ggplot2::aes(x = n, y = Count)) +
     y = "Number of Data Points (Momentum entries)"
   ) +
   ggplot2::theme_minimal() +
-  ggplot2::theme(
-    plot.title = ggplot2::element_text(hjust = 0.5, face = "bold"),
-    # Rotate axis text if needed for dense X-axis labels
-    # axis.text.x = ggplot2::element_text(angle = 90, hjust = 1, vjust = 0.5) 
-  )
-```
-
-
-```{r setup-height-variables-lower-median, echo=FALSE, warning=FALSE, message=FALSE}
-# --- 1. Define Helper Function (DRY plotting logic) ---
-generate_plot_object <- function(target_data, plot_title, file_name) {
-  cols <- 3
-  plot_storage <- vector("list", nrow(target_data))
-  
-  for (i in seq_len(nrow(target_data))) {
-    cur_n <- target_data$n[i]; cur_p <- target_data$momentum[i]
-    
-    f_path <- here::here("data-raw", "outputs", "02_aggregated_summary", "histograms", 
-                         sprintf("histogram_P_%013.6f.csv.gz", round(cur_p, 6)))
-
-    if (file.exists(f_path)) {
-      d_temp <- data.table::fread(f_path)
-      h_pts <- d_temp[type == "hist"]; n_pts <- d_temp[type == "node"]
-      bw <- if(nrow(h_pts) > 1) diff(h_pts$x[1:2]) else 0.1
-
-      plot_storage[[i]] <- ggplot2::ggplot(h_pts, ggplot2::aes(x, y)) +
-        ggplot2::geom_col(fill = "black", alpha = 0.25, width = bw) +
-        ggplot2::geom_point(data = n_pts, size = 1.2, shape = 16) +
-        ggplot2::labs(title = paste0("n=", cur_n, " | P=", round(cur_p, 3)), x = "q", y = "") +
-        ggplot2::theme_minimal(base_family = "mono")
-    } else {
-      plot_storage[[i]] <- ggplot2::ggplot() + ggplot2::theme_void() +
-                           ggplot2::labs(title = paste("File Missing n=", cur_n, " P=", round(cur_p, 6)))
-    }
-  }
-
-  combined <- patchwork::wrap_plots(plot_storage, ncol = cols) + 
-              patchwork::plot_annotation(title = plot_title)
-              
-  height_inches <- ceiling(nrow(target_data) / cols) * 3
-  ggplot2::ggsave(file.path(manuscript_dir, file_name), combined, width = 10, height = height_inches, limitsize = FALSE)
-  
-  return(list(plot_object = combined, dynamic_height = height_inches))
-}
-
-# --- 2. Data Preparation ---
-
-# A. Base Data Prep & Unified Eigenstate Logic
-plot_nodes_p <- dt_summary[momentum > 0.0, .(
-  p_val = as.numeric(momentum), 
-  nodes = as.numeric(node_count)
-)]
-
-# Define logic ONCE for the entire document
-plot_nodes_p[, is_eigenstate := (floor(p_val / pi) == nodes)]
-
-# B. Full Collection (All n from 0)
-dt_full <- plot_nodes_p
-data.table::setorder(dt_full, nodes, p_val)
-dt_full_median <- dt_full[dt_full[, .I[floor((.N+1)/2)], by = nodes]$V1][, .(n = nodes, momentum = p_val)]
-
-# C. Eigenstate Collection (Using the unified boolean column)
-dt_eigen <- plot_nodes_p[is_eigenstate == TRUE]
-data.table::setorder(dt_eigen, nodes, p_val)
-dt_eigen_median <- dt_eigen[dt_eigen[, .I[floor((.N+1)/2)], by = nodes]$V1][, .(n = nodes, momentum = p_val)]
-
-# --- 3. Generate Plots ---
-render_full <- generate_plot_object(dt_full_median, "Full Distribution Sequence (n, Lower Median P)", "all_nodes_median_lower.pdf")
-full_height <- render_full$dynamic_height
-
-render_eigen <- generate_plot_object(dt_eigen_median, "Eigenstate Distribution Sequence (Lower Median P)", "eigen_nodes_median_lower.pdf")
-eigen_height <- render_eigen$dynamic_height
+  ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5, face = "bold"))
 ```
 
 ```{r plot-median-distribution, echo=FALSE, fig.width=8, fig.height=6}
-# 1. Identify which points in the main set are the selected medians
-# We use a semi-join logic to flag the specific (nodes, p_val) pairs found in dt_full_median
 plot_nodes_p[, is_median := FALSE]
 plot_nodes_p[dt_full_median, on = .(nodes = n, p_val = momentum), is_median := TRUE]
 
-# 2. Generate the Plot
 p_median_highlighted <- ggplot(plot_nodes_p, aes(x = p_val, y = nodes)) +
-  # All Stern-Brocot data points (The background)
   geom_point(color = "grey70", size = 0.2, alpha = 0.4) +
   geom_vline(xintercept = p_markers, color = "grey80", linetype = "dashed", alpha = 0.5) +
-  
-  # The Selected Median configurations in BLUE
-  geom_point(data = plot_nodes_p[is_median == TRUE], 
-             color = "blue", size = 0.3) +
-             
+  geom_point(data = plot_nodes_p[is_median == TRUE], color = "blue", size = 0.3) +
   labs(
     title = latex2exp::TeX("Median Configurations (blue) Across Node Counts"),
     subtitle = "Highlighting the lower-median momentum P for each node count n.",
@@ -440,117 +383,25 @@ p_median_highlighted <- ggplot(plot_nodes_p, aes(x = p_val, y = nodes)) +
     axis.title = element_text(size = 11)
   )
 
-# 3. Output and Save
 print(p_median_highlighted)
-
-ggplot2::ggsave(
-  filename = file.path(manuscript_dir, "median_distribution.pdf"),
-  plot = p_median_highlighted, 
-  width = 8, 
-  height = 6,
-  device = grDevices::cairo_pdf
-)
+save_plot(p_median_highlighted, "median_distribution.pdf", width = 8, height = 6)
 ```
 
-```{r plot-full-grid-lower, echo=FALSE, fig.width=10, fig.height=full_height, warning=FALSE, message=FALSE}
+```{r plot-full-grid, echo=FALSE, fig.width=10, fig.height=render_full$dynamic_height}
 render_full$plot_object
 ```
 
-```{r distribution-helper, echo=FALSE}
-# --- CORE PLOTTING FUNCTION (OPTIMIZED) ---
-generate_physics_grid <- function(jumps_subset) {
-  
-  num_jumps <- length(jumps_subset)
-  plot_list <- vector("list", num_jumps * 3)
-  counter   <- 1
-
-  for (j in seq_len(num_jumps)) {
-    for (p in seq_along(jumps_subset[[j]]$p_vals)) {
-      current_p <- jumps_subset[[j]]$p_vals[p]
-      
-      # Target the new self-contained histogram files
-      f_name <- sprintf("histogram_P_%013.6f.csv.gz", round(current_p, 6))
-      f_path <- here::here("data-raw", "outputs", "02_aggregated_summary", "histograms", f_name)
-
-      if (file.exists(f_path)) {
-        # 1. Read the pre-computed data
-        combined_dt <- data.table::fread(f_path)
-        
-        # 2. Extract metadata and split data
-        node_label <- as.character(combined_dt$node_count[1])
-        hist_data  <- combined_dt[type == "hist"]
-        node_data  <- combined_dt[type == "node"]
-        
-        # Calculate bin width for gap-free bars
-        b_width <- if(nrow(hist_data) > 1) diff(hist_data$x[1:2]) else 0.1
-
-        # 3. Generate High-Fidelity Plot
-        p_obj <- ggplot2::ggplot(hist_data, ggplot2::aes(x = x, y = y)) +
-          # Physics reference line
-          ggplot2::geom_vline(xintercept = 0, color = "grey80", linetype = "dashed", linewidth = 0.4) +
-          # Gap-free stepped area
-          ggplot2::geom_col(fill = "black", alpha = 0.25, width = b_width) +
-          # Sharp staircase outline
-          ggplot2::geom_step(direction = "hv", color = "black", linewidth = 0.3) +
-          # Pre-computed red nodes
-          ggplot2::geom_point(data = node_data, color = "black", size = 1.2, shape = 16) +
-          ggplot2::labs(
-            title = paste0(jumps_subset[[j]]$n, " Nodes: ", node_label, " at P = ", sprintf("%.2f", current_p)), 
-            x = "q", y = ""
-          ) +
-          ggplot2::theme_minimal(base_family = "mono") +
-          ggplot2::theme(
-            plot.title = ggplot2::element_text(size = 9, face = "bold"),
-            panel.grid.minor = ggplot2::element_blank()
-          )
-      } else {
-        # Placeholder for missing momentum values
-        p_obj <- ggplot2::ggplot() + ggplot2::theme_void() + 
-          ggplot2::annotate("text", x = 0.5, y = 0.5, 
-                            label = paste("P =", sprintf("%.2f", current_p), "\n missing"),
-                            family = "mono", size = 3)
-      }
-      
-      plot_list[[counter]] <- p_obj
-      counter <- counter + 1
-    }
-  }
-
-  # Assemble the grid
-  patchwork::wrap_plots(plot_list, ncol = 3) + 
-    patchwork::plot_annotation(
-      title = "Coordinate Distributions Near Complexity Transitions",
-      subtitle = "Automatically Detected Transitions in Median Complexity from Changes in Momentum",
-      theme = ggplot2::theme(
-        plot.title = ggplot2::element_text(hjust = 0.5, face = "bold", size = 14, family = "mono"),
-        plot.subtitle = ggplot2::element_text(hjust = 0.5, size = 10, family = "mono", color = "black")
-      )
-    )
-}
-```
-
 ```{r subset-config, echo=FALSE}
-# --- SINGLE SOURCE OF TRUTH ---
-max_rows      <- 300
-subset_idx    <- 1:min(length(jumps), max_rows)
-subset_jumps  <- jumps[subset_idx]
-dynamic_h     <- 3 * length(subset_jumps)
+max_rows <- 300
+subset_idx <- 1:min(length(jumps), max_rows)
+subset_jumps <- jumps[subset_idx]
+dynamic_h <- 3 * length(subset_jumps)
 ```
 
 ```{r distributions-for-manuscript, fig.width=10, fig.height=dynamic_h, echo=FALSE}
-# Now fig.height is dynamically tied to the actual number of rows
 subset_plot <- generate_physics_grid(subset_jumps)
-
-# Display in the Readme
 subset_plot
-
-# Save PDF with exact same dimensions
-ggplot2::ggsave(
-  filename = file.path(manuscript_dir, "distributions.pdf"),
-  plot   = subset_plot, 
-  width  = 10, 
-  height = dynamic_h
-)
+save_plot(subset_plot, "distributions.pdf", width = 10, height = dynamic_h)
 ```
 
 # Ellipse Parameterization (A = PQ)
@@ -558,7 +409,6 @@ ggplot2::ggsave(
 This visualization shows two overlapping ellipses centered at (0,0) where $A = PQ$. 
 
 ```{r experimental_ellipses, fig.width=10, fig.height=3 * length(jumps), echo=FALSE}
-# 1. Extract and format labels with 2-decimal precision
 ellipse_data <- lapply(jumps, function(j) {
   data.frame(
     transition_name = j$n,
@@ -569,7 +419,6 @@ ellipse_data <- lapply(jumps, function(j) {
   )
 }) %>% bind_rows()
 
-# 2. Calculate radii and axis limits
 plot_ready <- ellipse_data %>%
   mutate(
     q_radius_x = Q_value,
@@ -584,17 +433,13 @@ plot_ready <- ellipse_data %>%
     names_pattern = "(.*)_radius_(.*)"
   )
 
-# 3. Generate the plot object
 ellipse_plot <- ggplot(plot_ready) +
-  # Reduced linewidth for better resolution at high P, Q values
   geom_ellipse(aes(x0 = 0, y0 = 0, a = x, b = y, angle = 0, 
                    fill = ellipse_type, color = ellipse_type), 
                linewidth = 0.2, alpha = 0.5) +
   geom_blank(aes(x = lim, y = lim)) +
   geom_blank(aes(x = -lim, y = -lim)) +
-  facet_wrap(transition_name ~ p_label, 
-             scales = "free", 
-             ncol = 3) +
+  facet_wrap(transition_name ~ p_label, scales = "free", ncol = 3) +
   scale_fill_manual(values = c("q" = "black", "p" = "gray40"),
                     labels = c("q" = "Q", "p" = "P")) +
   scale_color_manual(values = c("q" = "black", "p" = "gray40"),
@@ -604,10 +449,8 @@ ellipse_plot <- ggplot(plot_ready) +
     y = "p [p_0]",
     fill = "Conjugate Pair",
     color = "Conjugate Pair",
-
-    
-        title = "Conjugate Quanta of Action",
-          subtitle = "LOWER PLATEAU, TRANSITION, UPPER PLATEAU",
+    title = "Conjugate Quanta of Action",
+    subtitle = "LOWER PLATEAU, TRANSITION, UPPER PLATEAU"
   ) +
   theme_minimal() +
   theme(
@@ -616,17 +459,9 @@ ellipse_plot <- ggplot(plot_ready) +
     strip.text = element_text(face = "bold", size = 8)
   )
 
-# Print the plot to the Rmd output
 ellipse_plot
 
-# 4. Save the plot to the manuscripts directory
 num_transitions <- length(unique(ellipse_data$transition_name))
-dynamic_h <- num_transitions * 3
-
-ggplot2::ggsave(
-  filename = here::here(manuscript_dir, "conjugate_quanta.pdf"),
-  plot   = ellipse_plot, 
-  width  = 10, 
-  height = dynamic_h
-)
+dynamic_h_ellipse <- num_transitions * 3
+save_plot(ellipse_plot, "conjugate_quanta.pdf", width = 10, height = dynamic_h_ellipse)
 ```
