@@ -5,13 +5,13 @@ library(data.table)
 library(future.apply)
 library(Rcpp)
 
+# --- CONFIGURATION ---
+target_P <- c(10.27, 12.12)
 workers_to_use <- parallel::detectCores() / 2
 future::plan(future::multisession, workers = workers_to_use)
 
-# Updated to match External Volume from Script 01
-raw_dir  <- "/Volumes/SternBrocot/01_micro_macro_erasures"
-agg_dir  <- "/Volumes/SternBrocot/02_aggregated_summary"
-
+raw_dir  <- here::here("data-raw", "outputs", "01_micro_macro_erasures")
+agg_dir  <- here::here("data-raw", "outputs", "02_aggregated_summary")
 hist_dir <- file.path(agg_dir, "histograms")
 if (!dir.exists(hist_dir)) dir.create(hist_dir, recursive = TRUE)
 
@@ -20,7 +20,6 @@ all_files    <- list.files(raw_dir, pattern = "\\.csv\\.gz$", full.names = TRUE)
 
 # --- WORKER LOGIC ---
 process_file_full <- function(f, out_path) {
-  # Compile C++ helper inside worker if not present
   if (!exists("find_nodes_cpp")) {
     try(Rcpp::sourceCpp(code = '
       #include <Rcpp.h>
@@ -55,6 +54,7 @@ process_file_full <- function(f, out_path) {
     m_val <- as.numeric(gsub(".*_P_([0-9.]+)\\.csv\\.gz", "\\1", f))
     hist_name <- sprintf("histogram_P_%013.6f.csv.gz", round(m_val, 6))
     full_hist_path <- file.path(out_path, hist_name)
+    if(file.exists(full_hist_path)) file.remove(full_hist_path)
 
     dt <- data.table::fread(f, select = c("found", "macrostate", "fluctuation", "kolmogorov_complexity",
                                           "shannon_entropy", "zurek_entropy", "numerator", "denominator"))
@@ -73,103 +73,55 @@ process_file_full <- function(f, out_path) {
       h_range <- max(sub_df$y, na.rm = TRUE) - min(sub_df$y, na.rm = TRUE)
       x_sd <- sqrt(sum(sub_df$y * (sub_df$x - (sum(sub_df$x * sub_df$y)/sum(sub_df$y)))^2) / sum(sub_df$y))
       thresh <- (1 / (4 * pi)) / (1 + sqrt(x_sd))
-      if (h_range < (thresh * mean(sub_df$y, na.rm = TRUE))) return(NULL)
       return(as.data.table(find_nodes_cpp(sub_df, thresh, h_range)))
     }
 
+    # 1. Scans: moving AWAY from center
     res_r <- run_detection(plot_df[x >= 0], "right")
     res_l <- run_detection(plot_df[x < 0], "left")
+    dot_df <- unique(rbind(res_l, res_r, fill = TRUE)[complete.cases(x, y)])
 
-    y_center <- plot_df$y[which.min(abs(plot_df$x))]
-    dot_df <- data.table(x = numeric(0), y = numeric(0))
-
-    if (!is.null(res_r) && !is.null(res_l)) {
-      # MODIFIED LOGIC START: Unconditionally include the center point
-      dot_df <- rbind(
-        data.table(x = 0, y = y_center),
-        res_l,
-        res_r,
-        fill = TRUE
-      )
-      # MODIFIED LOGIC END
-    } else {
-      dot_df <- rbind(res_l, res_r, fill=TRUE)
+    # 2. Peak logic: Just trust the scans.
+    # If the center is a trough (10.27), both scans will find a node near x=0.
+    # If the center is a peak (12.12), scans will skip the center and find nodes further out.
+    if (nrow(dot_df) == 0) {
+      y_center <- plot_df$y[which.min(abs(plot_df$x))]
+      dot_df <- data.table(x = 0, y = y_center)
     }
 
-    final_node_count <- nrow(unique(dot_df[complete.cases(dot_df)]))
+    final_node_count <- nrow(dot_df)
+    data.table::fwrite(rbind(data.table(type="hist", node_count=final_node_count, x=plot_df$x, y=plot_df$y),
+                             data.table(type="node", node_count=final_node_count, x=dot_df$x, y=dot_df$y),
+                             fill=TRUE), full_hist_path, compress="gzip")
 
-    output_dt <- rbind(
-      data.table(type = "hist", node_count = final_node_count, x = plot_df$x, y = plot_df$y),
-      data.table(type = "node", node_count = final_node_count, x = dot_df$x,  y = dot_df$y),
-      fill = TRUE
-    )
-    data.table::fwrite(output_dt, full_hist_path, compress = "gzip")
-
-    summary_cols <- c("fluctuation", "kolmogorov_complexity", "shannon_entropy",
-                      "zurek_entropy", "numerator", "denominator")
-
+    summary_cols <- c("fluctuation", "kolmogorov_complexity", "shannon_entropy", "zurek_entropy", "numerator", "denominator")
     res_summary <- dt[, {
-      means <- lapply(.SD, mean); sds   <- lapply(.SD, sd)
-      mins  <- lapply(.SD, min);  maxs  <- lapply(.SD, max)
-      meds  <- lapply(.SD, median)
-
-      names(means) <- paste0(names(means), "_mean")
-      names(sds)   <- paste0(names(sds), "_sd")
-      names(mins)  <- paste0(names(mins), "_min")
-      names(maxs)  <- paste0(names(maxs), "_max")
-      names(meds)  <- paste0(names(meds), "_median")
-
+      means <- lapply(.SD, mean); sds <- lapply(.SD, sd); mins <- lapply(.SD, min); maxs <- lapply(.SD, max); meds <- lapply(.SD, median)
+      names(means) <- paste0(names(means), "_mean"); names(sds) <- paste0(names(sds), "_sd")
+      names(mins) <- paste0(names(mins), "_min"); names(maxs) <- paste0(names(maxs), "_max"); names(meds) <- paste0(names(meds), "_median")
       c(list(momentum = m_val, node_count = final_node_count, macro_diversity = uniqueN(macrostate)),
         means, sds, mins, maxs, meds)
     }, .SDcols = summary_cols]
 
     return(res_summary)
-
   }, error = function(e) {
-    message(paste("Failed on:", f, conditionMessage(e)))
-    return(NULL)
+    message(paste("Failed on:", f, conditionMessage(e))); return(NULL)
   })
 }
 
-# --- INCREMENTAL EXECUTION LOGIC ---
-# Check existing results to avoid re-processing
-if (file.exists(summary_file)) {
-  # Only read the momentum column to check progress efficiently
-  existing_done <- data.table::fread(summary_file, select = "momentum")$momentum
-  message(paste("Found existing summary with", length(existing_done), "records."))
-} else {
-  existing_done <- numeric(0)
-}
-
-# Extract momentum from filenames to compare against existing_done
+# --- FORCED EXECUTION ---
 all_momenta <- as.numeric(gsub(".*_P_([0-9.]+)\\.csv\\.gz", "\\1", all_files))
-files_to_process <- all_files[!(all_momenta %in% existing_done)]
+files_to_process <- all_files[sapply(all_momenta, function(m) any(abs(m - target_P) < 1e-7))]
 
 if (length(files_to_process) > 0) {
-  message(paste("Processing", length(files_to_process), "new files..."))
-
-  results <- future.apply::future_lapply(
-    files_to_process,
-    process_file_full,
-    out_path = hist_dir,
-    future.seed = TRUE,
-    future.scheduling = 1,
-    future.packages = c("data.table", "Rcpp")
-  )
-
+  message(sprintf("Processing %d requested files...", length(files_to_process)))
+  results <- future.apply::future_lapply(files_to_process, process_file_full, out_path = hist_dir, future.seed = TRUE, future.scheduling = 1)
   new_summary <- data.table::rbindlist(results, fill = TRUE)
-
-  if (nrow(new_summary) > 0) {
-    # If file exists, append without column names. If not, write new with names.
-    is_append <- file.exists(summary_file)
-    data.table::fwrite(new_summary, summary_file,
-                       append = is_append,
-                       col.names = !is_append,
-                       compress = "gzip")
-    message("New data appended successfully.")
+  if (file.exists(summary_file)) {
+    existing <- data.table::fread(summary_file)
+    existing <- existing[!sapply(momentum, function(m) any(abs(m - target_P) < 1e-7))]
+    new_summary <- rbind(existing, new_summary, fill = TRUE)
   }
-} else {
-  message("All files are already up to date in the summary.")
+  data.table::fwrite(new_summary[order(momentum)], summary_file, compress = "gzip")
 }
-
 message("Done.")

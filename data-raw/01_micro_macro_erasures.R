@@ -9,8 +9,9 @@ library(future.apply)
 # 2. Setup Parallel Plan
 future::plan(future::multisession, workers = parallel::detectCores() / 2)
 
-# 3. Setup Directory (Updated to External Volume)
-raw_directory <- "/Volumes/SternBrocot/01_micro_macro_erasures"
+# 3. Setup Directory (Using the Symlink via 'here')
+# This points to: [Project Root]/data-raw/outputs/01_micro_macro_erasures
+raw_directory <- here::here("data-raw", "outputs", "01_micro_macro_erasures")
 
 if (!dir.exists(raw_directory)) {
   dir.create(raw_directory, recursive = TRUE)
