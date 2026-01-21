@@ -68,6 +68,56 @@ p_markers <- dt_summary$momentum[jump_indices]
 ```{r introduction, child = 'inst/readme/introduction.Rmd'}
 ```
 
+```{r distribution-grid, echo=FALSE, message=FALSE, warning=FALSE, fig.width=14, fig.height=10}
+library(ggplot2)
+library(data.table)
+library(patchwork)
+
+# 1. Identify all histogram files in the directory
+hist_dir <- here::here("data-raw", "outputs", "02_aggregated_summary", "histograms")
+all_hist_files <- list.files(hist_dir, pattern = "histogram_P_.*\\.csv\\.gz$", full.names = TRUE)
+
+# 2. Loop through and build the plot list
+plot_list <- list()
+
+for (f_path in all_hist_files) {
+  # Extract P value from filename for the title
+  current_p <- as.numeric(gsub(".*_P_([0-9.]+)\\.csv\\.gz", "\\1", basename(f_path)))
+  
+  combined_dt <- data.table::fread(f_path)
+  
+  # node_count is stored in every row; grab the first one
+  node_count <- combined_dt$node_count[1]
+  hist_data  <- combined_dt[type == "hist"]
+  node_data  <- combined_dt[type == "node"]
+  
+  # Calculate bin width
+  b_width <- if(nrow(hist_data) > 1) diff(hist_data$x[1:2]) else 0.1
+
+  p_obj <- ggplot(hist_data, aes(x = x, y = y)) +
+    geom_vline(xintercept = 0, color = "grey85", linetype = "dashed", linewidth = 0.4) +
+    geom_col(fill = "steelblue", alpha = 0.2, width = b_width) +
+    geom_step(direction = "mid", color = "black", linewidth = 0.4) +
+    geom_point(data = node_data, aes(x = x, y = y), color = "firebrick", size = 1.5, shape = 18) +
+    labs(
+      title = paste0("P = ", sprintf("%.2f", current_p)),
+      subtitle = paste0("Nodes: ", ifelse(is.na(node_count), "DC Case", node_count)),
+      x = "Fluctuation", y = "Count"
+    ) +
+    theme_minimal(base_size = 9) +
+    theme(panel.grid.minor = element_blank())
+
+  plot_list[[length(plot_list) + 1]] <- p_obj
+}
+
+# 3. Render the dynamic grid
+if (length(plot_list) > 0) {
+  # Use patchwork to auto-arrange; adjust ncol based on your preference
+  wrap_plots(plot_list, ncol = 3)
+} else {
+  cat("No histogram files found in:", hist_dir)
+}
+```
 ```{r dual-aspect-complexity, echo=FALSE, fig.width=12, fig.height=6}
 # 1. Data Preparation
 plot_dt_q <- dt_summary[momentum > 0.0, .(
