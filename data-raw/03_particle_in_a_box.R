@@ -8,17 +8,17 @@ library(Rcpp)
 # --- CONFIGURATION ---
 DEBUG_MODE <- FALSE
 RUN_ALL    <- FALSE
-#original_P <- c(0.5, 1.01, 2.01, 3.5, 10.27, 12.12, 25.47)
-#sampled_P  <- seq(0.01, 300, length.out = 10)
+original_P <- c(0.5, 1.01, 2.01, 3.5, 10.27, 12.12, 25.47)
+sampled_P  <- seq(0.01, 300, length.out = 10)
 
 # Combine, round to 2 digits, sort, and remove duplicates
-#target_P <- sort(unique(round(c(original_P, sampled_P), 2)))
-normalized_momentum_step <- 0.01
-normalized_momentum_min  <- 0.0 + normalized_momentum_step
-normalized_momentum_max  <- 35
-target_P       <- seq(from = normalized_momentum_min,
-                      to = normalized_momentum_max,
-                      by = normalized_momentum_step)
+target_P <- sort(unique(round(c(original_P, sampled_P), 2)))
+# normalized_momentum_step <- 0.01
+# normalized_momentum_min  <- 0.0 + normalized_momentum_step
+# normalized_momentum_max  <- 35
+# target_P       <- seq(from = normalized_momentum_min,
+#                       to = normalized_momentum_max,
+#                       by = normalized_momentum_step)
 
 
 workers_to_use <- max(1, parallel::detectCores() - 1)
@@ -101,7 +101,7 @@ process_file_full <- function(f, out_path, debug_on) {
                                plot = FALSE)
 
     # 3. Tile the histogram P times
-    num_tiles <- max(1, round(P_val / L))
+    num_tiles <- max(1, floor(P_val / L))
     tiled_counts <- rep(h_single$counts, times = num_tiles)
     tiled_mids <- seq(f_rng[1], f_rng[2], length.out = length(tiled_counts))
     tiled_hist <- data.table(x = tiled_mids, y = tiled_counts)
