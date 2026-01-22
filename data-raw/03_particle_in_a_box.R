@@ -8,11 +8,18 @@ library(Rcpp)
 # --- CONFIGURATION ---
 DEBUG_MODE <- FALSE
 RUN_ALL    <- FALSE
-original_P <- c(0.5, 1.01, 2.01, 3.5, 10.27, 12.12, 25.47)
-sampled_P  <- seq(0.01, 300, length.out = 10)
+#original_P <- c(0.5, 1.01, 2.01, 3.5, 10.27, 12.12, 25.47)
+#sampled_P  <- seq(0.01, 300, length.out = 10)
 
 # Combine, round to 2 digits, sort, and remove duplicates
-target_P <- sort(unique(round(c(original_P, sampled_P), 2)))
+#target_P <- sort(unique(round(c(original_P, sampled_P), 2)))
+normalized_momentum_step <- 0.01
+normalized_momentum_min  <- 0.0 + normalized_momentum_step
+normalized_momentum_max  <- 35
+target_P       <- seq(from = normalized_momentum_min,
+                      to = normalized_momentum_max,
+                      by = normalized_momentum_step)
+
 
 workers_to_use <- max(1, parallel::detectCores() - 1)
 future::plan(future::multisession, workers = workers_to_use)
@@ -78,29 +85,39 @@ process_file_full <- function(f, out_path, debug_on) {
     dt <- dt[found == TRUE]
     if (nrow(dt) == 0) return(NULL)
 
-    # PIB: First create histogram of ONE tile at 402 bins
+    # --- UPDATED DYNAMIC BINNING + JITTER FILTER ---
     L <- 1.0
-    raw_fluc <- dt$fluctuation
-    action <- P_val * 1.0 # Q is fixed length at 1
+    action <- P_val * 1.0
     raw_fluc <- dt$fluctuation * action
     f_rng <- range(raw_fluc, na.rm = TRUE)
-    h_single <- graphics::hist(raw_fluc, breaks = seq(f_rng[1], f_rng[2], length.out = 402), plot = FALSE)
 
-    # Now tile this histogram P times
+    # 1. Scale resolution and oversample for anti-aliasing headroom
+    target_bins <- round(402 * max(1, sqrt(P_val)))
+    oversample <- 11
+
+    # 2. Create high-res master tile
+    h_single <- graphics::hist(raw_fluc,
+                               breaks = seq(f_rng[1], f_rng[2], length.out = (target_bins * oversample)),
+                               plot = FALSE)
+
+    # 3. Tile the histogram P times
     num_tiles <- max(1, round(P_val / L))
-
-    # Replicate the histogram counts to create tiled distribution
     tiled_counts <- rep(h_single$counts, times = num_tiles)
     tiled_mids <- seq(f_rng[1], f_rng[2], length.out = length(tiled_counts))
-
-    # Create tiled histogram data
     tiled_hist <- data.table(x = tiled_mids, y = tiled_counts)
 
-    # Now rebin back to 402 bins (simulating fixed detector resolution)
-    # Group the P_val * 402 bins back into 402 bins
-    bins_per_group <- num_tiles
-    tiled_hist[, bin_group := rep(1:402, each = bins_per_group, length.out = .N)]
-    plot_df <- tiled_hist[, .(x = mean(x), y = sum(y)), by = bin_group][, .(x, y)]
+    # 4. Rebin and Smooth (Digital Low-Pass Filter)
+    bins_per_group <- num_tiles * oversample
+    tiled_hist[, bin_group := rep(1:target_bins, each = bins_per_group, length.out = .N)]
+
+    # Aggregate to target resolution
+    plot_df <- tiled_hist[, .(x = mean(x), y = sum(y)), by = bin_group]
+
+    # Apply 5-bin rolling mean to suppress jitter before node detection
+    # Using data.table::frollmean for high performance
+    plot_df[, y := data.table::frollmean(y, n = 5, align = "center", fill = mean(y, na.rm=TRUE))]
+    plot_df <- plot_df[, .(x, y)]
+
 
     mean_y <- mean(plot_df$y, na.rm = TRUE)
     is_dc_case <- all(abs(plot_df$y - mean_y) < (mean_y / (4 * pi)))

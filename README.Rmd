@@ -621,8 +621,18 @@ save_plot(p_eigenstates, "pib_eigenstates.pdf", width = 10, height = 6)
 ## Sample Coordinate Distributions
 
 ```{r sample-distributions, echo=FALSE, fig.width=10, fig.height=12}
-# Select a range of momentum values to visualize
-sample_momenta <- dt_summary[seq(1, nrow(dt_summary), length.out = min(12, nrow(dt_summary))), max_momentum]
+# Generate 30 evenly spaced momentum values between 0.5 and 15
+target_momenta <- seq(from = 0.5, to = 15, length.out = 30)
+
+# Find the indices in your summary table that are closest to these target values
+# This uses 'match' or 'findInterval' logic to grab the nearest available data point
+idx <- sapply(target_momenta, function(p_val) {
+  which.min(abs(dt_summary$max_momentum - p_val))
+})
+
+# Use unique() just in case two target momenta map to the same data row
+sample_momenta <- dt_summary[unique(idx), max_momentum]
+
 
 plot_list <- vector("list", length(sample_momenta))
 
