@@ -81,6 +81,8 @@ process_file_full <- function(f, out_path, debug_on) {
     # PIB: First create histogram of ONE tile at 402 bins
     L <- 1.0
     raw_fluc <- dt$fluctuation
+    action <- P_val * 1.0 # Q is fixed length at 1
+    raw_fluc <- dt$fluctuation * action
     f_rng <- range(raw_fluc, na.rm = TRUE)
     h_single <- graphics::hist(raw_fluc, breaks = seq(f_rng[1], f_rng[2], length.out = 402), plot = FALSE)
 
