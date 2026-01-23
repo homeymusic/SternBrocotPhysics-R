@@ -61,7 +61,7 @@ prepare_plot_data <- function(dt_summary) {
     p_val = as.numeric(max_momentum), 
     nodes = as.numeric(node_count)
   )]
-  plot_data[, is_eigenstate := (floor(p_val / pi) == nodes)]
+  plot_data[, is_eigenstate := (floor(p_val / (2 * pi)) == nodes)]
   return(plot_data)
 }
 
@@ -72,7 +72,6 @@ get_median_by_nodes <- function(dt, node_col = "nodes", p_col = "p_val") {
      .(n = nodes, momentum = p_val)]
 }
 
-# Unified plot generation function
 generate_plot_grid <- function(target_data, plot_title, file_name, show_placeholders = FALSE) {
   cols <- 3
   plot_storage <- vector("list", nrow(target_data))
@@ -81,18 +80,19 @@ generate_plot_grid <- function(target_data, plot_title, file_name, show_placehol
     cur_n <- target_data$n[i]
     cur_p <- target_data$momentum[i]
     
-    # Handle placeholders for inaccessible states
-    if (is.na(cur_p) && show_placeholders) {
+    # Check for approximation flag (backward compatible)
+    is_approx <- FALSE
+    if ("is_approximation" %in% names(target_data)) {
+      is_approx <- isTRUE(target_data$is_approximation[i])
+    }
+
+    # Handle missing momentum: instead of 'next', use a blank plot
+    if (is.na(cur_p)) {
       plot_storage[[i]] <- ggplot2::ggplot() + 
-        ggplot2::annotate("text", x = 0.5, y = 0.5, 
-                          label = paste0("n = ", cur_n, "\nNon-Schrödinger\nEigenstate"),
-                          family = "mono", fontface = "italic", size = 3, color = "red") +
-        ggplot2::theme_void() +
-        ggplot2::theme(panel.background = ggplot2::element_rect(fill = "grey98", color = "grey90"))
+        ggplot2::theme_void() + 
+        ggplot2::labs(title = paste0("n=", cur_n, " (No Data)"))
       next
     }
-    
-    if (is.na(cur_p)) next
 
     f_path <- get_histogram_path(cur_p)
 
@@ -102,11 +102,22 @@ generate_plot_grid <- function(target_data, plot_title, file_name, show_placehol
       n_pts <- d_temp[type == "node"]
       bw <- if(nrow(h_pts) > 1) diff(h_pts$x[1:2]) else 0.1
 
+      # Set dynamic color based on approximation status
+      accent_color <- if(is_approx) "orange" else "black"
+      title_label  <- if(is_approx) paste0("n=", cur_n, " (Approx) | P=", round(cur_p, 3)) 
+                      else paste0("n=", cur_n, " | P=", round(cur_p, 3))
+
       plot_storage[[i]] <- ggplot2::ggplot(h_pts, ggplot2::aes(x, y)) +
         ggplot2::geom_col(fill = "black", alpha = 0.25, width = bw) +
         ggplot2::geom_point(data = n_pts, size = 1.2, shape = 16) +
-        ggplot2::labs(title = paste0("n=", cur_n, " | P=", round(cur_p, 3)), x = "q", y = "") +
-        ggplot2::theme_minimal(base_family = "mono")
+        ggplot2::labs(title = title_label, x = "q", y = "") +
+        ggplot2::theme_minimal(base_family = "mono") +
+        ggplot2::theme(
+          # Change title color and add a border if it's an approximation
+          plot.title = ggplot2::element_text(color = accent_color, face = "bold"),
+          panel.border = if(is_approx) ggplot2::element_rect(color = "orange", fill = NA, linewidth = 1) 
+                         else ggplot2::element_blank()
+        )
     } else {
       plot_storage[[i]] <- ggplot2::ggplot() + ggplot2::theme_void() +
                            ggplot2::labs(title = paste("File Missing n=", cur_n))
@@ -114,7 +125,11 @@ generate_plot_grid <- function(target_data, plot_title, file_name, show_placehol
   }
 
   combined <- patchwork::wrap_plots(plot_storage, ncol = cols) + 
-              patchwork::plot_annotation(title = plot_title)
+              patchwork::plot_annotation(
+                title = plot_title,
+                subtitle = "Note: Orange titles/borders indicate median approximations for missing Schrödinger states",
+                theme = ggplot2::theme(plot.subtitle = ggplot2::element_text(color = "orange", face = "italic"))
+              )
               
   height_inches <- ceiling(nrow(target_data) / cols) * 3
   save_plot(combined, file_name, width = 10, height = height_inches)
@@ -155,7 +170,7 @@ generate_physics_grid <- function(jumps_subset) {
             panel.grid.minor = ggplot2::element_blank()
           )
       } else {
-        p_obj <- ggplot2::ggplot() + ggplot2::theme_void() + 
+        p_obj <- ggplot2::ggplot() + ggplot2::theme_void() +  
           ggplot2::annotate("text", x = 0.5, y = 0.5, 
                             label = paste("P =", sprintf("%.2f", current_p), "\nmissing"),
                             family = "mono", size = 3)
@@ -321,21 +336,24 @@ dt_eigen_median <- merge(dt_eigen_median, dt_eigen_subset, by = "n", all.x = TRU
 ```
 
 ```{r filter-closest-eigenstates, echo=FALSE, fig.width=8, fig.height=6}
-# PASS 1: Get exact eigenstates (original logic)
+# PASS 1: Get exact eigenstates
 dt_eigen_raw <- plot_nodes_p[is_eigenstate == TRUE]
 dt_eigen_exact <- get_median_by_nodes(dt_eigen_raw)
 
-# PASS 2: For missing node counts, find closest approximations
-max_n_found <- max(plot_nodes_p$nodes, na.rm = TRUE)
-all_nodes <- data.table::data.table(n = 0:max_n_found)
+# Calculate the physical limit based on max momentum (~48 if P=300)
+max_p_observed <- max(plot_nodes_p$p_val, na.rm = TRUE)
+n_cutoff <- floor(max_p_observed / (2 * pi)) 
 
-# Identify which nodes are missing exact eigenstates
+# PASS 2: Only consider nodes up to the physical cutoff
+all_nodes <- data.table::data.table(n = 0:n_cutoff)
+
+# Identify which nodes are missing within the VALID range
 dt_with_exact <- merge(all_nodes, dt_eigen_exact, by = "n", all.x = TRUE)
 missing_nodes <- dt_with_exact[is.na(momentum)]$n
 
 # For each missing node, find the closest approximation
 dt_closest_approx <- data.table::rbindlist(lapply(missing_nodes, function(node_count) {
-  ideal_p <- node_count * pi
+  ideal_p <- node_count * pi / 2
   candidates <- plot_nodes_p[nodes == node_count]
   
   if (nrow(candidates) > 0) {
@@ -411,15 +429,21 @@ p_momentum_hybrid <- ggplot(plot_nodes_p, aes(x = p_val, y = nodes)) +
   geom_path(data = dt_final, aes(x = momentum, y = n), 
             color = "darkred", linewidth = 0.5, alpha = 0.6) +
   geom_line(data = data.table::data.table(nodes = 0:max_nodes_for_plot, 
-                              p_ideal = (0:max_nodes_for_plot) * pi),
+                              p_ideal = (0:max_nodes_for_plot) * pi * 2)[
+                                p_ideal <= max(plot_nodes_p$p_val, na.rm = TRUE)
+                              ],
             aes(x = p_ideal, y = nodes), 
             color = "blue", linetype = "dotted", alpha = 0.5, inherit.aes = FALSE) +
   labs(
     title = latex2exp::TeX("Schrödinger Eigenstates with Median Approximations"),
-    subtitle = latex2exp::TeX("Red circles: Exact eigenstates ($P = n\\pi$) | Orange triangles: Median P for missing states | Blue line: Ideal $P = n\\pi$"),
-    x = latex2exp::TeX("Momentum P [$p/p_0$]"),
-    y = latex2exp::TeX("Node Count (Coordinate $Q$ Distributions)"),
-    caption = "Red: Exact Eigenstates | Orange: Median Approximations | Grey: All Configurations"
+    subtitle = latex2exp::TeX(paste0(
+      "Red circles: Exact eigenstates ($P = 2\\pi n$) | ",
+      "Orange triangles: Median $P$ for missing nodes | ",
+      "Blue line: Theoretical $P = 2\\pi n$"
+    )),
+    x = latex2exp::TeX("Momentum $P$ ($p/p_0$)"),
+    y = latex2exp::TeX("Quantum Number $n$ (Node Count)"),
+    caption = "Red: Exact States | Orange: Median Approx. | Blue: Ideal Trend | Grey: Full Phase Space"
   ) +
   theme_minimal() +
   theme(
@@ -439,11 +463,13 @@ if (!exists("manuscript_dir")) {
 }
 save_plot(p_momentum_hybrid, "eigenstates.pdf", width = 8, height = 6)
 
-# Create dataset for plotting distributions (hybrid approach)
+# Create dataset for plotting distributions (including the flag)
 dt_hybrid_for_distributions <- data.table::data.table(
   n = dt_final$n, 
-  momentum = dt_final$momentum
+  momentum = dt_final$momentum,
+  is_approximation = dt_final$is_approximation  # Add this line
 )
+
 
 # Generate distribution plots
 render_hybrid_eigen <- generate_plot_grid(
@@ -642,7 +668,7 @@ prepare_plot_data <- function(dt_summary) {
     nodes = as.numeric(node_count)
   )]
   # PIB eigenstates: n = floor(P/pi) for sine waves in box
-  plot_data[, is_eigenstate := (floor(p_val / pi) == nodes)]
+  plot_data[, is_eigenstate := (floor(p_val / (2 * pi)) == nodes)]
   return(plot_data)
 }
 
