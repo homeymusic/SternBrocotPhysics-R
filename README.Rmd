@@ -320,6 +320,144 @@ dt_eigen_median <- data.table::data.table(n = 0:max_n_found)
 dt_eigen_median <- merge(dt_eigen_median, dt_eigen_subset, by = "n", all.x = TRUE)
 ```
 
+```{r filter-closest-eigenstates, echo=FALSE, fig.width=8, fig.height=6}
+# PASS 1: Get exact eigenstates (original logic)
+dt_eigen_raw <- plot_nodes_p[is_eigenstate == TRUE]
+dt_eigen_exact <- get_median_by_nodes(dt_eigen_raw)
+
+# PASS 2: For missing node counts, find closest approximations
+max_n_found <- max(plot_nodes_p$nodes, na.rm = TRUE)
+all_nodes <- data.table::data.table(n = 0:max_n_found)
+
+# Identify which nodes are missing exact eigenstates
+dt_with_exact <- merge(all_nodes, dt_eigen_exact, by = "n", all.x = TRUE)
+missing_nodes <- dt_with_exact[is.na(momentum)]$n
+
+# For each missing node, find the closest approximation
+dt_closest_approx <- data.table::rbindlist(lapply(missing_nodes, function(node_count) {
+  ideal_p <- node_count * pi
+  candidates <- plot_nodes_p[nodes == node_count]
+  
+  if (nrow(candidates) > 0) {
+    closest_idx <- which.min(abs(candidates$p_val - ideal_p))
+    data.table::data.table(
+      n = node_count,
+      momentum = candidates$p_val[closest_idx],
+      is_approximation = TRUE
+    )
+  } else {
+    data.table::data.table(
+      n = node_count,
+      momentum = NA_real_,
+      is_approximation = TRUE
+    )
+  }
+}))
+
+# Combine exact eigenstates with approximations
+dt_eigen_exact[, is_approximation := FALSE]
+
+# For missing nodes, get the median (or lower-middle if even count)
+dt_median_approx <- data.table::rbindlist(lapply(missing_nodes, function(node_count) {
+  candidates <- plot_nodes_p[nodes == node_count]
+  
+  if (nrow(candidates) > 0) {
+    # Sort by momentum
+    data.table::setorder(candidates, p_val)
+    
+    # Get median index (lower-middle for even count)
+    median_idx <- floor((nrow(candidates) + 1) / 2)
+    
+    data.table::data.table(
+      n = node_count,
+      momentum = candidates$p_val[median_idx],
+      is_approximation = TRUE
+    )
+  } else {
+    data.table::data.table(
+      n = node_count,
+      momentum = NA_real_,
+      is_approximation = TRUE
+    )
+  }
+}))
+
+dt_hybrid_eigenstates <- rbind(
+  dt_eigen_exact,
+  dt_median_approx,
+  fill = TRUE
+)
+data.table::setorder(dt_hybrid_eigenstates, n)
+
+# Remove any remaining NAs
+dt_final <- dt_hybrid_eigenstates[!is.na(momentum)]
+
+# Calculate max nodes safely for plotting
+max_nodes_for_plot <- max(plot_nodes_p$nodes, na.rm = TRUE)
+if (is.na(max_nodes_for_plot) || !is.finite(max_nodes_for_plot)) {
+  max_nodes_for_plot <- max(dt_final$n, na.rm = TRUE)
+}
+
+# Visualization
+p_momentum_hybrid <- ggplot(plot_nodes_p, aes(x = p_val, y = nodes)) +
+  geom_point(color = "grey70", size = 0.2, alpha = 0.4) +
+  geom_vline(xintercept = p_markers, color = "grey80", linetype = "dashed", alpha = 0.5) +
+  # Exact eigenstates in red
+  geom_point(data = dt_final[is_approximation == FALSE], 
+             aes(x = momentum, y = n), color = "red", size = 1.5) +
+  # Approximations in orange
+  geom_point(data = dt_final[is_approximation == TRUE], 
+             aes(x = momentum, y = n), color = "orange", size = 1.5, shape = 17) +
+  geom_path(data = dt_final, aes(x = momentum, y = n), 
+            color = "darkred", linewidth = 0.5, alpha = 0.6) +
+  geom_line(data = data.table::data.table(nodes = 0:max_nodes_for_plot, 
+                              p_ideal = (0:max_nodes_for_plot) * pi),
+            aes(x = p_ideal, y = nodes), 
+            color = "blue", linetype = "dotted", alpha = 0.5, inherit.aes = FALSE) +
+  labs(
+    title = latex2exp::TeX("Schrödinger Eigenstates with Median Approximations"),
+    subtitle = latex2exp::TeX("Red circles: Exact eigenstates ($P = n\\pi$) | Orange triangles: Median P for missing states | Blue line: Ideal $P = n\\pi$"),
+    x = latex2exp::TeX("Momentum P [$p/p_0$]"),
+    y = latex2exp::TeX("Node Count (Coordinate $Q$ Distributions)"),
+    caption = "Red: Exact Eigenstates | Orange: Median Approximations | Grey: All Configurations"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold", size = 14),
+    plot.subtitle = element_text(hjust = 0.5, size = 10, face = "italic"),
+    axis.title = element_text(size = 11)
+  )
+
+print(p_momentum_hybrid)
+
+# Save plot - handle manuscript_dir if it doesn't exist
+if (!exists("manuscript_dir")) {
+  manuscript_dir <- here::here("manuscript")
+  if (!dir.exists(manuscript_dir)) {
+    dir.create(manuscript_dir, recursive = TRUE)
+  }
+}
+save_plot(p_momentum_hybrid, "eigenstates.pdf", width = 8, height = 6)
+
+# Create dataset for plotting distributions (hybrid approach)
+dt_hybrid_for_distributions <- data.table::data.table(
+  n = dt_final$n, 
+  momentum = dt_final$momentum
+)
+
+# Generate distribution plots
+render_hybrid_eigen <- generate_plot_grid(
+  dt_hybrid_for_distributions, 
+  "Eigenstate Distributions: Exact States and Median Approximations", 
+  "eigen_nodes_hybrid.pdf", 
+  show_placeholders = FALSE
+)
+```
+
+```{r plot-hybrid-eigen-grid, echo=FALSE, fig.width=10, fig.height=render_hybrid_eigen$dynamic_height}
+render_hybrid_eigen$plot_object
+```
+
 ```{r filter-valid-eigenstates, echo=FALSE, fig.width=8, fig.height=6}
 p_momentum_filtered <- ggplot(plot_nodes_p, aes(x = p_val, y = nodes)) +
   geom_point(color = "grey70", size = 0.2, alpha = 0.4) +
@@ -344,7 +482,6 @@ save_plot(p_momentum_filtered, "eigenstates.pdf", width = 8, height = 6)
 ```
 
 ```{r generate-eigenstate-plots, echo=FALSE}
-render_full <- generate_plot_grid(dt_full_median, "Full Distribution Sequence", "all_nodes_median.pdf")
 render_eigen <- generate_plot_grid(dt_eigen_median, "Eigenstate Distribution Sequence (Showing Inaccessible Gaps)", "eigen_nodes_gaps.pdf", show_placeholders = TRUE)
 ```
 
@@ -390,6 +527,10 @@ p_median_highlighted <- ggplot(plot_nodes_p, aes(x = p_val, y = nodes)) +
 
 print(p_median_highlighted)
 save_plot(p_median_highlighted, "median_distribution.pdf", width = 8, height = 6)
+```
+
+```{r generate-full-plots, echo=FALSE}
+render_full <- generate_plot_grid(dt_full_median, "Full Distribution Sequence", "all_nodes_median.pdf")
 ```
 
 ```{r plot-full-grid, echo=FALSE, fig.width=10, fig.height=render_full$dynamic_height}

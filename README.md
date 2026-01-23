@@ -12,6 +12,10 @@ physics using the Stern-Brocot tree.
 
 ![](man/figures/README-dual-aspect-node-count-1.png)<!-- -->
 
+![](man/figures/README-filter-closest-eigenstates-1.png)<!-- -->
+
+![](man/figures/README-plot-hybrid-eigen-grid-1.png)<!-- -->
+
 ![](man/figures/README-filter-valid-eigenstates-1.png)<!-- -->
 
 ![](man/figures/README-plot-eigen-grid-1.png)<!-- -->
