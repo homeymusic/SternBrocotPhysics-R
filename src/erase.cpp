@@ -97,7 +97,7 @@ DataFrame erase_core(NumericVector microstate, StopPredicate stop_criteria, doub
     _["numerator"]              = res_num,
     _["denominator"]            = res_den,
     _["minimal_program"]        = res_b_path,
-    _["kolmogorov_complexity"]  = depths,
+    _["program_length"]         = depths,
     _["shannon_entropy"]        = res_shannon,
     _["zurek_entropy"]          = res_zurek,
     _["stern_brocot_path"]      = res_path,
@@ -129,10 +129,10 @@ DataFrame erase_uncertainty(NumericVector x, double uncertainty) {
 
 //' Erase microstate information by a specific tree depth
 //'
-//' Maps microstates to macrostates by enforcing a fixed Kolmogorov complexity.
+//' Maps microstates to macrostates by enforcing a fixed program length
 //'
 //' @param x A numeric vector of microstates to erase.
-//' @param depth The target Kolmogorov complexity (path length).
+//' @param depth The target program length
 //' @return A data frame with physical and algorithmic information properties.
 //' @export
 // [[Rcpp::export(name = "erase_by_depth")]]
@@ -149,7 +149,7 @@ DataFrame erase_depth(NumericVector x, int depth) {
 //'
 //' @param x A numeric vector of microstates to erase.
 //' @param uncertainty The maximum allowable physical fluctuation.
-//' @param depth The maximum target Kolmogorov complexity.
+//' @param depth The maximum program length
 //' @return A data frame with physical and algorithmic information properties.
 //' @export
 // [[Rcpp::export(name = "erase_by_uncertainty_and_depth")]]

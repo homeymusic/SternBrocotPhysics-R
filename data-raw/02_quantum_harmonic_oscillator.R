@@ -4,6 +4,7 @@ here::i_am("data-raw/02_quantum_harmonic_oscillator.R")
 library(data.table)
 library(future.apply)
 library(Rcpp)
+library(moments)  # For skewness and kurtosis
 
 # --- CONFIGURATION ---
 RUN_ALL <- TRUE # We use this to determine the pool, but logic below handles skips
@@ -15,7 +16,7 @@ agg_dir  <- here::here("data-raw", "outputs", "02_quantum_harmonic_oscillator")
 hist_dir <- file.path(agg_dir, "histograms")
 if (!dir.exists(hist_dir)) dir.create(hist_dir, recursive = TRUE)
 
-summary_file <- file.path(agg_dir, "02_aggregated_summary.csv.gz")
+summary_file <- file.path(agg_dir, "02_quantum_harmonic_oscillator.csv.gz")
 
 # --- FILE SELECTION & SKIP LOGIC ---
 all_files <- list.files(raw_dir, pattern = "\\.csv\\.gz$", full.names = TRUE)
@@ -70,7 +71,7 @@ process_file_full <- function(f, out_path) {
     # Double check skip inside worker for safety
     if (file.exists(full_hist_path)) return(NULL)
 
-    dt <- data.table::fread(f, select = c("found", "fluctuation", "kolmogorov_complexity",
+    dt <- data.table::fread(f, select = c("found", "fluctuation", "program_length",
                                           "shannon_entropy", "zurek_entropy", "numerator", "denominator"))
     dt <- dt[found == TRUE]
     if (nrow(dt) == 0) return(NULL)
@@ -108,11 +109,85 @@ process_file_full <- function(f, out_path) {
                              data.table(type="node", x=dot_df$x, y=dot_df$y, node_count=node_count_final), fill=TRUE),
                        full_hist_path, compress="gzip")
 
-    # Return Summary Row
+    # Return Summary Row with comprehensive statistics
     summary_cols <- setdiff(names(dt), "found")
-    return(dt[, c(list(max_momentum = P_val, node_count = node_count_final),
-                  setNames(lapply(.SD, mean, na.rm=TRUE), paste0(summary_cols, "_mean")),
-                  setNames(lapply(.SD, sd, na.rm=TRUE),   paste0(summary_cols, "_sd"))), .SDcols = summary_cols])
+    n_obs <- nrow(dt)
+
+    # Calculate all statistics
+    stats_list <- list(
+      max_momentum = P_val,
+      node_count = node_count_final,
+      n_found = n_obs
+    )
+
+    # Mean
+    stats_list <- c(stats_list, setNames(lapply(dt[, .SD, .SDcols = summary_cols], mean, na.rm=TRUE),
+                                         paste0(summary_cols, "_mean")))
+
+    # Median
+    stats_list <- c(stats_list, setNames(lapply(dt[, .SD, .SDcols = summary_cols], median, na.rm=TRUE),
+                                         paste0(summary_cols, "_median")))
+
+    # Standard Deviation
+    stats_list <- c(stats_list, setNames(lapply(dt[, .SD, .SDcols = summary_cols], sd, na.rm=TRUE),
+                                         paste0(summary_cols, "_sd")))
+
+    # Variance
+    stats_list <- c(stats_list, setNames(lapply(dt[, .SD, .SDcols = summary_cols], var, na.rm=TRUE),
+                                         paste0(summary_cols, "_var")))
+
+    # Minimum
+    stats_list <- c(stats_list, setNames(lapply(dt[, .SD, .SDcols = summary_cols], min, na.rm=TRUE),
+                                         paste0(summary_cols, "_min")))
+
+    # Maximum
+    stats_list <- c(stats_list, setNames(lapply(dt[, .SD, .SDcols = summary_cols], max, na.rm=TRUE),
+                                         paste0(summary_cols, "_max")))
+
+    # Range
+    stats_list <- c(stats_list, setNames(lapply(dt[, .SD, .SDcols = summary_cols], function(x) diff(range(x, na.rm=TRUE))),
+                                         paste0(summary_cols, "_range")))
+
+    # 25th Percentile
+    stats_list <- c(stats_list, setNames(lapply(dt[, .SD, .SDcols = summary_cols], function(x) quantile(x, 0.25, na.rm=TRUE)),
+                                         paste0(summary_cols, "_q25")))
+
+    # 75th Percentile
+    stats_list <- c(stats_list, setNames(lapply(dt[, .SD, .SDcols = summary_cols], function(x) quantile(x, 0.75, na.rm=TRUE)),
+                                         paste0(summary_cols, "_q75")))
+
+    # IQR (Interquartile Range)
+    stats_list <- c(stats_list, setNames(lapply(dt[, .SD, .SDcols = summary_cols], IQR, na.rm=TRUE),
+                                         paste0(summary_cols, "_iqr")))
+
+    # MAD (Median Absolute Deviation)
+    stats_list <- c(stats_list, setNames(lapply(dt[, .SD, .SDcols = summary_cols], mad, na.rm=TRUE),
+                                         paste0(summary_cols, "_mad")))
+
+    # Skewness
+    stats_list <- c(stats_list, setNames(lapply(dt[, .SD, .SDcols = summary_cols], function(x) moments::skewness(x, na.rm=TRUE)),
+                                         paste0(summary_cols, "_skewness")))
+
+    # Kurtosis
+    stats_list <- c(stats_list, setNames(lapply(dt[, .SD, .SDcols = summary_cols], function(x) moments::kurtosis(x, na.rm=TRUE)),
+                                         paste0(summary_cols, "_kurtosis")))
+
+    # Coefficient of Variation (CV = sd/mean)
+    stats_list <- c(stats_list, setNames(lapply(dt[, .SD, .SDcols = summary_cols], function(x) {
+      m <- mean(x, na.rm=TRUE)
+      if (m == 0) return(NA_real_)
+      sd(x, na.rm=TRUE) / m
+    }), paste0(summary_cols, "_cv")))
+
+    # Standard Error of Mean (SEM = sd/sqrt(n))
+    stats_list <- c(stats_list, setNames(lapply(dt[, .SD, .SDcols = summary_cols], function(x) {
+      n_valid <- sum(!is.na(x))
+      if (n_valid <= 1) return(NA_real_)
+      sd(x, na.rm=TRUE) / sqrt(n_valid)
+    }), paste0(summary_cols, "_sem")))
+
+    return(as.data.table(stats_list))
+
   }, error = function(e) return(NULL))
 }
 
@@ -134,6 +209,115 @@ if (length(files_to_process) > 0) {
   message("Update Complete.")
 } else {
   message("Nothing new to process.")
+
+  # If summary file doesn't exist but histograms do, rebuild it from histograms
+  if (!file.exists(summary_file) && length(existing_hists) > 0) {
+    message("Building summary file from existing histograms...")
+
+    rebuild_from_histogram <- function(hist_file) {
+      tryCatch({
+        P_val <- as.numeric(gsub(".*_P_([0-9.]+)\\.csv\\.gz", "\\1", hist_file))
+        hist_path <- file.path(hist_dir, hist_file)
+        hist_dt <- data.table::fread(hist_path)
+
+        # Get node_count from the histogram file
+        node_count_final <- unique(hist_dt$node_count)[1]
+
+        # Need to read the original raw file to get the other statistics
+        raw_file <- file.path(raw_dir, sprintf("micro_macro_erasures_P_%013.6f.csv.gz", round(P_val, 6)))
+        if (!file.exists(raw_file)) return(NULL)
+
+        dt <- data.table::fread(raw_file, select = c("found", "fluctuation", "program_length",
+                                                     "shannon_entropy", "zurek_entropy", "numerator", "denominator"))
+        dt <- dt[found == TRUE]
+        if (nrow(dt) == 0) return(NULL)
+
+        summary_cols <- setdiff(names(dt), "found")
+        n_obs <- nrow(dt)
+
+        # Calculate all statistics (same as above)
+        stats_list <- list(
+          max_momentum = P_val,
+          node_count = node_count_final,
+          n_found = n_obs
+        )
+
+        # Mean
+        stats_list <- c(stats_list, setNames(lapply(dt[, .SD, .SDcols = summary_cols], mean, na.rm=TRUE),
+                                             paste0(summary_cols, "_mean")))
+
+        # Median
+        stats_list <- c(stats_list, setNames(lapply(dt[, .SD, .SDcols = summary_cols], median, na.rm=TRUE),
+                                             paste0(summary_cols, "_median")))
+
+        # Standard Deviation
+        stats_list <- c(stats_list, setNames(lapply(dt[, .SD, .SDcols = summary_cols], sd, na.rm=TRUE),
+                                             paste0(summary_cols, "_sd")))
+
+        # Variance
+        stats_list <- c(stats_list, setNames(lapply(dt[, .SD, .SDcols = summary_cols], var, na.rm=TRUE),
+                                             paste0(summary_cols, "_var")))
+
+        # Minimum
+        stats_list <- c(stats_list, setNames(lapply(dt[, .SD, .SDcols = summary_cols], min, na.rm=TRUE),
+                                             paste0(summary_cols, "_min")))
+
+        # Maximum
+        stats_list <- c(stats_list, setNames(lapply(dt[, .SD, .SDcols = summary_cols], max, na.rm=TRUE),
+                                             paste0(summary_cols, "_max")))
+
+        # Range
+        stats_list <- c(stats_list, setNames(lapply(dt[, .SD, .SDcols = summary_cols], function(x) diff(range(x, na.rm=TRUE))),
+                                             paste0(summary_cols, "_range")))
+
+        # 25th Percentile
+        stats_list <- c(stats_list, setNames(lapply(dt[, .SD, .SDcols = summary_cols], function(x) quantile(x, 0.25, na.rm=TRUE)),
+                                             paste0(summary_cols, "_q25")))
+
+        # 75th Percentile
+        stats_list <- c(stats_list, setNames(lapply(dt[, .SD, .SDcols = summary_cols], function(x) quantile(x, 0.75, na.rm=TRUE)),
+                                             paste0(summary_cols, "_q75")))
+
+        # IQR
+        stats_list <- c(stats_list, setNames(lapply(dt[, .SD, .SDcols = summary_cols], IQR, na.rm=TRUE),
+                                             paste0(summary_cols, "_iqr")))
+
+        # MAD
+        stats_list <- c(stats_list, setNames(lapply(dt[, .SD, .SDcols = summary_cols], mad, na.rm=TRUE),
+                                             paste0(summary_cols, "_mad")))
+
+        # Skewness
+        stats_list <- c(stats_list, setNames(lapply(dt[, .SD, .SDcols = summary_cols], function(x) moments::skewness(x, na.rm=TRUE)),
+                                             paste0(summary_cols, "_skewness")))
+
+        # Kurtosis
+        stats_list <- c(stats_list, setNames(lapply(dt[, .SD, .SDcols = summary_cols], function(x) moments::kurtosis(x, na.rm=TRUE)),
+                                             paste0(summary_cols, "_kurtosis")))
+
+        # Coefficient of Variation
+        stats_list <- c(stats_list, setNames(lapply(dt[, .SD, .SDcols = summary_cols], function(x) {
+          m <- mean(x, na.rm=TRUE)
+          if (m == 0) return(NA_real_)
+          sd(x, na.rm=TRUE) / m
+        }), paste0(summary_cols, "_cv")))
+
+        # Standard Error of Mean
+        stats_list <- c(stats_list, setNames(lapply(dt[, .SD, .SDcols = summary_cols], function(x) {
+          n_valid <- sum(!is.na(x))
+          if (n_valid <= 1) return(NA_real_)
+          sd(x, na.rm=TRUE) / sqrt(n_valid)
+        }), paste0(summary_cols, "_sem")))
+
+        return(as.data.table(stats_list))
+
+      }, error = function(e) return(NULL))
+    }
+
+    summary_results <- future.apply::future_lapply(existing_hists, rebuild_from_histogram, future.seed = TRUE)
+    summary_dt <- data.table::rbindlist(summary_results, fill = TRUE)
+    data.table::fwrite(summary_dt[order(max_momentum)], summary_file, compress = "gzip")
+    message("Summary file created from ", nrow(summary_dt), " histograms.")
+  }
 }
 
 future::plan(future::sequential)
