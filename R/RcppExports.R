@@ -16,10 +16,10 @@ erase_by_uncertainty <- function(x, uncertainty) {
 
 #' Erase microstate information by a specific tree depth
 #'
-#' Maps microstates to macrostates by enforcing a fixed Kolmogorov complexity.
+#' Maps microstates to macrostates by enforcing a fixed program length
 #'
 #' @param x A numeric vector of microstates to erase.
-#' @param depth The target Kolmogorov complexity (path length).
+#' @param depth The target program length
 #' @return A data frame with physical and algorithmic information properties.
 #' @export
 erase_by_depth <- function(x, depth) {
@@ -30,7 +30,7 @@ erase_by_depth <- function(x, depth) {
 #'
 #' @param x A numeric vector of microstates to erase.
 #' @param uncertainty The maximum allowable physical fluctuation.
-#' @param depth The maximum target Kolmogorov complexity.
+#' @param depth The maximum program length
 #' @return A data frame with physical and algorithmic information properties.
 #' @export
 erase_by_uncertainty_and_depth <- function(x, uncertainty, depth) {
