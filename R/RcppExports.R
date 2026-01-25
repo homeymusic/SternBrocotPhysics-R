@@ -48,3 +48,8 @@ find_nodes_cpp <- function(sub_df, thresh, global_h_range) {
     .Call(`_SternBrocotPhysics_find_nodes_cpp`, sub_df, thresh, global_h_range)
 }
 
+#' @export
+contains_peak_cpp <- function(sub_df, thresh, global_h_range) {
+    .Call(`_SternBrocotPhysics_contains_peak_cpp`, sub_df, thresh, global_h_range)
+}
+

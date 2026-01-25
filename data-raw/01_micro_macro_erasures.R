@@ -47,15 +47,12 @@ run_and_save_erasure_experiment <- function(normalized_momentum) {
   gc()
 }
 
-# 5. Define High-Resolution Momentum Range (Step = 0.001, Max = 30)
-# normalized_momentum_step <- 0.001
-# normalized_momentum_min  <- 0.0 + normalized_momentum_step
-# normalized_momentum_max  <- 30
-# normalized_momenta       <- seq(from = normalized_momentum_min,
-#                                 to = normalized_momentum_max,
-#                                 by = normalized_momentum_step)
-
-normalized_momenta = c(2.50, 3.68, 4.86, 6.04, 7.23, 8.41, 9.59, 10.77, 11.95, 13.13, 14.31, 15.49, 16.67, 17.85, 19.03, 20.21, 21.40, 22.58, 23.76, 24.94, 26.12, 27.30, 28.48, 28.80, 28.80)
+normalized_momentum_step <- 0.1
+normalized_momentum_min  <- 0.0 + normalized_momentum_step
+normalized_momentum_max  <- 301
+normalized_momenta       <- seq(from = normalized_momentum_min,
+                                to = normalized_momentum_max,
+                                by = normalized_momentum_step)
 
 
 # 6. Execute Experiment

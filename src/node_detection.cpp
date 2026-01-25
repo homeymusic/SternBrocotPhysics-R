@@ -26,6 +26,7 @@ DataFrame find_nodes_cpp(DataFrame sub_df, double thresh, double global_h_range)
   }
 
   if (global_h_range <= 0) global_h_range = 1.0;
+  double scaled_thresh = thresh * global_h_range;
 
   // 3. Logic Setup
   std::vector<double> res_x;
@@ -35,29 +36,64 @@ DataFrame find_nodes_cpp(DataFrame sub_df, double thresh, double global_h_range)
 
   // 4. Node Detection Loop
   for(int i = 0; i < (n - 1); ++i) {
-    double local_change = (y[i+1] - y[i]) / global_h_range;
+    double local_change = y[i+1] - y[i];
     accumulator += local_change;
 
     if (ready_to_fire) {
-      if (accumulator < -thresh) accumulator = -thresh;
-      if (accumulator >= thresh) {
+      if (accumulator < -scaled_thresh) accumulator = -scaled_thresh;
+      if (accumulator >= scaled_thresh) {
         res_x.push_back(x[i+1]);
         res_y.push_back(y[i+1]);
         ready_to_fire = false;
         accumulator = 0;
       }
     } else {
-      if (accumulator > thresh) accumulator = thresh;
-      if (accumulator <= -thresh) {
+      if (accumulator > scaled_thresh) accumulator = scaled_thresh;
+      if (accumulator <= -scaled_thresh) {
         ready_to_fire = true;
         accumulator = 0;
       }
     }
   }
 
+
   // 5. Direct Return
   return DataFrame::create(
     _["x"] = wrap(res_x),
     _["y"] = wrap(res_y)
   );
+}
+
+//' @export
+// [[Rcpp::export]]
+bool contains_peak_cpp(DataFrame sub_df, double thresh, double global_h_range) {
+  if (!sub_df.containsElementNamed("x") || !sub_df.containsElementNamed("y")) return false;
+  NumericVector y = sub_df["y"];
+  int n = y.size();
+  if (n < 2) return false;
+  if (global_h_range <= 0) global_h_range = 1.0;
+
+  double accumulator = 0;
+  bool rising = true; // State 1: Looking for the climb/summit
+
+  for(int i = 0; i < (n - 1); ++i) {
+    double local_change = (y[i+1] - y[i]) / global_h_range;
+    accumulator += local_change;
+
+    if (rising) {
+      if (accumulator < -thresh) accumulator = -thresh;
+      if (accumulator >= thresh) {
+        // Summit reached: Now we must see the descent
+        rising = false;
+        accumulator = 0;
+      }
+    } else {
+      if (accumulator > thresh) accumulator = thresh;
+      if (accumulator <= -thresh) {
+        // Descent confirmed: Peak is complete
+        return true;
+      }
+    }
+  }
+  return false;
 }

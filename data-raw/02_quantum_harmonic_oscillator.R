@@ -1,4 +1,3 @@
-# 02_quantum_harmonic_oscillator.R
 here::i_am("data-raw/02_quantum_harmonic_oscillator.R")
 
 library(data.table)
@@ -20,18 +19,22 @@ summary_file <- file.path(agg_dir, "02_quantum_harmonic_oscillator.csv.gz")
 all_files <- list.files(raw_dir, pattern = "\\.csv\\.gz$", full.names = TRUE)
 all_p     <- as.numeric(gsub(".*_P_([0-9.]+)\\.csv\\.gz", "\\1", all_files))
 
-existing_hists <- list.files(hist_dir, pattern = "histogram_P_")
-existing_p     <- as.numeric(gsub(".*_P_([0-9.]+)\\.csv\\.gz", "\\1", existing_hists))
+# Define target problem values: Sample the first 5 integer P values and your specific cases
+target_p <- c(1:5, 42.9, 57.6, 100.2)
 
-to_process_mask <- !round(all_p, 6) %in% round(existing_p, 6)
+# Select only the target files using a robust proximity check
+to_process_mask  <- sapply(all_p, function(x) any(abs(x - target_p) < 1e-6))
 files_to_process <- all_files[to_process_mask]
 
-cat("Audit: Found", length(all_files), "raw files.\n")
-cat("Audit:", length(existing_p), "histograms exist.\n")
-cat("Audit:", length(files_to_process), "new files to process.\n\n")
+# Clean up Audit info to avoid 'object not found' errors
+cat("Audit: Found", length(all_files), "total raw files.\n")
+cat("Focus Audit: Processing", length(files_to_process), "target files:", paste(sort(target_p), collapse=", "), "\n\n")
 
 # --- WORKER LOGIC ---
 process_file_full <- function(f, out_path) {
+  # Define is_near locally so future workers reliably find it
+  is_near <- function(a, b) abs(a - b) < 1e-10
+
   tryCatch({
     library(data.table)
 
@@ -52,25 +55,25 @@ process_file_full <- function(f, out_path) {
     action <- P_val * P_val
     raw_fluc <- dt$fluctuation * action
     f_rng <- range(raw_fluc, na.rm = TRUE)
+    # FIX: Reverted to explicit indices for worker compatibility
     h <- graphics::hist(raw_fluc, breaks = seq(f_rng[1], f_rng[2], length.out = 402), plot = FALSE)
     plot_df <- data.table(x = h$mids, y = h$counts)
 
-    mean_y <- mean(plot_df$y, na.rm = TRUE)
+    # Use is_near function consistently here for robust zero-snapping
+    plot_df[is_near(x, 0), x := 0]
 
-
-    # ... (code before this point remains the same, calculating P_val, dt, raw_fluc, plot_df) ...
-
-    mean_y <- mean(plot_df$y, na.rm = TRUE)
-
-    # Reusable function to check Gabor/DC case for any data subset
-    is_gabor_dc <- function(data_subset, global_mean) {
-      # Uses the original, motivated Gabor/4*pi threshold check
-      mean_local <- mean(data_subset$y, na.rm = TRUE)
-      return(all(abs(data_subset$y - mean_local) < (global_mean / (4 * pi))))
+    # Reusable function to check Gabor/DC case for any data subset (for N=NA check)
+    is_gabor_dc <- function(data_subset) {
+      if (nrow(data_subset) < 2 || sum(data_subset$y) == 0) return(TRUE)
+      total_y <- sum(data_subset$y)
+      mean_x <- sum(data_subset$x * data_subset$y) / total_y
+      x_sd <- sqrt(sum(data_subset$y * (data_subset$x - mean_x)^2) / total_y)
+      gabor_thresh <- (1 / (4 * pi)) / (1 + sqrt(x_sd))
+      local_mean <- mean(data_subset$y, na.rm = TRUE)
+      return(all(abs(data_subset$y - local_mean) < gabor_thresh * local_mean))
     }
 
-    # Use the new function for the primary check
-    is_dc_case <- is_gabor_dc(plot_df, mean_y)
+    is_dc_case <- is_gabor_dc(plot_df)
 
     if (is_dc_case) {
       node_count_final <- NA_real_
@@ -78,36 +81,44 @@ process_file_full <- function(f, out_path) {
     } else {
       global_h_range <- max(plot_df$y, na.rm = TRUE) - min(plot_df$y, na.rm = TRUE)
 
-      run_detection <- function(sub_df, scan_dir) {
+      # --- SYMMETRY FIX: Calculate threshold once for the full data ---
+      total_y_global <- sum(plot_df$y)
+      mean_x_global  <- sum(plot_df$x * plot_df$y) / total_y_global
+      x_sd_global    <- sqrt(sum(plot_df$y * (plot_df$x - mean_x_global)^2) / total_y_global)
+      global_thresh  <- (1 / (4 * pi)) / (1 + sqrt(x_sd_global))
+
+
+      run_detection <- function(sub_df, scan_dir, use_thresh) {
         if (is.null(sub_df) || nrow(sub_df) < 2 || sum(sub_df$y) == 0) {
           return(data.table(x = numeric(0), y = numeric(0)))
         }
         sub_df <- if(scan_dir == "right") sub_df[order(x), ] else sub_df[order(-x), ]
-        total_y <- sum(sub_df$y)
-        mean_x <- sum(sub_df$x * sub_df$y) / total_y
-        x_sd <- sqrt(sum(sub_df$y * (sub_df$x - mean_x)^2) / total_y)
-        thresh <- (1 / (4 * pi)) / (1 + sqrt(x_sd))
-
-        # Call directly - returns DataFrame
+        thresh <- use_thresh
         return(as.data.table(SternBrocotPhysics::find_nodes_cpp(sub_df, thresh, global_h_range)))
       }
 
-      res_r <- run_detection(plot_df[x >= 0], "right")
-      res_l <- run_detection(plot_df[x < 0], "left")
+      res_r <- run_detection(plot_df[x > 0], "right", use_thresh = global_thresh)
+      res_l <- run_detection(plot_df[x < 0], "left",  use_thresh = global_thresh)
+
+      # unique() handles merging the potential overlapping node at x=0
       dot_df <- unique(data.table::rbindlist(list(res_l, res_r), fill = TRUE)[complete.cases(x, y)])
 
+      # --- CLEANED UP GAP LOGIC ---
       if (nrow(res_l) > 0 && nrow(res_r) > 0) {
         left_inner <- res_l[which.max(x)]
         right_inner <- res_r[which.min(x)]
         gap_df <- plot_df[x > left_inner$x & x < right_inner$x]
 
         if (nrow(gap_df) >= 2) {
-          # Use the new function to check the gap for Gabor DC flatness
-          if (is_gabor_dc(gap_df, mean_y)) {
-            dot_df <- dot_df[!(abs(x - left_inner$x) < 1e-10 | abs(x - right_inner$x) < 1e-10)]
+          # Use the global threshold here too
+          thresh_gap <- global_thresh
+
+          if (!SternBrocotPhysics::contains_peak_cpp(gap_df, thresh_gap, global_h_range)) {
+            dot_df   <- dot_df[!(is_near(x, left_inner$x) | is_near(x, right_inner$x))]
             y_center <- plot_df$y[which.min(abs(plot_df$x))]
-            dot_df <- rbind(dot_df, data.table(x = 0, y = y_center))[order(x)]
+            dot_df   <- rbind(dot_df, data.table(x = 0, y = y_center))[order(x)]
           }
+
         }
       }
       node_count_final <- as.numeric(nrow(dot_df))
@@ -129,6 +140,7 @@ process_file_full <- function(f, out_path) {
 
 # --- EXECUTION ---
 if (length(files_to_process) > 0) {
+  # Call future.apply explicitly
   new_results <- future.apply::future_lapply(files_to_process, process_file_full, out_path = hist_dir,
                                              future.seed = TRUE, future.packages = c("data.table", "SternBrocotPhysics"))
   new_dt <- data.table::rbindlist(new_results, fill = TRUE)
