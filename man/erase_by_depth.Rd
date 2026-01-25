@@ -9,11 +9,11 @@ erase_by_depth(x, depth)
 \arguments{
 \item{x}{A numeric vector of microstates to erase.}
 
-\item{depth}{The target Kolmogorov complexity (path length).}
+\item{depth}{The target program length}
 }
 \value{
 A data frame with physical and algorithmic information properties.
 }
 \description{
-Maps microstates to macrostates by enforcing a fixed Kolmogorov complexity.
+Maps microstates to macrostates by enforcing a fixed program length
 }

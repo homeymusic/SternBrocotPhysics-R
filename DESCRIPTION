@@ -28,8 +28,6 @@ Suggests:
     here,
     knitr,
     latex2exp,
-    moments,
-    osfr,
     patchwork,
     rmarkdown,
     tidyr

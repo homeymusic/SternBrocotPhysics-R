@@ -57,11 +57,11 @@ save_plot <- function(plot_obj, filename, width = 10, height = 6) {
 
 # Data preparation helper
 prepare_plot_data <- function(dt_summary) {
-  plot_data <- dt_summary[max_momentum > 0.0, .(
-    p_val = as.numeric(max_momentum), 
+  plot_data <- dt_summary[normalized_momentum > 0.0, .(
+    p_val = as.numeric(normalized_momentum), 
     nodes = as.numeric(node_count)
   )]
-  plot_data[, is_eigenstate := (floor(p_val / (2 * pi)) == nodes)]
+  plot_data[, is_eigenstate := (floor(p_val / (2*pi)) == nodes)]
   return(plot_data)
 }
 
@@ -183,8 +183,8 @@ generate_physics_grid <- function(jumps_subset) {
 
   patchwork::wrap_plots(plot_list, ncol = 3) + 
     patchwork::plot_annotation(
-      title = "Coordinate Distributions Near Complexity Transitions",
-      subtitle = "Automatically Detected Transitions in Median Complexity from Changes in Momentum",
+      title = "Coordinate Distributions Near Program Length Transitions",
+      subtitle = "Automatically Detected Transitions in Median Program Length from Changes in Momentum",
       theme = ggplot2::theme(
         plot.title = ggplot2::element_text(hjust = 0.5, face = "bold", size = 14, family = "mono"),
         plot.subtitle = ggplot2::element_text(hjust = 0.5, size = 10, family = "mono", color = "black")
@@ -196,8 +196,8 @@ generate_physics_grid <- function(jumps_subset) {
 ```{r jump-detection, echo=F}
 summary_path <- here::here("data-raw", "outputs", "02_quantum_harmonic_oscillator", "02_quantum_harmonic_oscillator.csv.gz")
 dt_summary <- data.table::fread(summary_path)
-data.table::setorder(dt_summary, max_momentum)
-dt_summary <- dt_summary[max_momentum > 0.0]
+data.table::setorder(dt_summary, normalized_momentum)
+dt_summary <- dt_summary[normalized_momentum > 0.0]
 
 # Convert to numeric to ensure proper calculation
 dt_summary[, program_length_median := as.numeric(program_length_median)]
@@ -208,29 +208,29 @@ jump_indices <- which(z_diffs > threshold)
 
 jumps <- lapply(seq_along(jump_indices), function(i) {
   idx <- jump_indices[i]
-  m_at <- dt_summary$max_momentum[idx + 1]
+  m_at <- dt_summary$normalized_momentum[idx + 1]
   list(
     n = paste("Transition", i),
     p_vals = c(m_at-1, m_at, m_at+1)
   )
 })
 
-p_markers <- dt_summary$max_momentum[jump_indices]
+p_markers <- dt_summary$normalized_momentum[jump_indices]
 ```
 
 ```{r introduction, child = 'inst/readme/introduction.Rmd'}
 ```
 
-```{r dual-aspect-complexity, echo=FALSE, fig.width=12, fig.height=6}
-plot_dt_q <- dt_summary[max_momentum > 0.0, .(
-  q_val = 1 / as.numeric(max_momentum),
+```{r dual-aspect-program-length, echo=FALSE, fig.width=12, fig.height=6}
+plot_dt_q <- dt_summary[normalized_momentum > 0.0, .(
+  q_val = 1 / as.numeric(normalized_momentum),
   y_mean = as.numeric(program_length_mean),
   y_med = as.numeric(program_length_median),
   y_sd = as.numeric(program_length_sd)
 )]
 
-plot_dt_p <- dt_summary[max_momentum > 0.0, .(
-  p_val = as.numeric(max_momentum),
+plot_dt_p <- dt_summary[normalized_momentum > 0.0, .(
+  p_val = as.numeric(normalized_momentum),
   y_mean = as.numeric(program_length_mean),
   y_med = as.numeric(program_length_median),
   y_sd = as.numeric(program_length_sd)
@@ -275,17 +275,17 @@ combined_blob_plot <- gridExtra::arrangeGrob(
 )
 
 grid::grid.draw(combined_blob_plot)
-save_plot(combined_blob_plot, "complexity.pdf", width = 12, height = 6)
+save_plot(combined_blob_plot, "program_length.pdf", width = 12, height = 6)
 ```
 
 ```{r dual-aspect-node-count, echo=FALSE, fig.width=12, fig.height=6}
-plot_nodes_q <- dt_summary[max_momentum > 0.0, .(
-  q_val = 1 / as.numeric(max_momentum),
+plot_nodes_q <- dt_summary[normalized_momentum > 0.0, .(
+  q_val = 1 / as.numeric(normalized_momentum),
   nodes = as.numeric(node_count)
 )]
 
-plot_nodes_p <- dt_summary[max_momentum > 0.0, .(
-  p_val = as.numeric(max_momentum),
+plot_nodes_p <- dt_summary[normalized_momentum > 0.0, .(
+  p_val = as.numeric(normalized_momentum),
   nodes = as.numeric(node_count)
 )]
 
@@ -345,7 +345,7 @@ dt_eigen_exact <- get_median_by_nodes(dt_eigen_raw)
 
 # Calculate the physical limit based on max momentum (~48 if P=300)
 max_p_observed <- max(plot_nodes_p$p_val, na.rm = TRUE)
-n_cutoff <- floor(max_p_observed / (2 * pi)) 
+n_cutoff <- floor(max_p_observed / (2*pi)) 
 
 # PASS 2: Only consider nodes up to the physical cutoff
 all_nodes <- data.table::data.table(n = 0:n_cutoff)
@@ -356,7 +356,7 @@ missing_nodes <- dt_with_exact[is.na(momentum)]$n
 
 # For each missing node, find the closest approximation
 dt_closest_approx <- data.table::rbindlist(lapply(missing_nodes, function(node_count) {
-  ideal_p <- node_count * 2 * pi
+  ideal_p <- node_count * 2*pi
   candidates <- plot_nodes_p[nodes == node_count]
   
   if (nrow(candidates) > 0) {
@@ -432,7 +432,7 @@ p_momentum_hybrid <- ggplot(plot_nodes_p, aes(x = p_val, y = nodes)) +
   geom_path(data = dt_final, aes(x = momentum, y = n), 
             color = "darkred", linewidth = 0.5, alpha = 0.6) +
   geom_line(data = data.table::data.table(nodes = 0:max_nodes_for_plot, 
-                              p_ideal = (0:max_nodes_for_plot) * 2 * pi)[
+                              p_ideal = (0:max_nodes_for_plot) * 2*pi)[
                                 p_ideal <= max(plot_nodes_p$p_val, na.rm = TRUE)
                               ],
             aes(x = p_ideal, y = nodes), 
@@ -518,7 +518,7 @@ render_eigen$plot_object
 ```
 
 ```{r momentum-counts-histogram, echo=FALSE, fig.width=10, fig.height=6}
-momentum_counts <- dt_summary[max_momentum > 0.0, .(Count = .N), by = .(n = as.integer(node_count))]
+momentum_counts <- dt_summary[normalized_momentum > 0.0, .(Count = .N), by = .(n = as.integer(node_count))]
 
 ggplot2::ggplot(momentum_counts, ggplot2::aes(x = n, y = Count)) +
   ggplot2::geom_col(fill = "steelblue", color = "black", alpha = 0.8) +

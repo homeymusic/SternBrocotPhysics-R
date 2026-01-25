@@ -37,3 +37,14 @@ erase_by_uncertainty_and_depth <- function(x, uncertainty, depth) {
     .Call(`_SternBrocotPhysics_erase_uncertainty_and_depth`, x, uncertainty, depth)
 }
 
+#' Detect Oscillatory Nodes in Physical State Density
+#'
+#' @param sub_df A DataFrame containing 'x' and 'y'.
+#' @param thresh The sensitivity threshold.
+#' @param global_h_range The total range of the histogram counts.
+#' @return A DataFrame of detected node coordinates (x, y).
+#' @export
+find_nodes_cpp <- function(sub_df, thresh, global_h_range) {
+    .Call(`_SternBrocotPhysics_find_nodes_cpp`, sub_df, thresh, global_h_range)
+}
+

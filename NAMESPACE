@@ -3,5 +3,6 @@
 export(erase_by_depth)
 export(erase_by_uncertainty)
 export(erase_by_uncertainty_and_depth)
+export(find_nodes_cpp)
 importFrom(Rcpp,sourceCpp)
 useDynLib(SternBrocotPhysics, .registration = TRUE)

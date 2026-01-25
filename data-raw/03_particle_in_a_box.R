@@ -80,7 +80,7 @@ process_file_full <- function(f, out_path, debug_on) {
     hist_name <- sprintf("histogram_P_%013.6f.csv.gz", round(P_val, 6))
     full_hist_path <- file.path(out_path, hist_name)
 
-    dt <- data.table::fread(f, select = c("found", "fluctuation", "kolmogorov_complexity",
+    dt <- data.table::fread(f, select = c("found", "fluctuation", "program_length",
                                           "shannon_entropy", "zurek_entropy", "numerator", "denominator"))
     dt <- dt[found == TRUE]
     if (nrow(dt) == 0) return(NULL)

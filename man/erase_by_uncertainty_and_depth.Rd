@@ -11,7 +11,7 @@ erase_by_uncertainty_and_depth(x, uncertainty, depth)
 
 \item{uncertainty}{The maximum allowable physical fluctuation.}
 
-\item{depth}{The maximum target Kolmogorov complexity.}
+\item{depth}{The maximum program length}
 }
 \value{
 A data frame with physical and algorithmic information properties.
