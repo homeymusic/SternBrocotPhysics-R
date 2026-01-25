@@ -17,18 +17,23 @@ summary_file <- file.path(agg_dir, "02_quantum_harmonic_oscillator.csv.gz")
 
 # --- FILE SELECTION ---
 all_files <- list.files(raw_dir, pattern = "\\.csv\\.gz$", full.names = TRUE)
+# all_p is not needed if we process all files, but keeping it for consistency
 all_p     <- as.numeric(gsub(".*_P_([0-9.]+)\\.csv\\.gz", "\\1", all_files))
 
-# Define target problem values: Sample the first 5 integer P values and your specific cases
-target_p <- c(1:5, 42.9, 57.6, 100.2)
+# Define target problem values: Removed the subsetting logic
+# target_p <- c(1:5, 42.9, 57.6, 100.2)
 
-# Select only the target files using a robust proximity check
-to_process_mask  <- sapply(all_p, function(x) any(abs(x - target_p) < 1e-6))
-files_to_process <- all_files[to_process_mask]
+# Select all available files by setting the mask to TRUE for all entries
+# to_process_mask  <- sapply(all_p, function(x) any(abs(x - target_p) < 1e-6))
+
+# Use all found files
+files_to_process <- all_files
 
 # Clean up Audit info to avoid 'object not found' errors
 cat("Audit: Found", length(all_files), "total raw files.\n")
-cat("Focus Audit: Processing", length(files_to_process), "target files:", paste(sort(target_p), collapse=", "), "\n\n")
+cat("Focus Audit: Processing", length(files_to_process), "target files: ALL available files.\n\n")
+
+# ... (rest of the file is the same) ...
 
 # --- WORKER LOGIC ---
 process_file_full <- function(f, out_path) {
