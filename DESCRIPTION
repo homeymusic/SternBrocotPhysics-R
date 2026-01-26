@@ -15,9 +15,12 @@ Encoding: UTF-8
 LazyData: true
 RoxygenNote: 7.3.3
 LinkingTo: 
-    Rcpp
+    Rcpp,
+    RcppParallel,
+    RcppThread
 Imports: 
-    Rcpp
+    Rcpp,
+    RcppParallel
 Suggests: 
     bit64,
     cowplot,
@@ -32,3 +35,6 @@ Suggests:
     rmarkdown,
     tidyr
 VignetteBuilder: knitr
+Remotes: 
+    RcppCore/RcppParallel
+SystemRequirements: zlib (for compressed file I/O)
