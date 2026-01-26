@@ -33,8 +33,6 @@ files_to_process <- all_files
 cat("Audit: Found", length(all_files), "total raw files.\n")
 cat("Focus Audit: Processing", length(files_to_process), "target files: ALL available files.\n\n")
 
-# ... (rest of the file is the same) ...
-
 # --- WORKER LOGIC ---
 process_file_full <- function(f, out_path) {
   # Define is_near locally so future workers reliably find it
