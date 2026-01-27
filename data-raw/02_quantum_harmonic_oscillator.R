@@ -1,3 +1,7 @@
+library(future)
+# Use all available cores minus 1 (to keep the system responsive)
+plan(multisession, workers = parallel::detectCores() - 2)
+
 # --- CONFIGURATION ---
 base_data_dir_4TB <- "/Volumes/SanDisk4TB/SternBrocot"
 raw_dir  <- file.path(base_data_dir_4TB, "01_micro_macro_erasures")
@@ -145,8 +149,12 @@ process_file_full <- function(f, out_path) {
 # --- EXECUTION ---
 if (length(files_to_process) > 0) {
   # Call future.apply explicitly
-  new_results <- future.apply::future_lapply(files_to_process, process_file_full, out_path = hist_dir,
-                                             future.seed = TRUE, future.packages = c("data.table", "SternBrocotPhysics"))
+  new_results <- future.apply::future_lapply(files_to_process,
+                                             process_file_full,
+                                             out_path = hist_dir,
+                                             future.seed = TRUE,
+                                             future.packages = c("data.table", "SternBrocotPhysics"),
+                                             future.scheduling = 100)
   new_dt <- data.table::rbindlist(new_results, fill = TRUE)
 
   if (nrow(new_dt) > 0) {
