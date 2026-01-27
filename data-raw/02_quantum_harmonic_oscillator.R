@@ -8,8 +8,11 @@ RUN_ALL <- TRUE
 workers_to_use <- max(1, parallel::detectCores() / 2)
 future::plan(future::multisession, workers = workers_to_use)
 
-raw_dir  <- here::here("data-raw", "outputs", "01_micro_macro_erasures")
-agg_dir  <- here::here("data-raw", "outputs", "02_quantum_harmonic_oscillator")
+base_data_dir_1TB <- "/Volumes/SanDisk1TB/SternBrocot"
+raw_dir  <- file.path(base_data_dir_1TB, "01_micro_macro_erasures")
+base_data_dir_4TB <- "/Volumes/SanDisk4TB/SternBrocot"
+agg_dir  <- file.path(base_data_dir_4TB, "02_quantum_harmonic_oscillator")
+
 hist_dir <- file.path(agg_dir, "histograms")
 if (!dir.exists(hist_dir)) dir.create(hist_dir, recursive = TRUE)
 
@@ -20,14 +23,15 @@ all_files <- list.files(raw_dir, pattern = "\\.csv\\.gz$", full.names = TRUE)
 # all_p is not needed if we process all files, but keeping it for consistency
 all_p     <- as.numeric(gsub(".*_P_([0-9.]+)\\.csv\\.gz", "\\1", all_files))
 
-# Define target problem values: Removed the subsetting logic
-# target_p <- c(1:5, 42.9, 57.6, 100.2)
-
-# Select all available files by setting the mask to TRUE for all entries
-# to_process_mask  <- sapply(all_p, function(x) any(abs(x - target_p) < 1e-6))
-
 # Use all found files
 files_to_process <- all_files
+
+# Target values: seq(0.25, 10, 0.25)
+target_p <- seq(0.25, 10, 0.25)
+
+# Masking logic updated for the smoke test range
+to_process_mask <- sapply(all_p, function(x) any(abs(x - target_p) < 1e-6), simplify = TRUE)
+files_to_process <- all_files[as.logical(to_process_mask)]
 
 # Clean up Audit info to avoid 'object not found' errors
 cat("Audit: Found", length(all_files), "total raw files.\n")
@@ -40,6 +44,7 @@ process_file_full <- function(f, out_path) {
 
   tryCatch({
     library(data.table)
+    library(SternBrocotPhysics) # Explicitly load inside worker
 
     P_val <- as.numeric(gsub(".*_P_([0-9.]+)\\.csv\\.gz", "\\1", f))
     hist_name <- sprintf("histogram_P_%013.6f.csv.gz", round(P_val, 6))
@@ -49,10 +54,14 @@ process_file_full <- function(f, out_path) {
 
     dt <- data.table::fread(f,
                             select = c("found", "fluctuation", "program_length", "shannon_entropy", "numerator", "denominator"),
-                            colClasses = c(found="logical", fluctuation="numeric", program_length="integer",
+                            # Changed to integer to stop fread warnings
+                            colClasses = c(found="integer", fluctuation="numeric", program_length="integer",
                                            shannon_entropy="numeric", numerator="numeric", denominator="numeric"))
 
+    # Coerce to logical to match your dt[found == TRUE] filter
+    dt[, found := as.logical(found)]
     dt <- dt[found == TRUE]
+
     if (nrow(dt) == 0) return(NULL)
 
     action <- P_val * P_val
