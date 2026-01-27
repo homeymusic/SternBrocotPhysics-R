@@ -2,8 +2,9 @@
 here::i_am("data-raw/01_micro_macro_erasures.R")
 library(SternBrocotPhysics)
 
-# Target directory via the SanDisk symlink
-raw_directory <- here::here("data-raw", "outputs", "01_micro_macro_erasures")
+
+base_data_dir_4TB <- "/Volumes/SanDisk4TB/SternBrocot"
+raw_directory  <- file.path(base_data_dir_4TB, "01_micro_macro_erasures")
 
 # Final Parameters
 microstates_count <- 1e6 + 1
