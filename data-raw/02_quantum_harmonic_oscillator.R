@@ -1,16 +1,6 @@
-here::i_am("data-raw/02_quantum_harmonic_oscillator.R")
-
-library(data.table)
-library(future.apply)
-
 # --- CONFIGURATION ---
-RUN_ALL <- TRUE
-workers_to_use <- max(1, parallel::detectCores() / 2)
-future::plan(future::multisession, workers = workers_to_use)
-
-base_data_dir_1TB <- "/Volumes/SanDisk1TB/SternBrocot"
-raw_dir  <- file.path(base_data_dir_1TB, "01_micro_macro_erasures")
 base_data_dir_4TB <- "/Volumes/SanDisk4TB/SternBrocot"
+raw_dir  <- file.path(base_data_dir_4TB, "01_micro_macro_erasures")
 agg_dir  <- file.path(base_data_dir_4TB, "02_quantum_harmonic_oscillator")
 
 hist_dir <- file.path(agg_dir, "histograms")
@@ -18,24 +8,26 @@ if (!dir.exists(hist_dir)) dir.create(hist_dir, recursive = TRUE)
 
 summary_file <- file.path(agg_dir, "02_quantum_harmonic_oscillator.csv.gz")
 
-# --- FILE SELECTION ---
+# --- FULL FILE SELECTION WITH IDEMPOTENCY ---
 all_files <- list.files(raw_dir, pattern = "\\.csv\\.gz$", full.names = TRUE)
-# all_p is not needed if we process all files, but keeping it for consistency
-all_p     <- as.numeric(gsub(".*_P_([0-9.]+)\\.csv\\.gz", "\\1", all_files))
 
-# Use all found files
-files_to_process <- all_files
+# Identify already processed files to skip them
+existing_hists <- list.files(hist_dir, pattern = "histogram_P_.*\\.csv\\.gz$")
+processed_p <- if(length(existing_hists) > 0) {
+  as.numeric(gsub("histogram_P_([0-9.]+)\\.csv\\.gz", "\\1", existing_hists))
+} else numeric(0)
 
-# Target values: seq(0.25, 10, 0.25)
-target_p <- seq(0.25, 10, 0.25)
+# Extract P values from all raw files for comparison
+all_p <- as.numeric(gsub(".*_P_([0-9.]+)\\.csv\\.gz", "\\1", all_files))
 
-# Masking logic updated for the smoke test range
-to_process_mask <- sapply(all_p, function(x) any(abs(x - target_p) < 1e-6), simplify = TRUE)
-files_to_process <- all_files[as.logical(to_process_mask)]
+# Filter: Only process files where the histogram does not yet exist
+# Using a small tolerance (1e-7) for floating point P-value matching
+files_to_process <- all_files[!sapply(all_p, function(x) any(abs(x - processed_p) < 1e-7))]
 
-# Clean up Audit info to avoid 'object not found' errors
+# Audit info
 cat("Audit: Found", length(all_files), "total raw files.\n")
-cat("Focus Audit: Processing", length(files_to_process), "target files: ALL available files.\n\n")
+cat("Audit: Skipping", length(all_files) - length(files_to_process), "already processed files.\n")
+cat("Focus Audit: Processing", length(files_to_process), "remaining files.\n\n")
 
 # --- WORKER LOGIC ---
 process_file_full <- function(f, out_path) {
