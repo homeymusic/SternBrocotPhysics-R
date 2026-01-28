@@ -35,12 +35,13 @@ manuscript_dir <- here::here("manuscript")
 ```
 
 ```{r helper-functions-qho, echo=FALSE}
-# --- CONSOLIDATED HELPER FUNCTIONS ---
+base_data_dir_4TB <- "/Volumes/SanDisk4TB/SternBrocot"
+agg_dir  <- file.path(base_data_dir_4TB, "02_quantum_harmonic_oscillator")
+summary_path <- file.path(agg_dir, "02_quantum_harmonic_oscillator.csv.gz")
 
-# File path helper
 get_histogram_path <- function(momentum_val) {
-  here::here("data-raw", "outputs", "02_quantum_harmonic_oscillator", "histograms", 
-             sprintf("histogram_P_%013.6f.csv.gz", round(momentum_val, 6)))
+  file.path(agg_dir, "histograms", 
+             sprintf("histogram_P_%013.6f.csv.gz", momentum_val))
 }
 
 # Standardized save function
@@ -61,7 +62,7 @@ prepare_plot_data <- function(dt_summary) {
     p_val = as.numeric(normalized_momentum), 
     nodes = as.numeric(node_count)
   )]
-  plot_data[, is_eigenstate := (floor(p_val / (2*pi)) == nodes)]
+  plot_data[, is_eigenstate := (floor(p_val / (pi)) == nodes)]
   return(plot_data)
 }
 
@@ -104,9 +105,11 @@ generate_plot_grid <- function(target_data, plot_title, file_name, show_placehol
 
       # Set dynamic color based on approximation status
       accent_color <- if(is_approx) "orange" else "black"
-      title_label  <- if(is_approx) paste0("n=", cur_n, " (Approx) | P=", round(cur_p, 3)) 
-                      else paste0("n=", cur_n, " | P=", round(cur_p, 3))
-
+      title_label <- if(is_approx) {
+        paste0("n=", cur_n, " (Non-Eigen) | P=", sprintf("%.4f", cur_p))
+      } else {
+        paste0("n=", cur_n, " | P=", sprintf("%.4f", cur_p))
+      }
       plot_storage[[i]] <- ggplot2::ggplot(h_pts, ggplot2::aes(x, y)) +
         ggplot2::geom_col(fill = "black", alpha = 0.25, width = bw) +
         ggplot2::geom_point(data = n_pts, size = 1.2, shape = 16) +
@@ -194,7 +197,6 @@ generate_physics_grid <- function(jumps_subset) {
 ```
 
 ```{r jump-detection, echo=F}
-summary_path <- here::here("data-raw", "outputs", "02_quantum_harmonic_oscillator", "02_quantum_harmonic_oscillator.csv.gz")
 dt_summary <- data.table::fread(summary_path)
 data.table::setorder(dt_summary, normalized_momentum)
 dt_summary <- dt_summary[normalized_momentum > 0.0]
@@ -345,7 +347,7 @@ dt_eigen_exact <- get_median_by_nodes(dt_eigen_raw)
 
 # Calculate the physical limit based on max momentum (~48 if P=300)
 max_p_observed <- max(plot_nodes_p$p_val, na.rm = TRUE)
-n_cutoff <- floor(max_p_observed / (2*pi)) 
+n_cutoff <- floor(max_p_observed / (pi)) 
 
 # PASS 2: Only consider nodes up to the physical cutoff
 all_nodes <- data.table::data.table(n = 0:n_cutoff)
@@ -356,7 +358,7 @@ missing_nodes <- dt_with_exact[is.na(momentum)]$n
 
 # For each missing node, find the closest approximation
 dt_closest_approx <- data.table::rbindlist(lapply(missing_nodes, function(node_count) {
-  ideal_p <- node_count * 2*pi
+  ideal_p <- node_count * pi
   candidates <- plot_nodes_p[nodes == node_count]
   
   if (nrow(candidates) > 0) {
@@ -432,7 +434,7 @@ p_momentum_hybrid <- ggplot(plot_nodes_p, aes(x = p_val, y = nodes)) +
   geom_path(data = dt_final, aes(x = momentum, y = n), 
             color = "darkred", linewidth = 0.5, alpha = 0.6) +
   geom_line(data = data.table::data.table(nodes = 0:max_nodes_for_plot, 
-                              p_ideal = (0:max_nodes_for_plot) * 2*pi)[
+                              p_ideal = (0:max_nodes_for_plot) * pi)[
                                 p_ideal <= max(plot_nodes_p$p_val, na.rm = TRUE)
                               ],
             aes(x = p_ideal, y = nodes), 
@@ -446,7 +448,7 @@ p_momentum_hybrid <- ggplot(plot_nodes_p, aes(x = p_val, y = nodes)) +
     )),
     x = latex2exp::TeX("Momentum $P$ ($p/p_0$)"),
     y = latex2exp::TeX("Quantum Number $n$ (Node Count)"),
-    caption = "Red: Exact States | Orange: Median Approx. | Blue: Ideal Trend | Grey: Full Phase Space"
+    caption = "Red: Exact States | Orange: Median (Non-Eigen). | Blue: Ideal Trend | Grey: Full Phase Space"
   ) +
   theme_minimal() +
   theme(
@@ -486,49 +488,25 @@ render_hybrid_eigen <- generate_plot_grid(
 render_hybrid_eigen$plot_object
 ```
 
-```{r filter-valid-eigenstates, echo=FALSE, fig.width=8, fig.height=6}
-p_momentum_filtered <- ggplot(plot_nodes_p, aes(x = p_val, y = nodes)) +
-  geom_point(color = "grey70", size = 0.2, alpha = 0.4) +
-  geom_vline(xintercept = p_markers, color = "grey80", linetype = "dashed", alpha = 0.5) +
-  geom_point(data = plot_nodes_p[is_eigenstate == TRUE], color = "red", size = 0.3) +
-  labs(
-    title = latex2exp::TeX("Schrödinger Eigenstates (red) Among All Configurations"),
-    subtitle = "Eigenstates are vanishingly sparse configurations among expanding possibilities in phase space.",
-    x = latex2exp::TeX("Momentum P [$p/p_0$]"),
-    y = latex2exp::TeX("Node Count (Coordinate $Q$ Distributions)"),
-    caption = "Red: Eigenstates | Grey: All Configurations"
-  ) +
-  theme_minimal() +
-  theme(
-    plot.title = element_text(hjust = 0.5, face = "bold", size = 14),
-    plot.subtitle = element_text(hjust = 0.5, size = 10, face = "italic"),
-    axis.title = element_text(size = 11)
-  )
-
-print(p_momentum_filtered)
-save_plot(p_momentum_filtered, "eigenstates.pdf", width = 8, height = 6)
-```
-
-```{r generate-eigenstate-plots, echo=FALSE}
-render_eigen <- generate_plot_grid(dt_eigen_median, "Eigenstate Distribution Sequence (Showing Inaccessible Gaps)", "eigen_nodes_gaps.pdf", show_placeholders = TRUE)
-```
-
-```{r plot-eigen-grid, echo=FALSE, fig.width=10, fig.height=render_eigen$dynamic_height}
-render_eigen$plot_object
-```
-
 ```{r momentum-counts-histogram, echo=FALSE, fig.width=10, fig.height=6}
 momentum_counts <- dt_summary[normalized_momentum > 0.0, .(Count = .N), by = .(n = as.integer(node_count))]
 
-ggplot2::ggplot(momentum_counts, ggplot2::aes(x = n, y = Count)) +
+# Make sure you have the scales package installed: install.packages("scales")
+library(scales) 
+
+ggplot2::ggplot(momentum_counts, ggplot2::aes(x = as.factor(n), y = Count)) +
   ggplot2::geom_col(fill = "steelblue", color = "black", alpha = 0.8) +
   ggplot2::labs(
     title = "Data Availability: Count of Momentum Values per Quantum Number (n)",
     x = "Quantum Number (Node Count)",
     y = "Number of Data Points (Momentum entries)"
   ) +
+  ggplot2::coord_flip() +
+  # Use the 'breaks' argument with a function to select a nice, manageable number of labels
+  ggplot2::scale_x_discrete(breaks = function(x) x[seq(1, length(x), by = 10)]) + # Shows every 10th label
   ggplot2::theme_minimal() +
   ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5, face = "bold"))
+
 ```
 
 ```{r plot-median-distribution, echo=FALSE, fig.width=8, fig.height=6}

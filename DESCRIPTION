@@ -33,6 +33,7 @@ Suggests:
     latex2exp,
     patchwork,
     rmarkdown,
+    scales,
     tidyr
 VignetteBuilder: knitr
 Remotes: 
