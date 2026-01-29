@@ -39,6 +39,9 @@ base_data_dir_4TB <- "/Volumes/SanDisk4TB/SternBrocot"
 agg_dir  <- file.path(base_data_dir_4TB, "02_quantum_harmonic_oscillator")
 summary_path <- file.path(agg_dir, "02_quantum_harmonic_oscillator.csv.gz")
 
+fine_structure_dir  <- file.path(base_data_dir_4TB, "04_fine_structure")
+fine_structure_path <- file.path(fine_structure_dir, "04_fine_structure.csv.gz")
+
 get_histogram_path <- function(momentum_val) {
   file.path(agg_dir, "histograms", 
              sprintf("histogram_P_%013.6f.csv.gz", momentum_val))
@@ -278,6 +281,124 @@ combined_blob_plot <- gridExtra::arrangeGrob(
 
 grid::grid.draw(combined_blob_plot)
 save_plot(combined_blob_plot, "program_length.pdf", width = 12, height = 6)
+```
+
+
+```{r dual-aspect-fine-structure, echo=FALSE, fig.width=12, fig.height=6}
+# 1. Load the fine structure data
+dt_fs <- data.table::fread(fine_structure_path)
+
+# 2. Prepare data for Q (spatial) and P (momentum) scales
+plot_dt_q_fs <- dt_fs[normalized_momentum > 0.0, .(
+  q_val = 1 / as.numeric(normalized_momentum),
+  y_mean = as.numeric(fine_structure_mean),
+  y_med = as.numeric(fine_structure_median),
+  y_sd = as.numeric(fine_structure_sd)
+)]
+
+plot_dt_p_fs <- dt_fs[normalized_momentum > 0.0, .(
+  p_val = as.numeric(normalized_momentum),
+  y_mean = as.numeric(fine_structure_mean),
+  y_med = as.numeric(fine_structure_median),
+  y_sd = as.numeric(fine_structure_sd)
+)]
+
+# 3. Coordinate Space Plot (Log Scale)
+p_spatial_fs <- ggplot(plot_dt_q_fs, aes(x = q_val)) +
+  geom_vline(xintercept = 1/p_markers, color = "grey80", linetype = "dashed", alpha = 0.5) +
+  geom_ribbon(aes(ymin = y_mean - y_sd, ymax = y_mean + y_sd), fill = "gray50", alpha = 0.1) +
+  geom_line(aes(y = y_mean, color = "Mean"), linewidth = 0.6) +
+  geom_line(aes(y = y_med, color = "Median"), linewidth = 1.0) +
+  scale_x_log10() +
+  scale_color_manual(values = c("Mean" = "gray60", "Median" = "black")) +
+  labs(
+    title = latex2exp::TeX("Coordinate Fine Structure: $\\alpha(Q)$ vs. $Q$ (Log)"),
+    x = latex2exp::TeX("Coordinate $Q = 1/P$ [$q/q_0$]"),
+    y = "Fine Structure Value",
+    color = "Series"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "bottom", plot.title = element_text(hjust = 0.5))
+
+# 4. Momentum Space Plot
+p_momentum_fs <- ggplot(plot_dt_p_fs, aes(x = p_val)) +
+  geom_vline(xintercept = p_markers, color = "grey80", linetype = "dashed", alpha = 0.5) +
+  geom_ribbon(aes(ymin = y_mean - y_sd, ymax = y_mean + y_sd), fill = "gray50", alpha = 0.1) +
+  geom_line(aes(y = y_mean, color = "Mean"), linewidth = 0.6) +
+  geom_line(aes(y = y_med, color = "Median"), linewidth = 1.0) +
+  scale_color_manual(values = c("Mean" = "gray60", "Median" = "black")) +
+  labs(
+    title = latex2exp::TeX("Momentum Fine Structure: $\\alpha(P)$ vs. $P$"),
+    x = latex2exp::TeX("Momentum P [$p/p_0$]"),
+    y = "Fine Structure Value",
+    color = "Series"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "bottom", plot.title = element_text(hjust = 0.5))
+
+# 5. Combine and Save
+combined_fs_plot <- gridExtra::arrangeGrob(
+  p_spatial_fs, p_momentum_fs, 
+  ncol = 2,
+  top = grid::textGrob("Coordinate and Momentum Fine Structure", 
+                       gp = grid::gpar(fontsize = 16, font = 2))
+)
+
+grid::grid.draw(combined_fs_plot)
+save_plot(combined_fs_plot, "fine_structure.pdf", width = 12, height = 6)
+```
+```{r zoomed-fine-structure-y-tighter, echo=FALSE, fig.width=8, fig.height=6}
+library(ggplot2)
+library(data.table)
+library(gridExtra)
+library(latex2exp)
+
+# Assuming fine_structure_path is defined and accessible
+# e.g., fine_structure_path <- file.path(base_data_dir_4TB, "04_fine_structure/04_fine_structure.csv.gz")
+
+# 1. Load the fine structure data
+dt_fs <- data.table::fread(fine_structure_path)
+
+# 2. Prepare data for Q (spatial) scale
+plot_dt_q_fs <- dt_fs[normalized_momentum > 0.0, .(
+  q_val = 1 / as.numeric(normalized_momentum),
+  y_mean = as.numeric(fine_structure_mean),
+  y_med = as.numeric(fine_structure_median),
+  y_sd = as.numeric(fine_structure_sd)
+)]
+
+# Define the zoomed limits and a marker
+zoom_min_y <- 0.5/137
+zoom_max_y <- 1.5/137
+alpha_marker <- 1/137 
+
+# 3. Coordinate Space Plot (Log Scale, Y-axis Tightly Zoomed)
+p_spatial_zoomed_y_tight <- ggplot(plot_dt_q_fs, aes(x = q_val)) +
+  geom_hline(yintercept = alpha_marker, color = "red", linetype = "solid", alpha = 0.7) +
+  geom_ribbon(aes(ymin = y_mean - y_sd, ymax = y_mean + y_sd), fill = "gray50", alpha = 0.1) +
+  geom_line(aes(y = y_mean, color = "Mean"), linewidth = 0.6) +
+  geom_line(aes(y = y_med, color = "Median"), linewidth = 1.0) +
+  scale_x_log10() + # Keep original log scale for x
+  scale_color_manual(values = c("Mean" = "gray60", "Median" = "black")) +
+  # Use coord_cartesian to zoom the Y axis to the new tight range
+  coord_cartesian(ylim = c(zoom_min_y, zoom_max_y)) +
+  # Add custom breaks and labels for the Y axis
+  scale_y_continuous(breaks = c(zoom_min_y, alpha_marker, zoom_max_y),
+                     labels = c("0.5/137", "1/137", "1.5/137")) +
+  labs(
+    title = latex2exp::TeX("Coordinate Fine Structure (Tightly Zoomed Y-axis)"),
+    x = latex2exp::TeX("Coordinate $Q = 1/P$ [$q/q_0$]"),
+    y = "Fine Structure Value",
+    color = "Series"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "bottom", plot.title = element_text(hjust = 0.5))
+
+# Draw the plot
+grid::grid.draw(p_spatial_zoomed_y_tight)
+
+# Optional: save the zoomed plot
+save_plot(p_spatial_zoomed_y_tight, "fine_structure_y_tighter_zoomed.pdf", width = 8, height = 6)
 ```
 
 ```{r dual-aspect-node-count, echo=FALSE, fig.width=12, fig.height=6}

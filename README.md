@@ -10,6 +10,9 @@ physics using the Stern-Brocot tree.
 
 ![](man/figures/README-dual-aspect-program-length-1.png)<!-- -->
 
+![](man/figures/README-dual-aspect-fine-structure-1.png)<!-- -->
+![](man/figures/README-zoomed-fine-structure-y-tighter-1.png)<!-- -->
+
 ![](man/figures/README-dual-aspect-node-count-1.png)<!-- -->
 
 ![](man/figures/README-filter-closest-eigenstates-1.png)<!-- -->
