@@ -5,12 +5,12 @@ plan(multisession, workers = parallel::detectCores() - 2)
 # --- CONFIGURATION ---
 base_data_dir_4TB <- "/Volumes/SanDisk4TB/SternBrocot"
 raw_dir  <- file.path(base_data_dir_4TB, "01_micro_macro_erasures")
-agg_dir  <- file.path(base_data_dir_4TB, "02_quantum_harmonic_oscillator")
+agg_dir  <- file.path(base_data_dir_4TB, "02_micro_marco_densities")
 
 hist_dir <- file.path(agg_dir, "histograms")
 if (!dir.exists(hist_dir)) dir.create(hist_dir, recursive = TRUE)
 
-summary_file <- file.path(agg_dir, "02_quantum_harmonic_oscillator.csv.gz")
+summary_file <- file.path(agg_dir, "02_micro_marco_densities.csv.gz")
 
 # --- FULL FILE SELECTION WITH IDEMPOTENCY ---
 all_files <- list.files(raw_dir, pattern = "\\.csv\\.gz$", full.names = TRUE)
@@ -43,7 +43,8 @@ process_file_full <- function(f, out_path) {
     library(SternBrocotPhysics) # Explicitly load inside worker
 
     P_val <- as.numeric(gsub(".*_P_([0-9.]+)\\.csv\\.gz", "\\1", f))
-    hist_name <- sprintf("histogram_P_%013.6f.csv.gz", round(P_val, 6))
+    hist_name <- sprintf("histogram_P_%013.6f.csv.gz", P_val)
+
     full_hist_path <- file.path(out_path, hist_name)
 
     if (file.exists(full_hist_path)) return(NULL)
@@ -59,6 +60,9 @@ process_file_full <- function(f, out_path) {
     dt <- dt[found == TRUE]
 
     if (nrow(dt) == 0) return(NULL)
+
+    # CREATE NEW METRIC: absolute value of erasure_distance
+    dt[, fine_structure := abs(erasure_distance)]
 
     action <- P_val * P_val
     raw_fluc <- dt$erasure_distance * action

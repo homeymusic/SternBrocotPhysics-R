@@ -36,8 +36,8 @@ manuscript_dir <- here::here("manuscript")
 
 ```{r helper-functions-qho, echo=FALSE}
 base_data_dir_4TB <- "/Volumes/SanDisk4TB/SternBrocot"
-agg_dir  <- file.path(base_data_dir_4TB, "02_quantum_harmonic_oscillator")
-summary_path <- file.path(agg_dir, "02_quantum_harmonic_oscillator.csv.gz")
+agg_dir  <- file.path(base_data_dir_4TB, "02_micro_marco_densities")
+summary_path <- file.path(agg_dir, "02_micro_marco_densities.csv.gz")
 
 fine_structure_dir  <- file.path(base_data_dir_4TB, "04_fine_structure")
 fine_structure_path <- file.path(fine_structure_dir, "04_fine_structure.csv.gz")
