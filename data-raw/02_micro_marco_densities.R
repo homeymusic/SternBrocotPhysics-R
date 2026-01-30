@@ -7,25 +7,18 @@ base_data_dir_4TB <- "/Volumes/SanDisk4TB/SternBrocot"
 raw_dir  <- file.path(base_data_dir_4TB, "01_micro_macro_erasures")
 agg_dir  <- file.path(base_data_dir_4TB, "02_micro_marco_densities")
 
-hist_dir <- file.path(agg_dir, "histograms")
-if (!dir.exists(hist_dir)) dir.create(hist_dir, recursive = TRUE)
+if (!dir.exists(agg_dir)) dir.create(agg_dir, recursive = TRUE)
 
 summary_file <- file.path(agg_dir, "02_micro_marco_densities.csv.gz")
 
-# --- FULL FILE SELECTION WITH IDEMPOTENCY ---
 all_files <- list.files(raw_dir, pattern = "\\.csv\\.gz$", full.names = TRUE)
 
-# Identify already processed files to skip them
-existing_hists <- list.files(hist_dir, pattern = "histogram_P_.*\\.csv\\.gz$")
-processed_p <- if(length(existing_hists) > 0) {
-  as.numeric(gsub("histogram_P_([0-9.]+)\\.csv\\.gz", "\\1", existing_hists))
+existing_densities <- list.files(agg_dir, pattern = "density_P_.*\\.csv\\.gz$")
+processed_p <- if(length(existing_densities) > 0) {
+  as.numeric(gsub("density_P_([0-9.]+)\\.csv\\.gz", "\\1", existing_densities))
 } else numeric(0)
 
-# Extract P values from all raw files for comparison
 all_p <- as.numeric(gsub(".*_P_([0-9.]+)\\.csv\\.gz", "\\1", all_files))
-
-# Filter: Only process files where the histogram does not yet exist
-# Using a small tolerance (1e-7) for floating point P-value matching
 files_to_process <- all_files[!sapply(all_p, function(x) any(abs(x - processed_p) < 1e-7))]
 
 # Audit info
@@ -43,11 +36,10 @@ process_file_full <- function(f, out_path) {
     library(SternBrocotPhysics) # Explicitly load inside worker
 
     P_val <- as.numeric(gsub(".*_P_([0-9.]+)\\.csv\\.gz", "\\1", f))
-    hist_name <- sprintf("histogram_P_%013.6f.csv.gz", P_val)
+    density_file_name <- sprintf("density_P_%013.6f.csv.gz", P_val)
+    full_path <- file.path(out_path, density_file_name)
 
-    full_hist_path <- file.path(out_path, hist_name)
-
-    if (file.exists(full_hist_path)) return(NULL)
+    if (file.exists(full_path)) return(NULL)
 
     dt <- data.table::fread(f,
                             select = c("found", "erasure_distance", "program_length", "shannon_entropy", "numerator", "denominator"),
@@ -136,9 +128,11 @@ process_file_full <- function(f, out_path) {
       node_count_final <- as.numeric(nrow(dot_df))
     }
 
-    data.table::fwrite(rbind(data.table(type="hist", x=plot_df$x, y=plot_df$y, node_count=node_count_final),
-                             data.table(type="node", x=dot_df$x, y=dot_df$y, node_count=node_count_final), fill=TRUE),
-                       full_hist_path, compress="gzip")
+    data.table::fwrite(rbind(
+      data.table(type="density", x=plot_df$x, y=plot_df$y, node_count=node_count_final),
+      data.table(type="node",    x=dot_df$x,  y=dot_df$y,  node_count=node_count_final),
+      fill=TRUE),
+      full_path, compress="gzip")
 
     num_cols <- names(dt)[sapply(dt, is.numeric)]
     stats_list <- list(normalized_momentum = P_val, node_count = node_count_final, n_found = nrow(dt))
@@ -155,7 +149,7 @@ if (length(files_to_process) > 0) {
   # Call future.apply explicitly
   new_results <- future.apply::future_lapply(files_to_process,
                                              process_file_full,
-                                             out_path = hist_dir,
+                                             out_path = agg_dir,
                                              future.seed = TRUE,
                                              future.packages = c("data.table", "SternBrocotPhysics"),
                                              future.scheduling = 100)
