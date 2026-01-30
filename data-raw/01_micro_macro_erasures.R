@@ -11,7 +11,6 @@ microstates_count <- 1e6 + 1
 normalized_momenta <- seq(0.0025, 301, by = 0.0025)
 
 message("Launching mass simulation to SanDisk...")
-message("Estimated storage required: ~600 GB")
 
 # Using 6 threads to balance speed with external drive I/O overhead
 SternBrocotPhysics::run_erasure_simulation(
@@ -21,4 +20,4 @@ SternBrocotPhysics::run_erasure_simulation(
   n_threads = 6
 )
 
-message("Simulation Complete. All 120,400 files generated.")
+message("Simulation Complete.")

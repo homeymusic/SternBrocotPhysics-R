@@ -38,8 +38,8 @@ process_fine_structure <- function(f) {
 
     # Only select necessary columns to save memory/time
     dt <- data.table::fread(f,
-                            select = c("found", "fluctuation", "program_length", "shannon_entropy"),
-                            colClasses = c(found="integer", fluctuation="numeric",
+                            select = c("found", "erasure_distance", "program_length", "shannon_entropy"),
+                            colClasses = c(found="integer", erasure_distance="numeric",
                                            program_length="integer", shannon_entropy="numeric"))
 
     dt[, found := as.logical(found)]
@@ -47,8 +47,8 @@ process_fine_structure <- function(f) {
 
     if (nrow(dt) == 0) return(NULL)
 
-    # CREATE NEW METRIC: absolute value of fluctuation
-    dt[, fine_structure := abs(fluctuation)]
+    # CREATE NEW METRIC: absolute value of erasure_distance
+    dt[, fine_structure := abs(erasure_distance)]
 
     # Identify numeric columns for stats (including the new one)
     num_cols <- names(dt)[sapply(dt, is.numeric)]

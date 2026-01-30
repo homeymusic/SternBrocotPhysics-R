@@ -49,9 +49,9 @@ process_file_full <- function(f, out_path) {
     if (file.exists(full_hist_path)) return(NULL)
 
     dt <- data.table::fread(f,
-                            select = c("found", "fluctuation", "program_length", "shannon_entropy", "numerator", "denominator"),
+                            select = c("found", "erasure_distance", "program_length", "shannon_entropy", "numerator", "denominator"),
                             # Changed to integer to stop fread warnings
-                            colClasses = c(found="integer", fluctuation="numeric", program_length="integer",
+                            colClasses = c(found="integer", erasure_distance="numeric", program_length="integer",
                                            shannon_entropy="numeric", numerator="numeric", denominator="numeric"))
 
     # Coerce to logical to match your dt[found == TRUE] filter
@@ -61,7 +61,7 @@ process_file_full <- function(f, out_path) {
     if (nrow(dt) == 0) return(NULL)
 
     action <- P_val * P_val
-    raw_fluc <- dt$fluctuation * action
+    raw_fluc <- dt$erasure_distance * action
     f_rng <- range(raw_fluc, na.rm = TRUE)
     # FIX: Reverted to explicit indices for worker compatibility
     h <- graphics::hist(raw_fluc, breaks = seq(f_rng[1], f_rng[2], length.out = 402), plot = FALSE)

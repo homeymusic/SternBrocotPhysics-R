@@ -68,7 +68,7 @@ EraseResult erase_single_native(double target, double uncertainty, int max_depth
 DataFrame erase_core(NumericVector microstate, double uncertainty, int max_depth_limit) {
   int n = microstate.size();
 
-  NumericVector res_num(n), res_den(n), depths(n), res_fluctuation(n), res_macro(n);
+  NumericVector res_num(n), res_den(n), depths(n), res_erasure_distance(n), res_macro(n);
   NumericVector res_l_count(n), res_r_count(n), res_shannon(n);
   CharacterVector res_path(n), res_b_path(n);
   LogicalVector res_found(n);
@@ -79,7 +79,7 @@ DataFrame erase_core(NumericVector microstate, double uncertainty, int max_depth
     res_num[i] = res.c_num;
     res_den[i] = res.c_den;
     res_macro[i] = res.macro_val;
-    res_fluctuation[i] = res.macro_val - res.microstate;
+    res_erasure_distance[i] = res.macro_val - res.microstate;
     res_path[i] = res.path;
     res_b_path[i] = res.b_path;
     res_l_count[i] = res.count_l;
@@ -92,7 +92,7 @@ DataFrame erase_core(NumericVector microstate, double uncertainty, int max_depth
   return DataFrame::create(
     _["microstate"]        = microstate,
     _["macrostate"]        = res_macro,
-    _["fluctuation"]       = res_fluctuation,
+    _["erasure_distance"]  = res_erasure_distance,
     _["numerator"]         = res_num,
     _["denominator"]       = res_den,
     _["minimal_program"]   = res_b_path,

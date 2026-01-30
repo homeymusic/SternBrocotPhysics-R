@@ -80,7 +80,7 @@ process_file_full <- function(f, out_path, debug_on) {
     hist_name <- sprintf("histogram_P_%013.6f.csv.gz", round(P_val, 6))
     full_hist_path <- file.path(out_path, hist_name)
 
-    dt <- data.table::fread(f, select = c("found", "fluctuation", "program_length",
+    dt <- data.table::fread(f, select = c("found", "erasure_distance", "program_length",
                                           "shannon_entropy", "zurek_entropy", "numerator", "denominator"))
     dt <- dt[found == TRUE]
     if (nrow(dt) == 0) return(NULL)
@@ -88,7 +88,7 @@ process_file_full <- function(f, out_path, debug_on) {
     # --- UPDATED DYNAMIC BINNING + JITTER FILTER ---
     L <- 1.0
     action <- P_val * 1.0
-    raw_fluc <- dt$fluctuation * action
+    raw_fluc <- dt$erasure_distance * action
     f_rng <- range(raw_fluc, na.rm = TRUE)
 
     # 1. Scale resolution and oversample for anti-aliasing headroom

@@ -30,7 +30,7 @@ void run_erasure_simulation(NumericVector momenta, std::string dir, int count, i
     // context by the RcppThread library's internal logic.
 
     double p = momenta_cpp[i];
-    double uncertainty = 1.0 / p;
+    double uncertainty = 1.0 / (2.0 * p);
 
     char filename_buf[128];
     std::snprintf(filename_buf, sizeof(filename_buf), "micro_macro_erasures_P_%013.6f.csv.gz", p);
@@ -39,7 +39,7 @@ void run_erasure_simulation(NumericVector momenta, std::string dir, int count, i
     // wb1 provides faster compression (lower level) to reduce I/O bottlenecks
     gzFile file = gzopen(full_path.c_str(), "wb1");
     if (file) {
-      gzprintf(file, "momentum,microstate,macrostate,fluctuation,numerator,denominator,minimal_program,program_length,shannon_entropy,stern_brocot_path,uncertainty,l_count,r_count,max_search_depth,found\n");
+      gzprintf(file, "momentum,microstate,macrostate,erasure_distance,numerator,denominator,minimal_program,program_length,shannon_entropy,stern_brocot_path,uncertainty,l_count,r_count,max_search_depth,found\n");
 
       for (int j = 0; j < count; j++) {
         // Handle edge case for count = 1 to avoid division by zero
