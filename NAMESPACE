@@ -2,6 +2,7 @@
 
 export(contains_peak_cpp)
 export(find_nodes_cpp)
-export(run_erasure_simulation)
+export(micro_macro_erasures_angle)
+export(micro_macro_erasures_momentum)
 importFrom(Rcpp,sourceCpp)
 useDynLib(SternBrocotPhysics, .registration = TRUE)

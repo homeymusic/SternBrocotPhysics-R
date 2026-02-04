@@ -1,10 +1,10 @@
 # 01_micro_macro_erasures.R
-here::i_am("data-raw/01_micro_macro_erasures.R")
+here::i_am("data-raw/01_micro_macro_momentum_erasures.R")
 library(SternBrocotPhysics)
 
 
 base_data_dir_4TB <- "/Volumes/SanDisk4TB/SternBrocot"
-raw_directory  <- file.path(base_data_dir_4TB, "01_micro_macro_erasures")
+raw_directory  <- file.path(base_data_dir_4TB, "01_micro_macro_momentum_erasures")
 
 # Final Parameters
 microstates_count <- 1e6 + 1

@@ -10,7 +10,7 @@ using namespace Rcpp;
 
 //' @export
 // [[Rcpp::export]]
-void run_erasure_simulation(NumericVector momenta, std::string dir, int count, int n_threads = 0) {
+void micro_macro_erasures_momentum(NumericVector momenta, std::string dir, int count, int n_threads = 0) {
   int max_depth_limit = 20000;
 
   // 1. Thread Safety: Copy R memory to a C++ vector immediately.
