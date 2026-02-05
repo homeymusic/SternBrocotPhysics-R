@@ -1,32 +1,26 @@
 #ifndef ERASE_H
 #define ERASE_H
 
-#include <Rcpp.h>
 #include <string>
 
-// 1. Data carrier struct (Pure C++ types for thread-safety)
 struct EraseResult {
+  // Exact order matching the requested DataFrame
+  double erasure_distance;
   double microstate;
-  double macro_val;
-  double shannon;
+  double macrostate;
   double uncertainty;
-  double c_num;
-  double c_den;
-  int depth;
-  int count_l;
-  int count_r;
-  std::string path;
-  std::string b_path;
+  double numerator;
+  double denominator;
+  std::string stern_brocot_path;
+  std::string minimal_program;
+  int program_length;
+  double shannon_entropy;
+  int left_count;
+  int right_count;
   bool found;
 };
 
-// 2. Declaration of the native function
-// This allows erase_experiments.cpp to call the math logic directly
-EraseResult erase_single_native(double target, double uncertainty, int max_depth_limit);
-
-// 3. Declarations for RcppExports/Adapter
-Rcpp::DataFrame erase_uncertainty(Rcpp::NumericVector x, double uncertainty);
-Rcpp::DataFrame erase_depth(Rcpp::NumericVector x, int depth);
-Rcpp::DataFrame erase_uncertainty_and_depth(Rcpp::NumericVector x, double uncertainty, int depth);
+// Function declaration
+EraseResult erase_single_native(double microstate, double uncertainty, int max_search_depth);
 
 #endif

@@ -18,7 +18,7 @@ void micro_macro_erasures_angle(NumericVector angles, std::string dir, int count
   std::vector<double> angles_cpp = Rcpp::as<std::vector<double>>(angles);
   size_t n_angles = angles_cpp.size();
 
-  // Use R-friendly thread logic (n-2)
+  // Thread Logic
   int threads = (n_threads <= 0) ? (int)std::thread::hardware_concurrency() - 2 : n_threads;
   if (threads < 1) threads = 1;
 
@@ -32,9 +32,7 @@ void micro_macro_erasures_angle(NumericVector angles, std::string dir, int count
     double cos_t = std::cos(theta_rad);
     double budget_coupler = sin_t + cos_t;
 
-    // --- PHYSICALLY HONEST MAPPING (Normalized Action Partition) ---
-    // delta = Action_share / (sin_theta + cos_theta)
-    // For this simulation, we model the primary angular resolution capacity.
+    // --- PHYSICALLY HONEST MAPPING ---
     double angular_uncertainty = cos_t / budget_coupler;
 
     char filename_buf[128];
@@ -43,24 +41,38 @@ void micro_macro_erasures_angle(NumericVector angles, std::string dir, int count
 
     gzFile file = gzopen(full_path.c_str(), "wb1");
     if (file) {
-      // FULL SCHEMA PARITY WITH MOMENTUM DATA
-      gzprintf(file, "theta,microstate,macrostate,erasure_distance,spin,numerator,denominator,minimal_program,program_length,shannon_entropy,stern_brocot_path,uncertainty,l_count,r_count,max_search_depth,found\n");
+      // UPDATED HEADER: Aligned with new struct and DataFrame order
+      gzprintf(file, "theta,erasure_distance,spin,microstate,macrostate,uncertainty,numerator,denominator,stern_brocot_path,minimal_program,program_length,shannon_entropy,left_count,right_count,max_search_depth,found\n");
 
       for (int j = 0; j < count; j++) {
-        // Shared microstate mu sweep from -1 to 1
+        // Shared microstate sweep from -1 to 1
         double mu = (count > 1) ? -1.0 + (2.0 * j) / (double)(count - 1) : 0.0;
 
-        // Perform the Information Erasure via the Stern-Brocot Tree
+        // Perform Erasure
         EraseResult res = erase_single_native(mu, angular_uncertainty, max_depth_limit);
 
-        double dist = res.macro_val - mu;
-        // Spin is the 'experimentalist outcome' - sign of the erasure fluctuation
-        int spin = (dist > tolerance) ? 1 : (dist < -tolerance ? -1 : 0);
+        // Calculate Spin based on the returned erasure distance
+        // (Spin is just the sign of the error: +1 for rounding up, -1 for rounding down)
+        int spin = (res.erasure_distance > tolerance) ? 1 : (res.erasure_distance < -tolerance ? -1 : 0);
 
-        gzprintf(file, "%.6f,%.6f,%.6f,%.6f,%d,%.0f,%.0f,%s,%d,%.6f,%s,%.6f,%d,%d,%d,%d\n",
-                 theta_deg, mu, res.macro_val, dist, spin,
-                 res.c_num, res.c_den, res.b_path.c_str(), res.depth, res.shannon,
-                 res.path.c_str(), res.uncertainty, res.count_l, res.count_r, max_depth_limit, (int)res.found);
+        // UPDATED PRINT: Uses new struct member names
+        gzprintf(file, "%.6f,%.6f,%d,%.6f,%.6f,%.6f,%.0f,%.0f,%s,%s,%d,%.6f,%d,%d,%d,%d\n",
+                 theta_deg,
+                 res.erasure_distance,          // Pre-calculated in struct
+                 spin,                          // Computed locally
+                 res.microstate,
+                 res.macrostate,
+                 res.uncertainty,
+                 res.numerator,                 // Was c_num
+                 res.denominator,               // Was c_den
+                 res.stern_brocot_path.c_str(), // Was path
+                 res.minimal_program.c_str(),   // Was b_path
+                 res.program_length,            // Was depth
+                 res.shannon_entropy,
+                 res.left_count,                // Was count_l
+                 res.right_count,               // Was count_r
+                 max_depth_limit,
+                 (int)res.found);
       }
       gzclose(file);
     }

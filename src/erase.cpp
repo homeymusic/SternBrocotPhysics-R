@@ -6,103 +6,131 @@
 
 using namespace Rcpp;
 
-// 1. PURE C++ NATIVE CORE (Thread-safe, no R dependencies)
-EraseResult erase_single_native(double target, double uncertainty, int max_depth_limit) {
-  // Determine threshold
+// 1. PURE C++ NATIVE CORE
+EraseResult erase_single_native(double microstate, double uncertainty, int max_search_depth) {
+
   const double threshold = (uncertainty > 0) ? uncertainty * (1.0 - 1e-15) : -1.0;
 
   long long l_num = -1, l_den = 0;
   long long r_num = 1, r_den = 0;
-  long long c_num = 0, c_den = 1;
+  long long numerator = 0, denominator = 1;
 
-  int depth = 0;
-  int count_l = 0;
-  int count_r = 0;
-  std::string path = "", b_path = "";
-  double macro_val = (double)c_num / c_den;
-  double error = std::abs(macro_val - target);
+  int program_length = 0;
+  int left_count = 0;
+  int right_count = 0;
 
-  // Core Loop Logic
-  while (depth < max_depth_limit) {
-    // Exit condition: if uncertainty is provided, use error threshold
-    // If uncertainty is NA (passed as -1 or NaN), loop continues to max_depth
+  std::string stern_brocot_path = "";
+  std::string minimal_program = "";
+
+  double macrostate = (double)numerator / denominator;
+  double erasure_distance = macrostate - microstate;
+  double error = std::abs(erasure_distance);
+
+  // Core Loop
+  while (program_length < max_search_depth) {
     if (threshold > 0 && error < threshold) break;
 
-    if (macro_val < target) {
-      l_num = c_num; l_den = c_den;
-      path += "R"; b_path += "1";
-      count_r++;
+    if (macrostate < microstate) {
+      l_num = numerator; l_den = denominator;
+      stern_brocot_path += "R"; minimal_program += "1";
+      right_count++;
     } else {
-      r_num = c_num; r_den = c_den;
-      path += "L"; b_path += "0";
-      count_l++;
+      r_num = numerator; r_den = denominator;
+      stern_brocot_path += "L"; minimal_program += "0";
+      left_count++;
     }
 
-    c_num = l_num + r_num;
-    c_den = l_den + r_den;
+    numerator = l_num + r_num;
+    denominator = l_den + r_den;
 
-    if (c_den <= 0) break;
+    if (denominator <= 0) break;
 
-    macro_val = (double)c_num / c_den;
-    error = std::abs(macro_val - target);
-    depth++;
+    macrostate = (double)numerator / denominator;
+
+    erasure_distance = macrostate - microstate;
+    error = std::abs(erasure_distance);
+    program_length++;
   }
 
-  // Shannon Entropy
-  double shannon = 0.0;
-  if (depth > 0) {
-    double d_val = (double)depth;
-    double pL = (double)count_l / d_val;
-    double pR = (double)count_r / d_val;
-    if (pL > 0) shannon -= pL * std::log2(pL);
-    if (pR > 0) shannon -= pR * std::log2(pR);
+  // Entropy
+  double shannon_entropy = 0.0;
+  if (program_length > 0) {
+    double d_val = (double)program_length;
+    double pL = (double)left_count / d_val;
+    double pR = (double)right_count / d_val;
+    if (pL > 0) shannon_entropy -= pL * std::log2(pL);
+    if (pR > 0) shannon_entropy -= pR * std::log2(pR);
   }
 
-  bool found = (threshold > 0) ? (error < threshold) : (depth >= max_depth_limit);
+  bool found = (threshold > 0) ? (error < threshold) : (program_length >= max_search_depth);
 
-  return {target, macro_val, shannon, uncertainty, (double)c_num, (double)c_den,
-          depth, count_l, count_r, path, b_path, found};
+  // RETURN ORDER ALIGNED WITH STRUCT DEFINITION
+  return {
+    erasure_distance,   // 1. First item
+    microstate,         // 2.
+    macrostate,         // 3.
+    uncertainty,
+    (double)numerator,
+    (double)denominator,
+    stern_brocot_path,
+    minimal_program,
+    program_length,
+    shannon_entropy,
+    left_count,
+    right_count,
+    found
+  };
 }
 
-// 2. R ADAPTER (The "DRY" Wrapper for Rcpp exports)
-DataFrame erase_core(NumericVector microstate, double uncertainty, int max_depth_limit) {
+// 2. R ADAPTER
+DataFrame erase_core(NumericVector microstate, double uncertainty, int max_search_depth) {
   int n = microstate.size();
 
-  NumericVector res_num(n), res_den(n), depths(n), res_erasure_distance(n), res_macro(n);
-  NumericVector res_l_count(n), res_r_count(n), res_shannon(n);
-  CharacterVector res_path(n), res_b_path(n);
+  // Vectors initialized in target order
+  NumericVector res_erasure_distance(n);
+  NumericVector res_macro(n);
+  NumericVector res_num(n);
+  NumericVector res_den(n);
+  CharacterVector res_path(n);
+  CharacterVector res_b_path(n);
+  IntegerVector depths(n);
+  NumericVector res_shannon(n);
+  IntegerVector res_l_count(n);
+  IntegerVector res_r_count(n);
   LogicalVector res_found(n);
 
   for (int i = 0; i < n; ++i) {
-    EraseResult res = erase_single_native(microstate[i], uncertainty, max_depth_limit);
+    EraseResult res = erase_single_native(microstate[i], uncertainty, max_search_depth);
 
-    res_num[i] = res.c_num;
-    res_den[i] = res.c_den;
-    res_macro[i] = res.macro_val;
-    res_erasure_distance[i] = res.macro_val - res.microstate;
-    res_path[i] = res.path;
-    res_b_path[i] = res.b_path;
-    res_l_count[i] = res.count_l;
-    res_r_count[i] = res.count_r;
-    res_shannon[i] = res.shannon;
-    depths[i] = res.depth;
-    res_found[i] = res.found;
+    // Map struct members to vectors
+    res_erasure_distance[i] = res.erasure_distance;
+    res_macro[i]            = res.macrostate;
+    res_num[i]              = res.numerator;
+    res_den[i]              = res.denominator;
+    res_path[i]             = res.stern_brocot_path;
+    res_b_path[i]           = res.minimal_program;
+    depths[i]               = res.program_length;
+    res_shannon[i]          = res.shannon_entropy;
+    res_l_count[i]          = res.left_count;
+    res_r_count[i]          = res.right_count;
+    res_found[i]            = res.found;
   }
 
+  // DataFrame in exact requested order
   return DataFrame::create(
+    _["erasure_distance"]  = res_erasure_distance,
     _["microstate"]        = microstate,
     _["macrostate"]        = res_macro,
-    _["erasure_distance"]  = res_erasure_distance,
+    _["uncertainty"]       = uncertainty,
     _["numerator"]         = res_num,
     _["denominator"]       = res_den,
+    _["stern_brocot_path"] = res_path,
     _["minimal_program"]   = res_b_path,
     _["program_length"]    = depths,
     _["shannon_entropy"]   = res_shannon,
-    _["stern_brocot_path"] = res_path,
-    _["uncertainty"]       = uncertainty,
-    _["l_count"]           = res_l_count,
-    _["r_count"]           = res_r_count,
-    _["max_search_depth"]  = max_depth_limit,
+    _["left_count"]        = res_l_count,
+    _["right_count"]       = res_r_count,
+    _["max_search_depth"]  = max_search_depth,
     _["found"]             = res_found
   );
 }
@@ -115,7 +143,7 @@ DataFrame erase_uncertainty(NumericVector x, double uncertainty) {
 
 // [[Rcpp::export(name = "erase_by_depth")]]
 DataFrame erase_depth(NumericVector x, int depth) {
-  return erase_core(x, -1.0, depth); // -1.0 signals depth-only mode
+  return erase_core(x, -1.0, depth);
 }
 
 // [[Rcpp::export(name = "erase_by_uncertainty_and_depth")]]
