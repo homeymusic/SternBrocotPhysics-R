@@ -16,8 +16,8 @@ processed_angles <- if(length(existing_files) > 0) {
   as.numeric(gsub("micro_macro_erasures_theta_([0-9.]+)\\.csv\\.gz", "\\1", existing_files))
 } else numeric(0)
 
-# 0.1 degree resolution creates the high-fidelity "Important Plot"
-full_sweep <- seq(0, 90, by = 0.1)
+full_sweep <- seq(0.1, 89.9, length.out = 120400)
+
 angles_to_run <- full_sweep[!sapply(full_sweep, function(a) any(abs(a - processed_angles) < 1e-7))]
 
 if (length(angles_to_run) == 0) {
