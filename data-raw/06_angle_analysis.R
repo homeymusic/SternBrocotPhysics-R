@@ -22,17 +22,59 @@ fetch_angle <- function(target_deg) {
   # Return just the measurement column (1, -1, or 0)
   return(data.table::fread(path))
 }
-
-# --- 2. RETRIEVE DATA RUNS ---
+# --- 1. SETUP & DATA RETRIEVAL ---
 cat("Fetching experimental data...\n")
 
+# Assumes fetch_angle() is defined in your environment
 A_0  <- fetch_angle(0.0)
 A_45 <- fetch_angle(45.0)
 
 B_22 <- fetch_angle(22.5)
 B_67 <- fetch_angle(67.5)
 
+# --- 2. CALCULATE CORRELATIONS (E1, E2, E3, E4) ---
 
+# --- E1: Correlation (Alice 0° vs Bob 22.5°) ---
+raw_products <- A_0$spin * B_22$spin
+valid_products <- raw_products[raw_products != 0]
+E_0_22 <- mean(valid_products)
+print(paste("Correlation E1 (0, 22.5):", E_0_22))
+
+# --- E2: Correlation (Alice 0° vs Bob 67.5°) ---
+raw_products <- A_0$spin * B_67$spin
+valid_products <- raw_products[raw_products != 0]
+E_0_67 <- mean(valid_products)
+print(paste("Correlation E2 (0, 67.5):", E_0_67))
+
+# --- E3: Correlation (Alice 45° vs Bob 22.5°) ---
+raw_products <- A_45$spin * B_22$spin
+valid_products <- raw_products[raw_products != 0]
+E_45_22 <- mean(valid_products)
+print(paste("Correlation E3 (45, 22.5):", E_45_22))
+
+# --- E4: Correlation (Alice 45° vs Bob 67.5°) ---
+raw_products <- A_45$spin * B_67$spin
+valid_products <- raw_products[raw_products != 0]
+E_45_67 <- mean(valid_products)
+print(paste("Correlation E4 (45, 67.5):", E_45_67))
+
+
+# --- 3. CALCULATE FINAL CHSH SCORE ---
+
+# Formula: S = |E1 - E2| + |E3 + E4|
+# E1 = E(0, 22.5)
+# E2 = E(0, 67.5)
+# E3 = E(45, 22.5)
+# E4 = E(45, 67.5)
+
+S_score <- abs(E_0_22 - E_0_67) + abs(E_45_22 + E_45_67)
+
+print("------------------------------------------------")
+print(paste("Final CHSH Score (S):", S_score))
+print("------------------------------------------------")
+print("Interpretation:")
+print("S <= 2.0 : Classical Limit (Local Realism)")
+print("S >  2.0 : Quantum Violation (Bell Inequality Broken)")
 # --- 1. TAG THE DATA ---
 # We use copy() to ensure we don't modify the original objects by reference
 # We add identifying columns to every row.
@@ -53,26 +95,116 @@ master_data$Label <- factor(master_data$Label,
 
 print(colnames(master_data))
 
-# --- 3. PLOT EVERYTHING (FACETED) ---
-ggplot(master_data, aes(x = microstate, y = erasure_distance, color = Role)) +
 
-  # Use very small points with transparency
-  geom_point(size = 0.2, alpha = 0.5) +
+# Create the "Distance" layer (The Analog Wave)
+dt_dist <- master_data[, .(microstate, value = erasure_distance, Label, Role, Type = "Distance")]
 
-  # Add the 'zero' line (where spin flips or erasure happens)
+# Create the "Spin" layer (The Digital Particle)
+# This now includes 0, 1, and -1
+dt_spin <- master_data[, .(microstate, value = spin, Label, Role, Type = "Spin")]
+
+# Combine them into one long table for ggplot
+plot_data <- rbind(dt_dist, dt_spin)
+
+# Define the grouping column for the legend
+plot_data[, Category := paste(Role, Type)]
+
+# --- 2. THE STRICT 4-COLOR PALETTE ---
+# The color depends ONLY on Role (Alice/Bob) and Type (Distance/Spin)
+# It does NOT change based on the value (1, -1, 0)
+custom_colors <- c(
+  "Alice Distance" = "#ff99cc",  # Light Pink
+  "Alice Spin"     = "#c51b7d",  # Dark Pink
+
+  "Bob Distance"   = "#aec7e8",  # Light Blue
+  "Bob Spin"       = "#1f77b4"   # Dark Blue
+)
+
+# --- 3. GENERATE THE ERASURE PLOT ---
+ggplot(plot_data, aes(x = microstate, y = value, color = Category)) +
+
+  # The Zero Line (Reference)
   geom_hline(yintercept = 0, color = "black", alpha = 0.3) +
 
-  # Split the view into 4 panels
+  # The Points
+  # We use very small points.
+  # Light points (Distance) show the geometry.
+  # Dark points (Spin) show the outcome (at 1, -1, or 0).
+  geom_point(size = 0.3, alpha = 0.6) +
+
+  # Facet by Detector Setting to compare the 4 angles
   facet_wrap(~Label, ncol = 2) +
 
-  # Colors: Distinct for Alice and Bob
-  scale_color_manual(values = c("Alice" = "#f7b6d2", "Bob" = "#1f77b4")) +
+  # Apply the strict color mapping
+  scale_color_manual(values = custom_colors) +
+
+  # Zoom in vertically to see the transition (-1.5 to 1.5)
+  coord_cartesian(ylim = c(-1.5, 1.5)) +
 
   labs(
-    title = "Fractal Erasure Geometry: Alice vs. Bob",
-    subtitle = "Comparing the erasure distance landscape across 4 detector settings",
-    x = "Microstate (Hidden Variable)",
-    y = "Erasure Distance"
+    title = "Quantum Measurement: The Wave vs. The Collapse",
+    subtitle = "Light Wave = Erasure Distance | Dark Points = Spin Outcome (+1, -1, or 0)",
+    x = "Microstate",
+    y = "Value (Distance or Spin)"
   ) +
+
   theme_minimal() +
-  theme(legend.position = "top")
+  theme(
+    legend.position = "top",
+    legend.title = element_blank(),
+    panel.grid.minor = element_blank()
+  ) +
+
+  guides(color = guide_legend(override.aes = list(size = 3, alpha = 1)))
+
+
+
+# Create the "Distance" layer (The Analog Wave)
+dt_dist <- master_data[, .(microstate, value = macrostate, Label, Role, Type = "Macrostate")]
+
+# Create the "Spin" layer (The Digital Particle)
+# This now includes 0, 1, and -1
+dt_spin <- master_data[, .(microstate, value = spin, Label, Role, Type = "Spin")]
+
+# Combine them into one long table for ggplot
+plot_data <- rbind(dt_dist, dt_spin)
+
+# Define the grouping column for the legend
+plot_data[, Category := paste(Role, Type)]
+
+# --- 3. GENERATE THE MACROSTATE PLOT ---
+ggplot(plot_data, aes(x = microstate, y = value, color = Category)) +
+
+  # The Zero Line (Reference)
+  geom_hline(yintercept = 0, color = "black", alpha = 0.3) +
+
+  # The Points
+  # We use very small points.
+  # Light points (Distance) show the geometry.
+  # Dark points (Spin) show the outcome (at 1, -1, or 0).
+  geom_point(size = 0.3, alpha = 0.6) +
+
+  # Facet by Detector Setting to compare the 4 angles
+  facet_wrap(~Label, ncol = 2) +
+
+  # Apply the strict color mapping
+  scale_color_manual(values = custom_colors) +
+
+  # Zoom in vertically to see the transition (-1.5 to 1.5)
+  coord_cartesian(ylim = c(-1.5, 1.5)) +
+
+  labs(
+    title = "Quantum Measurement: The Wave vs. The Collapse",
+    subtitle = "Light Wave = Erasure Distance | Dark Points = Spin Outcome (+1, -1, or 0)",
+    x = "Microstate",
+    y = "Value (Macrostate or Spin)"
+  ) +
+
+  theme_minimal() +
+  theme(
+    legend.position = "top",
+    legend.title = element_blank(),
+    panel.grid.minor = element_blank()
+  ) +
+
+  guides(color = guide_legend(override.aes = list(size = 3, alpha = 1)))
