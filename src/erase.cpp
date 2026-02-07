@@ -2,46 +2,49 @@
 #include <string>
 #include <vector>
 #include <cmath>
+#include <limits>
 #include "erase.h"
 
 using namespace Rcpp;
+
+// --- HELPER: SAFE ADDITION ---
+bool safe_add(long long a, long long b, long long &res) {
+  if (b > 0 && a > std::numeric_limits<long long>::max() - b) return false;
+  if (b < 0 && a < std::numeric_limits<long long>::min() - b) return false;
+  res = a + b;
+  return true;
+}
 
 // 1. PURE C++ NATIVE CORE
 EraseResult erase_single_native(double microstate, double uncertainty, int max_search_depth) {
 
   // --- 1. HANDLE INFINITY (Clamp) ---
-  // If uncertainty is Infinite or unreasonably large, we clamp it to 1e9.
-  // This allows the search to proceed as a "very loose" search.
   if (std::isinf(uncertainty) || uncertainty > 1e9) {
     uncertainty = 1e9;
   }
 
-  // --- 2. HANDLE ZERO UNCERTAINTY (Invalid/Singularity) ---
-  // Physical singularity check. If uncertainty is effectively 0, we cannot
-  // perform the measurement. We return NA values.
-  // Note: We skip this check if uncertainty is -1.0 (Depth Only mode).
+  // --- 2. HANDLE ZERO UNCERTAINTY (THE IDENTITY FIX) ---
+  // If uncertainty is effectively 0, the Macrostate IS the Microstate.
+  // We do not need to search the tree.
   if (uncertainty != -1.0 && std::abs(uncertainty) < 1e-15) {
     return {
-    R_NaReal,           // erasure_distance: NA
-    microstate,         // microstate: Return original input
-    R_NaReal,           // macrostate: NA
-    uncertainty,        // uncertainty: Return original input (0)
-    R_NaReal,           // numerator: NA
-    R_NaReal,           // denominator: NA
-    "",                 // stern_brocot_path: Empty string (std::string cannot be NA)
-    "",                 // minimal_program: Empty string
-    R_NaInt,            // program_length: NA_INTEGER
-    R_NaReal,           // shannon_entropy: NA
-    R_NaInt,            // left_count: NA_INTEGER
-    R_NaInt,            // right_count: NA_INTEGER
-    false               // found: FALSE
+    0.0,            // erasure_distance: 0.0 (Perfect Match)
+    microstate,     // microstate: Original
+    microstate,     // macrostate: Identity
+    uncertainty,    // uncertainty
+    R_NaReal,       // numerator: NA (No rational approx found)
+    R_NaReal,       // denominator: NA
+    "",             // stern_brocot_path: Empty
+    "",             // minimal_program: Empty
+    R_NaInt,        // program_length: NA
+    R_NaReal,       // shannon_entropy: NA (No bits generated)
+    R_NaInt,        // left_count: NA
+    R_NaInt,        // right_count: NA
+    false           // found: False (Tree not traversed)
   };
   }
 
   // --- 3. NORMAL EXECUTION ---
-
-  // Setup threshold
-  // If uncertainty is -1.0, we ignore threshold (programmatic exploration)
   const double threshold = (uncertainty > 0) ? uncertainty * (1.0 - 1e-15) : -1.0;
 
   long long l_num = -1, l_den = 0;
@@ -55,33 +58,54 @@ EraseResult erase_single_native(double microstate, double uncertainty, int max_s
   std::string stern_brocot_path = "";
   std::string minimal_program = "";
 
+  // SAFETY VALVE: Max string length to prevent memory crashes during deep searches
+  const size_t MAX_PATH_LEN = 128;
+
   double macrostate = (double)numerator / denominator;
   double erasure_distance = macrostate - microstate;
   double error = std::abs(erasure_distance);
 
   // Core Loop
   while (program_length < max_search_depth) {
-    // If we are within the uncertainty threshold, we stop (success)
     if (threshold > 0 && error < threshold) break;
 
-    if (macrostate < microstate) {
+    // Logic: Choose Left or Right
+    bool move_right = (macrostate < microstate);
+
+    // Safety Valve: Stop appending string if too long
+    if (stern_brocot_path.length() < MAX_PATH_LEN) {
+      if (move_right) {
+        stern_brocot_path += "R";
+        minimal_program += "1";
+      } else {
+        stern_brocot_path += "L";
+        minimal_program += "0";
+      }
+    } else if (stern_brocot_path.length() == MAX_PATH_LEN) {
+      stern_brocot_path += "...";
+      minimal_program += "...";
+    }
+
+    if (move_right) {
       l_num = numerator; l_den = denominator;
-      stern_brocot_path += "R"; minimal_program += "1";
       right_count++;
     } else {
       r_num = numerator; r_den = denominator;
-      stern_brocot_path += "L"; minimal_program += "0";
       left_count++;
     }
 
-    numerator = l_num + r_num;
-    denominator = l_den + r_den;
+    // Critical Overflow Check
+    long long next_num, next_den;
+    if (!safe_add(l_num, r_num, next_num) || !safe_add(l_den, r_den, next_den)) {
+      break;
+    }
 
-    // Safety break for overflow
+    numerator = next_num;
+    denominator = next_den;
+
     if (denominator <= 0) break;
 
     macrostate = (double)numerator / denominator;
-
     erasure_distance = macrostate - microstate;
     error = std::abs(erasure_distance);
     program_length++;
@@ -97,10 +121,6 @@ EraseResult erase_single_native(double microstate, double uncertainty, int max_s
     if (pR > 0) shannon_entropy -= pR * std::log2(pR);
   }
 
-  // Determine if found
-  // If threshold is active (>0), we found it if error < threshold.
-  // If threshold is inactive (-1), we "found" it only if we didn't hit max depth
-  // (though usually -1 implies we just run until max depth).
   bool found = (threshold > 0) ? (error < threshold) : (program_length < max_search_depth);
 
   return {
@@ -119,11 +139,11 @@ EraseResult erase_single_native(double microstate, double uncertainty, int max_s
     found
   };
 }
-// 2. R ADAPTER
+
+// 2. R ADAPTER (Standard Mappings)
 DataFrame erase_core(NumericVector microstate, double uncertainty, int max_search_depth) {
   int n = microstate.size();
 
-  // Vectors initialized in target order
   NumericVector res_erasure_distance(n);
   NumericVector res_macro(n);
   NumericVector res_num(n);
@@ -139,7 +159,6 @@ DataFrame erase_core(NumericVector microstate, double uncertainty, int max_searc
   for (int i = 0; i < n; ++i) {
     EraseResult res = erase_single_native(microstate[i], uncertainty, max_search_depth);
 
-    // Map struct members to vectors
     res_erasure_distance[i] = res.erasure_distance;
     res_macro[i]            = res.macrostate;
     res_num[i]              = res.numerator;
@@ -153,7 +172,6 @@ DataFrame erase_core(NumericVector microstate, double uncertainty, int max_searc
     res_found[i]            = res.found;
   }
 
-  // DataFrame in exact requested order
   return DataFrame::create(
     _["erasure_distance"]  = res_erasure_distance,
     _["microstate"]        = microstate,
