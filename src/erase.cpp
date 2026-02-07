@@ -9,6 +9,39 @@ using namespace Rcpp;
 // 1. PURE C++ NATIVE CORE
 EraseResult erase_single_native(double microstate, double uncertainty, int max_search_depth) {
 
+  // --- 1. HANDLE INFINITY (Clamp) ---
+  // If uncertainty is Infinite or unreasonably large, we clamp it to 1e9.
+  // This allows the search to proceed as a "very loose" search.
+  if (std::isinf(uncertainty) || uncertainty > 1e9) {
+    uncertainty = 1e9;
+  }
+
+  // --- 2. HANDLE ZERO UNCERTAINTY (Invalid/Singularity) ---
+  // Physical singularity check. If uncertainty is effectively 0, we cannot
+  // perform the measurement. We return NA values.
+  // Note: We skip this check if uncertainty is -1.0 (Depth Only mode).
+  if (uncertainty != -1.0 && std::abs(uncertainty) < 1e-15) {
+    return {
+    R_NaReal,           // erasure_distance: NA
+    microstate,         // microstate: Return original input
+    R_NaReal,           // macrostate: NA
+    uncertainty,        // uncertainty: Return original input (0)
+    R_NaReal,           // numerator: NA
+    R_NaReal,           // denominator: NA
+    "",                 // stern_brocot_path: Empty string (std::string cannot be NA)
+    "",                 // minimal_program: Empty string
+    R_NaInt,            // program_length: NA_INTEGER
+    R_NaReal,           // shannon_entropy: NA
+    R_NaInt,            // left_count: NA_INTEGER
+    R_NaInt,            // right_count: NA_INTEGER
+    false               // found: FALSE
+  };
+  }
+
+  // --- 3. NORMAL EXECUTION ---
+
+  // Setup threshold
+  // If uncertainty is -1.0, we ignore threshold (programmatic exploration)
   const double threshold = (uncertainty > 0) ? uncertainty * (1.0 - 1e-15) : -1.0;
 
   long long l_num = -1, l_den = 0;
@@ -28,6 +61,7 @@ EraseResult erase_single_native(double microstate, double uncertainty, int max_s
 
   // Core Loop
   while (program_length < max_search_depth) {
+    // If we are within the uncertainty threshold, we stop (success)
     if (threshold > 0 && error < threshold) break;
 
     if (macrostate < microstate) {
@@ -43,6 +77,7 @@ EraseResult erase_single_native(double microstate, double uncertainty, int max_s
     numerator = l_num + r_num;
     denominator = l_den + r_den;
 
+    // Safety break for overflow
     if (denominator <= 0) break;
 
     macrostate = (double)numerator / denominator;
@@ -52,7 +87,7 @@ EraseResult erase_single_native(double microstate, double uncertainty, int max_s
     program_length++;
   }
 
-  // Entropy
+  // Entropy Calculation
   double shannon_entropy = 0.0;
   if (program_length > 0) {
     double d_val = (double)program_length;
@@ -62,13 +97,16 @@ EraseResult erase_single_native(double microstate, double uncertainty, int max_s
     if (pR > 0) shannon_entropy -= pR * std::log2(pR);
   }
 
-  bool found = (threshold > 0) ? (error < threshold) : (program_length >= max_search_depth);
+  // Determine if found
+  // If threshold is active (>0), we found it if error < threshold.
+  // If threshold is inactive (-1), we "found" it only if we didn't hit max depth
+  // (though usually -1 implies we just run until max depth).
+  bool found = (threshold > 0) ? (error < threshold) : (program_length < max_search_depth);
 
-  // RETURN ORDER ALIGNED WITH STRUCT DEFINITION
   return {
-    erasure_distance,   // 1. First item
-    microstate,         // 2.
-    macrostate,         // 3.
+    erasure_distance,
+    microstate,
+    macrostate,
     uncertainty,
     (double)numerator,
     (double)denominator,
@@ -81,7 +119,6 @@ EraseResult erase_single_native(double microstate, double uncertainty, int max_s
     found
   };
 }
-
 // 2. R ADAPTER
 DataFrame erase_core(NumericVector microstate, double uncertainty, int max_search_depth) {
   int n = microstate.size();

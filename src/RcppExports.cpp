@@ -11,32 +11,6 @@ Rcpp::Rostream<true>&  Rcpp::Rcout = Rcpp::Rcpp_cout_get();
 Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
-// micro_macro_erasures_momentum
-void micro_macro_erasures_momentum(NumericVector momenta, std::string dir, int count, int n_threads);
-RcppExport SEXP _SternBrocotPhysics_micro_macro_erasures_momentum(SEXP momentaSEXP, SEXP dirSEXP, SEXP countSEXP, SEXP n_threadsSEXP) {
-BEGIN_RCPP
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< NumericVector >::type momenta(momentaSEXP);
-    Rcpp::traits::input_parameter< std::string >::type dir(dirSEXP);
-    Rcpp::traits::input_parameter< int >::type count(countSEXP);
-    Rcpp::traits::input_parameter< int >::type n_threads(n_threadsSEXP);
-    micro_macro_erasures_momentum(momenta, dir, count, n_threads);
-    return R_NilValue;
-END_RCPP
-}
-// micro_macro_erasures_angle
-void micro_macro_erasures_angle(NumericVector angles, std::string dir, int count, int n_threads);
-RcppExport SEXP _SternBrocotPhysics_micro_macro_erasures_angle(SEXP anglesSEXP, SEXP dirSEXP, SEXP countSEXP, SEXP n_threadsSEXP) {
-BEGIN_RCPP
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< NumericVector >::type angles(anglesSEXP);
-    Rcpp::traits::input_parameter< std::string >::type dir(dirSEXP);
-    Rcpp::traits::input_parameter< int >::type count(countSEXP);
-    Rcpp::traits::input_parameter< int >::type n_threads(n_threadsSEXP);
-    micro_macro_erasures_angle(angles, dir, count, n_threads);
-    return R_NilValue;
-END_RCPP
-}
 // erase_uncertainty
 DataFrame erase_uncertainty(NumericVector x, double uncertainty);
 RcppExport SEXP _SternBrocotPhysics_erase_uncertainty(SEXP xSEXP, SEXP uncertaintySEXP) {
@@ -102,8 +76,6 @@ END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_SternBrocotPhysics_micro_macro_erasures_momentum", (DL_FUNC) &_SternBrocotPhysics_micro_macro_erasures_momentum, 4},
-    {"_SternBrocotPhysics_micro_macro_erasures_angle", (DL_FUNC) &_SternBrocotPhysics_micro_macro_erasures_angle, 4},
     {"_SternBrocotPhysics_erase_uncertainty", (DL_FUNC) &_SternBrocotPhysics_erase_uncertainty, 2},
     {"_SternBrocotPhysics_erase_depth", (DL_FUNC) &_SternBrocotPhysics_erase_depth, 2},
     {"_SternBrocotPhysics_erase_uncertainty_and_depth", (DL_FUNC) &_SternBrocotPhysics_erase_uncertainty_and_depth, 3},

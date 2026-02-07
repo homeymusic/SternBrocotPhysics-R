@@ -30,15 +30,31 @@ angles_beta  <- extract_angles(files_beta,  "micro_macro_erasures_beta_")
 # If an angle is in Alpha but not Beta (or vice versa), it will be re-run.
 completed_angles <- intersect(angles_alpha, angles_beta)
 
-# --- NEW SWEEP DEFINITION ---
-# 60,200 points avoiding exactly 0 and 90 to prevent division by zero in the math
-N_points <- 120400 / 2
-offset <- 1 / N_points / 2
-full_sweep <- seq(offset, 90 - offset, length.out = N_points)
+# --- NEW SWEEP DEFINITION (0 to 180) ---
+# We split ~120k files between Alice and Bob.
+# Range: 0 to 180 degrees (Spin 1/2 coverage).
 
-# Filter: Keep angles that are NOT in the completed set (using tolerance)
-# We recreate the file if either pair is missing to ensure synchronization
-angles_to_run <- full_sweep[!sapply(full_sweep, function(a) any(abs(a - completed_angles) < 1e-7))]
+# DEFINE THE PHYSICAL CONSTANT
+granularity <- 1e-5  # The fundamental resolution of the universe
+
+# 1. Generate the ideal mathematical points
+N_points <- 60200
+ideal_sweep <- seq(0, 180, length.out = N_points)
+
+# 2. Apply the granularity offset to EVERY point
+# This shifts 0.0 -> 0.00001, 90.0 -> 90.00001, etc.
+# This guarantees we never hit a singularity while keeping the spacing uniform.
+full_sweep <- ideal_sweep + granularity
+
+# --- FAST AUDIT LOGIC ---
+# Instead of slow loops, convert to high-precision strings for set comparison
+sig_figs <- 7
+sweep_char <- sprintf(paste0("%.", sig_figs, "f"), full_sweep)
+completed_char <- sprintf(paste0("%.", sig_figs, "f"), completed_angles)
+
+# Find missing angles by set difference
+missing_char <- setdiff(sweep_char, completed_char)
+angles_to_run <- as.numeric(missing_char)
 
 if (length(angles_to_run) == 0) {
   stop("Audit Complete: All angular experiment pairs (Alpha & Beta) verify as present.")
