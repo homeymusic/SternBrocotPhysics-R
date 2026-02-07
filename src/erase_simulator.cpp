@@ -56,12 +56,29 @@ void write_erasure_simulation(
     // 3. Perform Measurement
     EraseResult res = erase_single_native(mu_local, uncertainty, max_depth_limit);
 
-    // 4. Calculate Spin (Standardized for both types)
+    // 4. Calculate Spin (CRITICAL FIX)
     std::string spin_str;
     if (std::isnan(res.erasure_distance) || R_IsNA(res.erasure_distance)) {
       spin_str = "NA";
     } else {
-      int s = (res.erasure_distance > tolerance) ? 1 : (res.erasure_distance < -tolerance ? -1 : 0);
+      int s = 0;
+
+      // CASE A: High Entropy / Loose Measurement
+      // If the erasure is large (nonzero), the "error" or "entropy" drives the spin.
+      // This corresponds to Alice (0°) and Bob's "Teeth".
+      if (res.erasure_distance > tolerance) s = 1;
+      else if (res.erasure_distance < -tolerance) s = -1;
+
+      // CASE B: Zero Entropy / Perfect Measurement
+      // If the erasure is effectively 0 (Alice 90°), the system collapsed
+      // perfectly to the microstate. The Spin is the sign of the Macrostate.
+      else {
+        // If macrostate is positive -> Spin Up, negative -> Spin Down
+        if (res.macrostate > 0) s = 1;
+        else if (res.macrostate < 0) s = -1;
+        else s = 0; // Exactly 0.0 edge case
+      }
+
       spin_str = std::to_string(s);
     }
 
