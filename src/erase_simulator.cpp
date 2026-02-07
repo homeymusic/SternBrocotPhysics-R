@@ -11,7 +11,7 @@ using namespace Rcpp;
 
 // --- 1. SHARED HELPERS (Safe Formatting) ---
 
-  // Helper: Format Doubles safely (Handling NA and NaN)
+// Helper: Format Doubles safely (Handling NA and NaN)
 std::string fmt_val(double val, const char* format = "%.6f") {
   if (std::isnan(val) || R_IsNA(val)) return "NA";
   char buf[64];
@@ -26,16 +26,16 @@ std::string fmt_val(int val) {
 }
 
 // --- 2. CORE SIMULATION WRITER (The "DRY" Logic) ---
-  // This handles file I/O, looping, rotation, and safe writing for ALL experiment types.
+// This handles file I/O, looping, rotation, and safe writing for ALL experiment types.
 void write_erasure_simulation(
-  std::string filepath,
-  std::string param_name, // e.g., "angle" or "momentum"
-  double param_value,     // The actual angle or momentum value
-  double uncertainty,
-  double phase_shift,     // 0.0 for momentum, (angle/90) for spin
-  int count,
-  int max_depth_limit,
-  double tolerance = 1e-10
+    std::string filepath,
+    std::string param_name, // e.g., "angle" or "momentum"
+    double param_value,     // The actual angle or momentum value
+    double uncertainty,
+    double phase_shift,     // 0.0 for momentum, (angle/90) for spin
+    int count,
+    int max_depth_limit,
+    double tolerance = 1e-10
 ) {
   gzFile file = gzopen(filepath.c_str(), "wb1");
   if (!file) return;
@@ -89,7 +89,7 @@ void write_erasure_simulation(
 
 // --- 3. EXPORTED FUNCTIONS ---
 
-  //' @export
+//' @export
 // [[Rcpp::export]]
 void micro_macro_erasures_momentum(NumericVector momenta, std::string dir, int count, int n_threads = 0) {
   int max_depth_limit = 20000;
