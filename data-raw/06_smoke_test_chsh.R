@@ -68,10 +68,10 @@ load_experiment_data <- function(angle, type) {
 }
 
 cat("--- LOADING DATA & DIAGNOSTICS ---\n")
-dt_a_0   <- load_experiment_data(target_angles[1], "alpha")
-dt_a_90  <- load_experiment_data(target_angles[3], "alpha")
-dt_b_45  <- load_experiment_data(target_angles[2], "beta")
-dt_b_135 <- load_experiment_data(target_angles[4], "beta")
+dt_a_0   <- load_experiment_data(target_angles[1], "alice")
+dt_a_90  <- load_experiment_data(target_angles[3], "alice")
+dt_b_45  <- load_experiment_data(target_angles[2], "bob")
+dt_b_135 <- load_experiment_data(target_angles[4], "bob")
 
 if (nrow(dt_a_0) != rows_expected) stop("FATAL: Dataset size mismatch!")
 message("✅ Synchronization confirmed.")
