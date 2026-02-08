@@ -46,15 +46,14 @@ void micro_macro_bell_erasure_sweep(NumericVector angles, std::string dir, int c
       double phase_a = angle_rad - mu_a;
       double phase_b = angle_rad - mu_b;
 
-      // Paper's exact limits
-      double delta_a = (4.0 * std::pow(std::cos(phase_a), 2)) / (M_PI * std::abs(std::sin(phase_a)) + 1e-14);
-      double delta_b = (4.0 * std::pow(std::sin(phase_b), 2)) / (M_PI * std::abs(std::cos(phase_b)) + 1e-14);
+      double delta_a = std::pow(std::cos(phase_a), 2);
+      double delta_b = std::pow(std::sin(phase_b), 2);
 
       EraseResult res_a = erase_single_native(mu_a, delta_a, max_depth);
       EraseResult res_b = erase_single_native(mu_b, delta_b, max_depth);
 
-      int spin_a = (std::abs(res_a.erasure_distance) <= (delta_a / 2.0)) ? 1 : -1;
-      int spin_b = (std::abs(res_b.erasure_distance) <= (delta_b / 2.0)) ? 1 : -1;
+      int spin_a = (std::cos(res_a.erasure_distance) >= 0) ? 1 : -1;
+      int spin_b = (std::cos(res_b.erasure_distance) >= 0) ? 1 : -1;
 
       // ROW A
       gzprintf(file_a, "%.6f,%d,%d,%.6f,%.6f,%.6f,%.6f,%.0f,%.0f,%s,%s,%d,%.6f,%d,%d\n",
