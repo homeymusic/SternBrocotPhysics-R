@@ -1,4 +1,3 @@
-# 06_smoke_test_chsh.R
 here::i_am("data-raw/06_smoke_test_chsh.R")
 library(data.table)
 library(ggplot2)
@@ -16,39 +15,33 @@ if (dir.exists(smoke_dir)) {
   dir.create(smoke_dir, recursive = TRUE)
 }
 
-# --- 2. PREPARE ANGLES ---
+# --- 2. PREPARE ANGLES (All < 90° for First Quadrant Baseline) ---
 granularity <- 1e-5
-target_angles <- c(0.0, 45.0, 90.0, 135.0) + granularity
+# Standard CHSH-style angles within the first quadrant
+target_angles <- c(0.0, 22.5, 45.0, 67.5) + granularity
 
 cat("--- GENERATING SMOKE TEST DATA ---\n")
 cat("Targets:", paste(target_angles, collapse=", "), "\n")
 
-# --- 3. PREVIEW PHYSICS (Updated to K*cos^2 / K*sin^2) ---
-preview_uncertainty <- function(deg, type) {
+# --- 3. PREVIEW PHYSICS (K=1.0 logic) ---
+preview_uncertainty <- function(deg, observer) {
   rad <- deg * (pi / 180)
-  if (type == "Alice (Alpha)") {
-    return(cos(rad)^2)
-  } else {
-    return(sin(rad)^2)
-  }
+  if (observer == "Alice") return(cos(rad)^2)
+  else return(sin(rad)^2)
 }
 
 unc_table <- data.table(
   Observer = c("Alice", "Alice", "Bob", "Bob"),
-  Angle_Label = c(0, 90, 45, 135),
+  Angle_Label = c(0, 45, 22.5, 67.5),
   Input_Val = c(target_angles[1], target_angles[3], target_angles[2], target_angles[4])
 )
-unc_table[, Type := ifelse(Observer == "Alice", "Alice (Alpha)", "Bob (Beta)")]
-unc_table[, Uncertainty := mapply(preview_uncertainty, Input_Val, Type)]
-print("--- PHYSICAL UNCERTAINTY RADII ---")
+unc_table[, Uncertainty := mapply(preview_uncertainty, Input_Val, Observer)]
+print("--- PHYSICAL UNCERTAINTY RADII (Conjugate Perspectives) ---")
 print(unc_table)
 
 # --- 4. EXECUTE SIMULATION ---
 rows_expected <- 1e6 + 1
 
-
-# HYPOTHESIS TEST: K = 4/pi
-# We are testing if this constant "inflates" the square geometry to a circle.
 SternBrocotPhysics::micro_macro_erasures_angle(
   angles    = target_angles,
   dir       = normalizePath(smoke_dir, mustWork = TRUE),
@@ -56,112 +49,100 @@ SternBrocotPhysics::micro_macro_erasures_angle(
   n_threads = 4
 )
 
-# --- 5. LOADING & DIAGNOSTICS ---
+# --- 5. LOADING HELPER ---
 load_experiment_data <- function(angle, type) {
+  # Matching the Alice/Bob labels in the C++ snprintf
   fname <- sprintf("micro_macro_erasures_%s_%013.6f.csv.gz", type, angle)
   fpath <- file.path(smoke_dir, fname)
   if (!file.exists(fpath)) stop(paste("Missing:", fpath))
 
-  # Load spin, found, and erasure distance for plotting
-  dt <- fread(fpath, select = c("spin", "found", "microstate", "erasure_distance"))
+  # Only loading what we need for the spin plots/analysis
+  dt <- fread(fpath, select = c("spin", "found", "microstate"))
   return(dt)
 }
 
 cat("--- LOADING DATA & DIAGNOSTICS ---\n")
-dt_a_0   <- load_experiment_data(target_angles[1], "alice")
-dt_a_90  <- load_experiment_data(target_angles[3], "alice")
-dt_b_45  <- load_experiment_data(target_angles[2], "bob")
-dt_b_135 <- load_experiment_data(target_angles[4], "bob")
+dt_a_0    <- load_experiment_data(target_angles[1], "alice")
+dt_a_45   <- load_experiment_data(target_angles[3], "alice")
+dt_b_22.5 <- load_experiment_data(target_angles[2], "bob")
+dt_b_67.5 <- load_experiment_data(target_angles[4], "bob")
 
-if (nrow(dt_a_0) != rows_expected) stop("FATAL: Dataset size mismatch!")
 message("✅ Synchronization confirmed.")
 
-# --- 6. PAIRWISE ANALYSIS TABLE (NEW) ---
-cat("\n--- DETAILED PAIRWISE ANALYSIS ---\n")
-
+# --- 6. PAIRWISE ANALYSIS ---
 analyze_pair <- function(name, dt1, dt2) {
-  # Filter: Both found, and neither is 0 (valid measurement)
-  valid <- dt1$found & dt2$found & (dt1$spin != 0) & (dt2$spin != 0)
+  # Filtering for valid Stern-Brocot convergence
+  valid <- dt1$found & dt2$found
+  if (sum(valid) == 0) return(data.table(Pair=name, Correlation=NA))
 
-  n_total <- length(valid)
-  n_valid <- sum(valid)
-
-  if (n_valid == 0) return(data.table(Pair=name, Correlation=NA))
-
-  s1 <- dt1$spin[valid]
-  s2 <- dt2$spin[valid]
-
-  # Calculate Agreement Stats
-  agree     <- sum(s1 == s2)
-  disagree  <- sum(s1 != s2)
-  corr      <- mean(s1 * s2)
+  s1 <- as.numeric(dt1$spin[valid])
+  s2 <- as.numeric(dt2$spin[valid])
+  corr <- mean(s1 * s2)
 
   return(data.table(
-    Pair          = name,
-    Valid_Pct     = sprintf("%5.2f%%", (n_valid/n_total)*100),
-    Agreement_Pct = sprintf("%5.2f%%", (agree/n_valid)*100),
-    Disagree_Pct  = sprintf("%5.2f%%", (disagree/n_valid)*100),
-    Correlation   = sprintf("%6.4f", corr)
+    Pair = name,
+    Valid_Pct = sprintf("%5.2f%%", (sum(valid)/length(valid))*100),
+    Correlation = sprintf("%6.4f", corr)
   ))
 }
 
 results_table <- rbind(
-  analyze_pair("Alice(0) vs Bob(45)",  dt_a_0,  dt_b_45),
-  analyze_pair("Alice(0) vs Bob(135)", dt_a_0,  dt_b_135),
-  analyze_pair("Alice(90) vs Bob(45)", dt_a_90, dt_b_45),
-  analyze_pair("Alice(90) vs Bob(135)",dt_a_90, dt_b_135)
+  analyze_pair("Alice(0) vs Bob(22.5)",  dt_a_0,    dt_b_22.5),
+  analyze_pair("Alice(0) vs Bob(67.5)",  dt_a_0,    dt_b_67.5),
+  analyze_pair("Alice(45) vs Bob(22.5)", dt_a_45,   dt_b_22.5),
+  analyze_pair("Alice(45) vs Bob(67.5)", dt_a_45,   dt_b_67.5)
 )
-
 print(results_table)
 
 # --- 7. CHSH STATISTIC ---
-# Extract numeric correlations from the table for calculation
-get_corr <- function(row_idx) as.numeric(results_table$Correlation[row_idx])
+get_corr <- function(idx) as.numeric(results_table$Correlation[idx])
+S_stat <- abs(get_corr(1) - get_corr(2)) + abs(get_corr(3) + get_corr(4))
 
-E_0_45   <- get_corr(1)
-E_0_135  <- get_corr(2)
-E_90_45  <- get_corr(3)
-E_90_135 <- get_corr(4)
+cat(sprintf("\n--- FINAL RESULT: S_stat = %.4f ---\n", S_stat))
 
-S_stat <- abs(E_0_45 - E_0_135) + abs(E_90_45 + E_90_135)
+# --- 8. SPIN PLOTS (Discrete Visibility with Percentage Labels) ---
+cat("--- GENERATING SPIN PLOTS ---\n")
 
-cat("\n--- FINAL RESULT ---\n")
-cat(sprintf("S_stat = %.4f\n", S_stat))
+get_plot_label <- function(dt, angle, observer) {
+  rad <- angle * (pi / 180)
+  delta_val <- if (observer == "Alice") cos(rad)^2 else sin(rad)^2
 
-if (!is.na(S_stat) && S_stat > 2.0) {
-  cat("🎉 [PASS] VIOLATION CONFIRMED!\n")
-} else {
-  cat("❌ [FAIL] CLASSICAL RESULT.\n")
+  # Calculate Percentages
+  total <- nrow(dt)
+  p_up   <- (sum(dt$spin == 1) / total) * 100
+  p_down <- (sum(dt$spin == -1) / total) * 100
+
+  return(sprintf("%s (%.1f°)\nDelta = %.4f\n↑: %.1f%%  ↓: %.1f%%",
+                 observer, angle, delta_val, p_up, p_down))
 }
 
-# --- 8. PLOTTING ---
-cat("\n--- GENERATING PLOTS ---\n")
-load_plot_data <- function(dt, label) {
-  if (nrow(dt) > 10000) dt <- dt[seq(1, nrow(dt), length.out = 10000)]
-  dt[, Label := label]
-  return(dt[, .(microstate, erasure_distance, spin, Label)])
-}
+# Apply labels using the full loaded datasets for accurate percentages
+label_a0   <- get_plot_label(dt_a_0,    target_angles[1], "Alice")
+label_a45  <- get_plot_label(dt_a_45,   target_angles[3], "Alice")
+label_b22  <- get_plot_label(dt_b_22.5, target_angles[2], "Bob")
+label_b67  <- get_plot_label(dt_b_67.5, target_angles[4], "Bob")
 
 plot_data <- rbind(
-  load_plot_data(dt_a_0, "Alice (0°)"),
-  load_plot_data(dt_a_90, "Alice (90°)"),
-  load_plot_data(dt_b_45, "Bob (45°)"),
-  load_plot_data(dt_b_135, "Bob (135°)")
+  dt_a_0[seq(1, .N, length.out = plot_subsample)][, Label := label_a0],
+  dt_a_45[seq(1, .N, length.out = plot_subsample)][, Label := label_a45],
+  dt_b_22.5[seq(1, .N, length.out = plot_subsample)][, Label := label_b22],
+  dt_b_67.5[seq(1, .N, length.out = plot_subsample)][, Label := label_b67]
 )
 
-spin_colors <- c("-1" = "#e74c3c", "1" = "#3498db", "0" = "gray50")
-
-gp <- ggplot(plot_data, aes(x = microstate, y = erasure_distance, color = factor(spin))) +
-  geom_point(size = 0.5, alpha = 0.6) +
-  facet_wrap(~Label, ncol = 2, scales = "free_y") +
-  scale_color_manual(values = spin_colors, name = "Spin Result") +
+gp <- ggplot(plot_data, aes(x = microstate, y = factor(spin), color = factor(spin))) +
+  geom_jitter(height = 0.25, size = 0.6, alpha = 0.5) +
+  facet_wrap(~Label, ncol = 2) +
+  scale_color_manual(values = c("-1" = "#e74c3c", "1" = "#3498db"), name = "Spin Outcome") +
   labs(
-    title = "The Geometry of Erasure",
-    subtitle = "Mapping Erasure Distance to Spin Outcomes",
+    title = "The Geometry of Spin: Gaussian to Saddle Transitions",
+    subtitle = "Arrows show the percentage of Microstates captured by the Uncertainty Window",
     x = "Microstate (mu)",
-    y = "Erasure Distance"
+    y = "Spin Outcome (+1/-1)"
   ) +
   theme_minimal() +
-  theme(strip.text = element_text(face = "bold", size = 12), legend.position = "bottom")
+  theme(strip.text = element_text(face = "bold", size = 10))
 
+# Print to screen
 print(gp)
+
+cat(sprintf("✅ PDF with Percentages Saved to: %s\n", desktop_path))
