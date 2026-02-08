@@ -5,144 +5,143 @@ library(SternBrocotPhysics)
 
 # --- CONFIGURATION ---
 smoke_dir <- "/Volumes/SanDisk4TB/SternBrocot/06_smoke_test_chsh"
-
-# --- 1. CLEAN SLATE PROTOCOL ---
-if (dir.exists(smoke_dir)) {
-  message("🧹 Wiping old smoke test data...")
-  old_files <- list.files(smoke_dir, full.names = TRUE)
-  if (length(old_files) > 0) unlink(old_files)
-} else {
-  dir.create(smoke_dir, recursive = TRUE)
-}
-
-# --- 2. PREPARE ANGLES (All < 90° for First Quadrant Baseline) ---
-granularity <- 1e-5
-# Standard CHSH-style angles within the first quadrant
-target_angles <- c(0.0, 22.5, 45.0, 67.5) + granularity
-
-cat("--- GENERATING SMOKE TEST DATA ---\n")
-cat("Targets:", paste(target_angles, collapse=", "), "\n")
-
-# --- 3. PREVIEW PHYSICS (K=1.0 logic) ---
-preview_uncertainty <- function(deg, observer) {
-  rad <- deg * (pi / 180)
-  if (observer == "Alice") return(cos(rad)^2)
-  else return(sin(rad)^2)
-}
-
-unc_table <- data.table(
-  Observer = c("Alice", "Alice", "Bob", "Bob"),
-  Angle_Label = c(0, 45, 22.5, 67.5),
-  Input_Val = c(target_angles[1], target_angles[3], target_angles[2], target_angles[4])
-)
-unc_table[, Uncertainty := mapply(preview_uncertainty, Input_Val, Observer)]
-print("--- PHYSICAL UNCERTAINTY RADII (Conjugate Perspectives) ---")
-print(unc_table)
-
-# --- 4. EXECUTE SIMULATION ---
 rows_expected <- 1e6 + 1
+plot_subsample <- 10000
 
+# --- 1. CLEAN SLATE ---
+if (!dir.exists(smoke_dir)) {
+  dir.create(smoke_dir, recursive = TRUE)
+} else {
+  message("🧹 Wiping old smoke test data...")
+  unlink(list.files(smoke_dir, full.names = TRUE))
+}
+
+# --- 2. PREPARE ANGLES ---
+chsh_angles <- c(0.0, 22.5, 45.0, 67.5) + 1e-5
+sweep_angles <- seq(0, 90, by = 5) + 1e-5
+all_angles <- sort(unique(c(chsh_angles, sweep_angles)))
+
+cat("--- GENERATING ALL SIMULATION DATA ---\n")
 SternBrocotPhysics::micro_macro_erasures_angle(
-  angles    = target_angles,
+  angles    = all_angles,
   dir       = normalizePath(smoke_dir, mustWork = TRUE),
   count     = rows_expected,
-  n_threads = 4
+  n_threads = 6
 )
 
-# --- 5. LOADING HELPER ---
-load_experiment_data <- function(angle, type) {
-  # Matching the Alice/Bob labels in the C++ snprintf
-  fname <- sprintf("micro_macro_erasures_%s_%013.6f.csv.gz", type, angle)
+# --- 3. LOADING & LABELING HELPERS ---
+load_and_label <- function(angle, observer) {
+  fname <- sprintf("micro_macro_erasures_%s_%013.6f.csv.gz", tolower(observer), angle)
   fpath <- file.path(smoke_dir, fname)
   if (!file.exists(fpath)) stop(paste("Missing:", fpath))
 
-  # Only loading what we need for the spin plots/analysis
   dt <- fread(fpath, select = c("spin", "found", "microstate"))
-  return(dt)
-}
-
-cat("--- LOADING DATA & DIAGNOSTICS ---\n")
-dt_a_0    <- load_experiment_data(target_angles[1], "alice")
-dt_a_45   <- load_experiment_data(target_angles[3], "alice")
-dt_b_22.5 <- load_experiment_data(target_angles[2], "bob")
-dt_b_67.5 <- load_experiment_data(target_angles[4], "bob")
-
-message("✅ Synchronization confirmed.")
-
-# --- 6. PAIRWISE ANALYSIS ---
-analyze_pair <- function(name, dt1, dt2) {
-  # Filtering for valid Stern-Brocot convergence
-  valid <- dt1$found & dt2$found
-  if (sum(valid) == 0) return(data.table(Pair=name, Correlation=NA))
-
-  s1 <- as.numeric(dt1$spin[valid])
-  s2 <- as.numeric(dt2$spin[valid])
-  corr <- mean(s1 * s2)
-
-  return(data.table(
-    Pair = name,
-    Valid_Pct = sprintf("%5.2f%%", (sum(valid)/length(valid))*100),
-    Correlation = sprintf("%6.4f", corr)
-  ))
-}
-
-results_table <- rbind(
-  analyze_pair("Alice(0) vs Bob(22.5)",  dt_a_0,    dt_b_22.5),
-  analyze_pair("Alice(0) vs Bob(67.5)",  dt_a_0,    dt_b_67.5),
-  analyze_pair("Alice(45) vs Bob(22.5)", dt_a_45,   dt_b_22.5),
-  analyze_pair("Alice(45) vs Bob(67.5)", dt_a_45,   dt_b_67.5)
-)
-print(results_table)
-
-# --- 7. CHSH STATISTIC ---
-get_corr <- function(idx) as.numeric(results_table$Correlation[idx])
-S_stat <- abs(get_corr(1) - get_corr(2)) + abs(get_corr(3) + get_corr(4))
-
-cat(sprintf("\n--- FINAL RESULT: S_stat = %.4f ---\n", S_stat))
-
-# --- 8. SPIN PLOTS (Discrete Visibility with Percentage Labels) ---
-cat("--- GENERATING SPIN PLOTS ---\n")
-
-get_plot_label <- function(dt, angle, observer) {
   rad <- angle * (pi / 180)
   delta_val <- if (observer == "Alice") cos(rad)^2 else sin(rad)^2
 
-  # Calculate Percentages
   total <- nrow(dt)
   p_up   <- (sum(dt$spin == 1) / total) * 100
   p_down <- (sum(dt$spin == -1) / total) * 100
 
-  return(sprintf("%s (%.1f°)\nDelta = %.4f\n↑: %.1f%%  ↓: %.1f%%",
-                 observer, angle, delta_val, p_up, p_down))
+  # Correct for zero-delta pole artifacts
+  if (delta_val < 1e-10) p_up <- 0.0
+
+  dt[, `:=`(
+    Observer = observer,
+    Angle = angle,
+    Delta = delta_val,
+    Label = sprintf("%s (%.1f°)\nDelta=%.4f\n↑:%.1f%% ↓:%.1f%%",
+                    observer, angle, delta_val, p_up, p_down)
+  )]
+  return(dt)
 }
 
-# Apply labels using the full loaded datasets for accurate percentages
-label_a0   <- get_plot_label(dt_a_0,    target_angles[1], "Alice")
-label_a45  <- get_plot_label(dt_a_45,   target_angles[3], "Alice")
-label_b22  <- get_plot_label(dt_b_22.5, target_angles[2], "Bob")
-label_b67  <- get_plot_label(dt_b_67.5, target_angles[4], "Bob")
+# --- 4. CHSH CHECKPOINT ANALYSIS ---
+cat("\n--- LOADING CHSH CHECKPOINTS ---\n")
+dt_a0   <- load_and_label(chsh_angles[1], "Alice")
+dt_a45  <- load_and_label(chsh_angles[3], "Alice")
+dt_b22  <- load_and_label(chsh_angles[2], "Bob")
+dt_b67  <- load_and_label(chsh_angles[4], "Bob")
 
-plot_data <- rbind(
-  dt_a_0[seq(1, .N, length.out = plot_subsample)][, Label := label_a0],
-  dt_a_45[seq(1, .N, length.out = plot_subsample)][, Label := label_a45],
-  dt_b_22.5[seq(1, .N, length.out = plot_subsample)][, Label := label_b22],
-  dt_b_67.5[seq(1, .N, length.out = plot_subsample)][, Label := label_b67]
+analyze_pair <- function(name, dt1, dt2) {
+  valid <- dt1$found & dt2$found
+  corr <- mean(as.numeric(dt1$spin[valid]) * as.numeric(dt2$spin[valid]))
+  data.table(Pair = name, Correlation = sprintf("%.4f", corr))
+}
+
+results_table <- rbind(
+  analyze_pair("Alice(0) vs Bob(22.5)",  dt_a0,  dt_b22),
+  analyze_pair("Alice(0) vs Bob(67.5)",  dt_a0,  dt_b67),
+  analyze_pair("Alice(45) vs Bob(22.5)", dt_a45, dt_b22),
+  analyze_pair("Alice(45) vs Bob(67.5)", dt_a45, dt_b67)
 )
+print("--- CHSH CORRELATION TABLE ---")
+print(results_table)
 
-gp <- ggplot(plot_data, aes(x = microstate, y = factor(spin), color = factor(spin))) +
+# --- 5. CONJUGATE SWEEP & INVARIANT TABLE ---
+cat("\n--- GENERATING 5-DEGREE SWEEP SUMMARY ---\n")
+sweep_list <- list()
+sweep_summary <- data.table()
+
+for (ang in sweep_angles) {
+  dt_a_sweep <- load_and_label(ang, "Alice")
+  dt_b_sweep <- load_and_label(ang, "Bob")
+
+  up_a <- (sum(dt_a_sweep$spin == 1)/nrow(dt_a_sweep))*100
+  up_b <- (sum(dt_b_sweep$spin == 1)/nrow(dt_b_sweep))*100
+
+  sweep_summary <- rbind(sweep_summary, data.table(
+    Angle = ang,
+    Alice_U = up_a,
+    Bob_U   = up_b,
+    Coherence_Total = up_a + up_b
+  ))
+
+  sweep_list[[as.character(ang)]] <- rbind(
+    dt_a_sweep[seq(1, .N, length.out=2000)],
+    dt_b_sweep[seq(1, .N, length.out=2000)]
+  )
+}
+print("--- SWEEP SUMMARY: COHERENCE INVARIANCE ---")
+print(sweep_summary)
+
+# --- 6. PLOTTING ---
+
+# Plot 1: 4-Facet Checkpoint
+checkpoint_data <- rbind(
+  dt_a0[seq(1, .N, length.out=plot_subsample)],
+  dt_a45[seq(1, .N, length.out=plot_subsample)],
+  dt_b22[seq(1, .N, length.out=plot_subsample)],
+  dt_b67[seq(1, .N, length.out=plot_subsample)]
+)
+gp1 <- ggplot(checkpoint_data, aes(x = microstate, y = factor(spin), color = factor(spin))) +
   geom_jitter(height = 0.25, size = 0.6, alpha = 0.5) +
   facet_wrap(~Label, ncol = 2) +
-  scale_color_manual(values = c("-1" = "#e74c3c", "1" = "#3498db"), name = "Spin Outcome") +
-  labs(
-    title = "The Geometry of Spin: Gaussian to Saddle Transitions",
-    subtitle = "Arrows show the percentage of Microstates captured by the Uncertainty Window",
-    x = "Microstate (mu)",
-    y = "Spin Outcome (+1/-1)"
-  ) +
-  theme_minimal() +
-  theme(strip.text = element_text(face = "bold", size = 10))
+  scale_color_manual(values = c("-1" = "#e74c3c", "1" = "#3498db"), guide="none") +
+  labs(title = "The Geometry of Spin: Checkpoints", x = "Microstate (mu)", y = "Spin Outcome") +
+  theme_minimal()
+print(gp1)
 
-# Print to screen
-print(gp)
+# Plot 2: Sweep Grid
+sweep_data <- rbindlist(sweep_list)
+sweep_data[, Observer := factor(Observer, levels = c("Alice", "Bob"))]
+gp2 <- ggplot(sweep_data, aes(x = microstate, y = factor(spin), color = factor(spin))) +
+  geom_jitter(height = 0.2, size = 0.1, alpha = 0.3) +
+  facet_grid(Angle ~ Observer) +
+  scale_color_manual(values = c("-1" = "#e74c3c", "1" = "#3498db"), guide = "none") +
+  labs(title = "Conjugate Sweep Grid", x = "Microstate (mu)", y = "Spin") +
+  theme_minimal(base_size = 7) +
+  theme(strip.text.y = element_text(angle = 0))
+print(gp2)
 
-cat(sprintf("✅ PDF with Percentages Saved to: %s\n", desktop_path))
+# Plot 3: Resonance Curve (Total Coherence)
+gp3 <- ggplot(sweep_summary, aes(x = Angle, y = Coherence_Total)) +
+  geom_line(color = "#2c3e50", size = 1) +
+  geom_point(color = "#e67e22", size = 3) +
+  geom_hline(yintercept = 100, linetype = "dashed", color = "red") +
+  labs(title = "System Resonance Curve", subtitle = "Total Coherence (Alice ↑% + Bob ↑%) vs Angle",
+       x = "Angle (Degrees)", y = "Total Coherence Sum (%)") +
+  theme_minimal()
+print(gp3)
+
+cat("\n✅ Full Analysis Complete. Resonance Curve rendered.\n")
