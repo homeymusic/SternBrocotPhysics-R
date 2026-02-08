@@ -135,13 +135,14 @@ void micro_macro_erasures_angle(NumericVector angles, std::string dir, int count
     double angle_deg = angles_cpp[i];
     double angle_rad = angle_deg * (M_PI / 180.0);
 
-    double abs_sin = std::abs(std::sin(angle_rad));
-    double abs_cos = std::abs(std::cos(angle_rad));
+    // Updated calculations:
+    // delta_alpha = K_factor * cos^2(angle)
+    // delta_beta  = K_factor * sin^2(angle)
+    double cos_val = std::cos(angle_rad);
+    double sin_val = std::sin(angle_rad);
 
-    // K_factor controls the Action/Uncertainty scale
-    // Theory hypothesis: K = 4/pi (~1.273)
-    double delta_alpha = (abs_sin < 1e-12) ? 2e9 : K_factor * (std::pow(std::cos(angle_rad), 2)) / abs_sin;
-    double delta_beta  = (abs_cos < 1e-12) ? 2e9 : K_factor * (std::pow(std::sin(angle_rad), 2)) / abs_cos;
+    double delta_alpha = K_factor * (cos_val * cos_val);
+    double delta_beta  = K_factor * (sin_val * sin_val);
 
     // Alpha (Alice) - Measures Source
     char f_alpha[128];
