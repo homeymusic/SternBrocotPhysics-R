@@ -31,48 +31,30 @@ void write_erasure_simulation(
     double uncertainty,
     int count,
     int max_depth_limit,
-    bool is_bob,             // Singlet State Logic
+    bool is_bob,
     double tolerance = 1e-10
 ) {
   gzFile file = gzopen(filepath.c_str(), "wb1");
   if (!file) return;
 
-  // 1. GEOMETRY: Detector Polarity
-  double angle_rad = angle_deg * (M_PI / 180.0);
-  int polarity = (std::cos(angle_rad) < -1e-9) ? -1 : 1;
-
   gzprintf(file, "%s,erasure_distance,spin,microstate,macrostate,uncertainty,numerator,denominator,stern_brocot_path,minimal_program,program_length,shannon_entropy,left_count,right_count,max_search_depth,found\n",
            param_name.c_str());
 
   for (int j = 0; j < count; j++) {
-    // 2. Global Microstate (The Source)
+    // 1. Shared Global Microstate
     double mu_source = (count > 1) ? -1.0 + (2.0 * j) / (double)(count - 1) : 0.0;
 
-    // 3. SINGLET STATE LOGIC
-    // Alice measures the particle "as is".
-    // Bob measures the "anti-particle" (-mu).
-    double mu_local = is_bob ? -mu_source : mu_source;
+    // 2. MEASUREMENT (Direct Microstate)
+    // No polarity flip, no singlet-negation.
+    EraseResult res = erase_single_native(mu_source, uncertainty, max_depth_limit);
 
-    // 4. EFFECTIVE INPUT (Deep Polarity Fix)
-    // Apply geometric polarity of the detector (flip input if detector is inverted)
-    double mu_effective = mu_local * polarity;
-
-    // 5. MEASUREMENT
-    EraseResult res = erase_single_native(mu_effective, uncertainty, max_depth_limit);
-
-    // 6. CALCULATE SPIN
+    // 3. CALCULATE SPIN
     std::string spin_str;
     if (std::isnan(res.erasure_distance) || R_IsNA(res.erasure_distance)) {
       spin_str = "NA";
     } else {
-      int s = 0;
-      if (res.erasure_distance > tolerance) s = 1;
-      else if (res.erasure_distance < -tolerance) s = -1;
-      else {
-        if (res.macrostate > 0) s = 1;
-        else if (res.macrostate < 0) s = -1;
-        else s = 0;
-      }
+      // Spin logic remains the window filter
+      int s = (std::abs(res.erasure_distance) <= (uncertainty / 2.0)) ? 1 : -1;
       spin_str = std::to_string(s);
     }
 
@@ -80,7 +62,7 @@ void write_erasure_simulation(
              param_value,
              fmt_val(res.erasure_distance).c_str(),
              spin_str.c_str(),
-             mu_source, // Log the SOURCE microstate
+             mu_source,
              fmt_val(res.macrostate).c_str(),
              fmt_val(res.uncertainty).c_str(),
              fmt_val(res.numerator, "%.0f").c_str(),
@@ -122,8 +104,7 @@ void micro_macro_erasures_momentum(NumericVector momenta, std::string dir, int c
 
 //' @export
 // [[Rcpp::export]]
-void micro_macro_erasures_angle(NumericVector angles, std::string dir, int count, double K_factor = 1.0, int n_threads = 0) {
-  // Added K_factor argument (default 1.0)
+void micro_macro_erasures_angle(NumericVector angles, std::string dir, int count, int n_threads = 0) {
   int max_depth_limit = 2000;
   std::vector<double> angles_cpp = Rcpp::as<std::vector<double>>(angles);
   size_t n = angles_cpp.size();
@@ -135,24 +116,20 @@ void micro_macro_erasures_angle(NumericVector angles, std::string dir, int count
     double angle_deg = angles_cpp[i];
     double angle_rad = angle_deg * (M_PI / 180.0);
 
-    // Updated calculations:
-    // delta_alpha = K_factor * cos^2(angle)
-    // delta_beta  = K_factor * sin^2(angle)
-    double cos_val = std::cos(angle_rad);
-    double sin_val = std::sin(angle_rad);
+    // Conjugate Action Quanta
+    // Alice gets the Cosine perspective, Bob gets the Sine perspective
+    double delta_alice = std::pow(std::cos(angle_rad), 2);
+    double delta_bob   = std::pow(std::sin(angle_rad), 2);
 
-    double delta_alpha = K_factor * (cos_val * cos_val);
-    double delta_beta  = K_factor * (sin_val * sin_val);
+    // Alice (The Cosine Perspective)
+    char f_alice[128];
+    std::snprintf(f_alice, sizeof(f_alice), "micro_macro_erasures_alice_%013.6f.csv.gz", angle_deg);
+    write_erasure_simulation(dir + "/" + f_alice, "angle", angle_deg, angle_deg, delta_alice, count, max_depth_limit, false);
 
-    // Alpha (Alice) - Measures Source
-    char f_alpha[128];
-    std::snprintf(f_alpha, sizeof(f_alpha), "micro_macro_erasures_alpha_%013.6f.csv.gz", angle_deg);
-    write_erasure_simulation(dir + "/" + f_alpha, "angle", angle_deg, angle_deg, delta_alpha, count, max_depth_limit, false);
-
-    // Beta (Bob) - Measures Anti-Source
-    char f_beta[128];
-    std::snprintf(f_beta, sizeof(f_beta), "micro_macro_erasures_beta_%013.6f.csv.gz", angle_deg);
-    write_erasure_simulation(dir + "/" + f_beta, "angle", angle_deg, angle_deg, delta_beta, count, max_depth_limit, true);
+    // Bob (The Sine Perspective)
+    char f_bob[128];
+    std::snprintf(f_bob, sizeof(f_bob), "micro_macro_erasures_bob_%013.6f.csv.gz", angle_deg);
+    write_erasure_simulation(dir + "/" + f_bob, "angle", angle_deg, angle_deg, delta_bob, count, max_depth_limit, true);
   });
   pool.wait();
 }

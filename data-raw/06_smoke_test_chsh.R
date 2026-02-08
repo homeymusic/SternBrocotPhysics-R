@@ -23,13 +23,14 @@ target_angles <- c(0.0, 45.0, 90.0, 135.0) + granularity
 cat("--- GENERATING SMOKE TEST DATA ---\n")
 cat("Targets:", paste(target_angles, collapse=", "), "\n")
 
-# --- 3. PREVIEW PHYSICS ---
+# --- 3. PREVIEW PHYSICS (Updated to K*cos^2 / K*sin^2) ---
 preview_uncertainty <- function(deg, type) {
   rad <- deg * (pi / 180)
-  s <- max(abs(sin(rad)), 1e-15)
-  c <- max(abs(cos(rad)), 1e-15)
-  if (type == "Alice (Alpha)") return((cos(rad)^2) / s)
-  else return((sin(rad)^2) / c)
+  if (type == "Alice (Alpha)") {
+    return(cos(rad)^2)
+  } else {
+    return(sin(rad)^2)
+  }
 }
 
 unc_table <- data.table(
@@ -39,6 +40,7 @@ unc_table <- data.table(
 )
 unc_table[, Type := ifelse(Observer == "Alice", "Alice (Alpha)", "Bob (Beta)")]
 unc_table[, Uncertainty := mapply(preview_uncertainty, Input_Val, Type)]
+print("--- PHYSICAL UNCERTAINTY RADII ---")
 print(unc_table)
 
 # --- 4. EXECUTE SIMULATION ---
@@ -51,7 +53,6 @@ SternBrocotPhysics::micro_macro_erasures_angle(
   angles    = target_angles,
   dir       = normalizePath(smoke_dir, mustWork = TRUE),
   count     = rows_expected,
-  K_factor  = 4/pi,    # <--- THE MAGIC NUMBER (approx 1.273)
   n_threads = 4
 )
 

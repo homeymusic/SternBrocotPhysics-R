@@ -19,8 +19,8 @@ micro_macro_erasures_momentum <- function(momenta, dir, count, n_threads = 0L) {
 }
 
 #' @export
-micro_macro_erasures_angle <- function(angles, dir, count, K_factor = 1.0, n_threads = 0L) {
-    invisible(.Call(`_SternBrocotPhysics_micro_macro_erasures_angle`, angles, dir, count, K_factor, n_threads))
+micro_macro_erasures_angle <- function(angles, dir, count, n_threads = 0L) {
+    invisible(.Call(`_SternBrocotPhysics_micro_macro_erasures_angle`, angles, dir, count, n_threads))
 }
 
 #' Detect Oscillatory Nodes in Physical State Density
