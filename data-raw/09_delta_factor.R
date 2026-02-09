@@ -9,43 +9,66 @@ if (!dir.exists(data_dir)) dir.create(data_dir, recursive = TRUE)
 
 # 1. PARAMETERS FOR THE SWEEP
 alice_fixed <- 0.0 + 1e-5
-bob_sweep <- seq(0, 180, by = 4) + 1e-5
-all_angles <- sort(unique(c(alice_fixed, bob_sweep)))
+bob_sweep   <- seq(0, 180, by = 4) + 1e-5
+all_angles  <- sort(unique(c(alice_fixed, bob_sweep)))
 
 # Reduced microstate resolution for rapid prototyping
 mu_count <- 1e5
 mu_start <- -pi
-mu_end <- pi
+mu_end   <- pi
 
-# Kappa: The requested spectrum from Fine Structure (pi/32) to Extreme Locking (8pi)
-# We calculate them explicitly but keep the coefficients for nice labeling later
-kappa_coeffs <- c(1/32, 1/4, 1/2, 3/4, 1:8)
-kappa <- pi * kappa_coeffs
+# --- KAPPA SELECTION ---
+# Edit this line to decide which lines are plotted.
+# e.g., -5 corresponds to 2^-5 (1/32), 0 corresponds to 2^0 (1)
+selected_powers <- 0:7
 
-# Storage for results and legend ordering
-all_results <- list()
+# Generate coefficients and sort them so the legend is naturally ordered
+kappa_coeffs <- sort(2^selected_powers)
+kappa_values <- pi * kappa_coeffs
+
+# --- HELPER: SMART LABELING ---
+# Automatically formats a coefficient k into a pretty "pi" string
+get_pi_label <- function(k) {
+  # Case 1: Integer (e.g., 1 -> "π", 4 -> "4π")
+  if (abs(k - round(k)) < 1e-9) {
+    if (round(k) == 1) return("π")
+    return(sprintf("%.0fπ", k))
+  }
+
+  # Case 2: Simple Fraction 1/N (e.g., 0.25 -> "π/4")
+  denom <- 1 / k
+  if (abs(denom - round(denom)) < 1e-9) {
+    return(sprintf("π/%.0f", denom))
+  }
+
+  # Case 3: Fallback for complex decimals
+  return(sprintf("%.2fπ", k))
+}
+
+# Storage
+all_results   <- list()
 legend_levels <- c()
 
 # 2. THE SWEEP LOOP
-for (i in seq_along(kappa)) {
-  k <- kappa[i]
+for (i in seq_along(kappa_values)) {
+  k      <- kappa_values[i]
   k_coef <- kappa_coeffs[i]
 
-  cat(sprintf("\n--- TESTING KAPPA = %.3f (Coefficient: %.2f) ---\n", k, k_coef))
+  cat(sprintf("\n--- TESTING KAPPA = %.3f (Coefficient: %.4f) ---\n", k, k_coef))
 
   # A. Run Simulation
   SternBrocotPhysics::micro_macro_bell_erasure_sweep(
-    angles = all_angles,
-    dir = normalizePath(data_dir, mustWork = TRUE),
-    count = mu_count,
-    kappa = k,
-    mu_start = mu_start,
-    mu_end = mu_end,
+    angles    = all_angles,
+    dir       = normalizePath(data_dir, mustWork = TRUE),
+    count     = mu_count,
+    kappa     = k,
+    mu_start  = mu_start,
+    mu_end    = mu_end,
     n_threads = 6
   )
 
   # B. Calculate Correlation E(phi)
-  f_a <- sprintf("erasure_alice_%013.6f.csv.gz", alice_fixed)
+  f_a  <- sprintf("erasure_alice_%013.6f.csv.gz", alice_fixed)
   dt_a <- fread(file.path(data_dir, f_a), select = c("spin", "found"))
 
   run_dt_list <- list()
@@ -60,7 +83,7 @@ for (i in seq_along(kappa)) {
         corr <- mean(as.numeric(dt_a$spin[valid]) * as.numeric(dt_b$spin[valid]))
         run_dt_list[[length(run_dt_list) + 1]] <- data.table(
           phi = b_ang - alice_fixed,
-          E = corr
+          E   = corr
         )
       }
     }
@@ -69,31 +92,22 @@ for (i in seq_along(kappa)) {
   temp_dt <- rbindlist(run_dt_list)
 
   # C. Compute CHSH S-Value for Legend
-  # We interpolate E at exactly 45 and 135 degrees since our sweep is by 4s
   E_45  <- approx(temp_dt$phi, temp_dt$E, xout = 45)$y
   E_135 <- approx(temp_dt$phi, temp_dt$E, xout = 135)$y
 
-  # S = |3*E(45) - E(135)| assuming Rotational Invariance
-  # If E(45) is negative and E(135) is positive (Bell curve), this sums magnitudes.
   if(!is.na(E_45) && !is.na(E_135)) {
     S_val <- abs(3 * E_45 - E_135)
   } else {
     S_val <- 0
   }
 
-  # D. Create "Pi-Based" Legend Label
-  # E.g., "π/4 (2.10)" or "3π (2.65)"
-  if (abs(k_coef - 1/32) < 1e-9) pi_str <- "π/32"
-  else if (abs(k_coef - 1/4) < 1e-9) pi_str <- "π/4"
-  else if (abs(k_coef - 1/2) < 1e-9) pi_str <- "π/2"
-  else if (abs(k_coef - 3/4) < 1e-9) pi_str <- "3π/4"
-  else if (abs(k_coef - 1) < 1e-9) pi_str <- "π"
-  else pi_str <- sprintf("%dπ", as.integer(k_coef))
-
+  # D. Generate Label using Helper
+  pi_str    <- get_pi_label(k_coef)
   label_str <- sprintf("%s (%.2f)", pi_str, S_val)
-  legend_levels <- c(legend_levels, label_str) # Store for factor ordering
 
-  # Assign label to data
+  # Store label to enforce order later
+  legend_levels <- c(legend_levels, label_str)
+
   temp_dt[, LegendLabel := label_str]
   all_results[[as.character(i)]] <- temp_dt
 }
@@ -124,22 +138,21 @@ gp <- ggplot(final_dt, aes(x = phi, y = E, color = LegendLabel)) +
   annotate("text", x = 45, y = -0.95, label = "45°", size = 3, color = "black") +
 
   # D. SCALES & THEME
-  # Using a spectral palette to distinguish the many lines
   scale_color_viridis_d(option = "plasma", end = 0.9, direction = -1) +
   scale_x_continuous(breaks = seq(0, 180, by = 45)) +
   ylim(-1.1, 1.1) +
 
   labs(
-    title = "Emergence of Bell Violation",
+    title    = "Emergence of Bell Violation",
     subtitle = "Legend: Kappa (CHSH S-Value) | Grey: Classical Limit (S=2) | Dashed: Quantum Target (S=2.82)",
-    x = "Relative Phase (Degrees)",
-    y = "Correlation E",
-    color = "κ (S)"
+    x        = "Relative Phase (Degrees)",
+    y        = "Correlation E",
+    color    = "κ (S)"
   ) +
   theme_minimal() +
   theme(
     legend.position = "right",
-    legend.text = element_text(size = 10),
+    legend.text     = element_text(size = 10),
     panel.grid.minor = element_blank()
   )
 
