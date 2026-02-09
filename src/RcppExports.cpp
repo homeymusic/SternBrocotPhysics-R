@@ -12,15 +12,18 @@ Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
 // micro_macro_bell_erasure_sweep
-void micro_macro_bell_erasure_sweep(NumericVector angles, std::string dir, int count, int n_threads);
-RcppExport SEXP _SternBrocotPhysics_micro_macro_bell_erasure_sweep(SEXP anglesSEXP, SEXP dirSEXP, SEXP countSEXP, SEXP n_threadsSEXP) {
+void micro_macro_bell_erasure_sweep(NumericVector angles, std::string dir, int count, double kappa, double mu_start, double mu_end, int n_threads);
+RcppExport SEXP _SternBrocotPhysics_micro_macro_bell_erasure_sweep(SEXP anglesSEXP, SEXP dirSEXP, SEXP countSEXP, SEXP kappaSEXP, SEXP mu_startSEXP, SEXP mu_endSEXP, SEXP n_threadsSEXP) {
 BEGIN_RCPP
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< NumericVector >::type angles(anglesSEXP);
     Rcpp::traits::input_parameter< std::string >::type dir(dirSEXP);
     Rcpp::traits::input_parameter< int >::type count(countSEXP);
+    Rcpp::traits::input_parameter< double >::type kappa(kappaSEXP);
+    Rcpp::traits::input_parameter< double >::type mu_start(mu_startSEXP);
+    Rcpp::traits::input_parameter< double >::type mu_end(mu_endSEXP);
     Rcpp::traits::input_parameter< int >::type n_threads(n_threadsSEXP);
-    micro_macro_bell_erasure_sweep(angles, dir, count, n_threads);
+    micro_macro_bell_erasure_sweep(angles, dir, count, kappa, mu_start, mu_end, n_threads);
     return R_NilValue;
 END_RCPP
 }
@@ -102,7 +105,7 @@ END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_SternBrocotPhysics_micro_macro_bell_erasure_sweep", (DL_FUNC) &_SternBrocotPhysics_micro_macro_bell_erasure_sweep, 4},
+    {"_SternBrocotPhysics_micro_macro_bell_erasure_sweep", (DL_FUNC) &_SternBrocotPhysics_micro_macro_bell_erasure_sweep, 7},
     {"_SternBrocotPhysics_erase_uncertainty", (DL_FUNC) &_SternBrocotPhysics_erase_uncertainty, 2},
     {"_SternBrocotPhysics_erase_depth", (DL_FUNC) &_SternBrocotPhysics_erase_depth, 2},
     {"_SternBrocotPhysics_erase_uncertainty_and_depth", (DL_FUNC) &_SternBrocotPhysics_erase_uncertainty_and_depth, 3},

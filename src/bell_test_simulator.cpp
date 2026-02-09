@@ -13,7 +13,7 @@ std::string clean_str(std::string s) { return s.empty() ? "" : s; }
 
 //' @export
 // [[Rcpp::export]]
-void micro_macro_bell_erasure_sweep(NumericVector angles, std::string dir, int count, int n_threads = 0) {
+void micro_macro_bell_erasure_sweep(NumericVector angles, std::string dir, int count, double kappa, double mu_start, double mu_end, int n_threads = 0) {
   int max_depth = 2000;
   std::vector<double> angles_cpp = Rcpp::as<std::vector<double>>(angles);
   size_t n = angles_cpp.size();
@@ -33,31 +33,35 @@ void micro_macro_bell_erasure_sweep(NumericVector angles, std::string dir, int c
     gzFile file_a = gzopen((dir + "/" + f_a).c_str(), "wb1");
     gzFile file_b = gzopen((dir + "/" + f_b).c_str(), "wb1");
 
-    // FULL FORENSIC HEADER
-    const char* header = "angle,spin,found,mu,delta,erasure_distance,macrostate,numerator,denominator,path,program,depth,entropy,left_count,right_count\n";
+    // --- SCHEMA COMPLIANCE FIX ---
+    const char* header = "angle,spin,found,microstate,uncertainty,erasure_distance,macrostate,numerator,denominator,stern_brocot_path,minimal_program,program_length,shannon_entropy,left_count,right_count\n";
+
     gzprintf(file_a, header);
     gzprintf(file_b, header);
 
     for (int j = 0; j < count; j++) {
-      double mu_source = -M_PI + (2.0 * M_PI * j) / (double)(count - 1);
+      // DYNAMIC MU RANGE
+      // Interpolate mu from start to end based on current step j
+      double mu_source = mu_start + (mu_end - mu_start) * ((double)j / (double)(count - 1));
+
       double mu_a = mu_source;
-      double mu_b = -mu_source;
+      double mu_b = -mu_source; // Singlet State (Opposite microstates)
 
       double phase_a = angle_rad - mu_a;
       double phase_b = angle_rad - mu_b;
 
-      double delta_a = std::pow(std::cos(phase_a), 2) / std::abs(std::sin(phase_a));
-      double delta_b = std::pow(std::sin(phase_b), 2) / std::abs(std::cos(phase_b));
+      // 1. CALCULATE UNCERTAINTY (MAGNITUDE) with KAPPA
+      // delta = kappa * cos^2 / |sin|
+      double delta_a = kappa * std::pow(std::cos(phase_a), 2) / (std::abs(std::sin(phase_a)) + 1e-9);
+      double delta_b = kappa * std::pow(std::cos(phase_b), 2) / (std::abs(std::sin(phase_b)) + 1e-9);
 
       EraseResult res_a = erase_single_native(mu_a, delta_a, max_depth);
       EraseResult res_b = erase_single_native(mu_b, delta_b, max_depth);
 
-      // Alice measures the 'In-Phase' projection
-      int spin_a = (std::sin(res_a.erasure_distance) >= 0) ? 1 : -1;
-
-      // Bob measures the 'Quadrature' projection to find the phase difference
-      // Using sin here creates the anti-correlation needed to pull E down from +1.0
-      int spin_b = (std::sin(res_b.erasure_distance) >= 0) ? 1 : -1;
+      // 2. CALCULATE SPIN (THERMODYNAMICS + GEOMETRY)
+      // Rotational Invariance: Thermodynamic Bit * Geometric Orientation
+      int spin_a = ((res_a.erasure_distance >= 0) ? 1 : -1) * ((std::cos(phase_a) >= 0) ? 1 : -1);
+      int spin_b = ((res_b.erasure_distance >= 0) ? 1 : -1) * ((std::cos(phase_b) >= 0) ? 1 : -1);
 
       // ROW A
       gzprintf(file_a, "%.6f,%d,%d,%.6f,%.6f,%.6f,%.6f,%.0f,%.0f,%s,%s,%d,%.6f,%d,%d\n",

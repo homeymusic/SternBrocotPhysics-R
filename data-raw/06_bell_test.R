@@ -15,11 +15,11 @@ unlink(list.files(data_dir, full.names = TRUE))
 # 2. THE EXPLICIT PAIRINGS (Alice Angle, Bob Angle)
 # We add 1e-5 to avoid exact boundary floating point issues if necessary
 angle_pairs <- list(
-  c(0.0, 90.0),
-  c(22.5, 67.5),
+  c(0.0, 0.0),
+  c(22.5, 22.5),
   c(45.0, 45.0),
-  c(67.5, 22.5),
-  c(90.0, 0.0)
+  c(67.5, 67.5),
+  c(90.0, 90.0)
 )
 
 # Flatten pairs to get unique angles for the generation step
@@ -48,7 +48,7 @@ for(pair in angle_pairs) {
     ang <- pair[i] + 1e-5
 
     f_name <- sprintf("erasure_%s_%013.6f.csv.gz", tolower(obs), ang)
-    dt <- fread(file.path(data_dir, f_name), select = c("mu", "spin", "found"))
+    dt <- fread(file.path(data_dir, f_name), select = c("microstate", "spin", "found"))
 
     total_found <- sum(dt$found)
     p_up   <- (sum(dt$spin == 1 & dt$found) / total_found) * 100
@@ -86,16 +86,16 @@ print("--- OBSERVER SPIN POPULATION TABLE ---")
 print(pop_table)
 
 # 6. RENDER THE PLOT
-gp <- ggplot(plot_dt, aes(x = mu, y = factor(spin), color = factor(spin))) +
+gp <- ggplot(plot_dt, aes(x = microstate, y = factor(spin), color = factor(spin))) +
   geom_jitter(height = 0.2, alpha = 0.4, size = 0.8) +
   # ncol = 2 uses the factor levels to put A on left, B on right
   facet_wrap(~FacetLabel, ncol = 2) +
   scale_color_manual(values = c("-1" = "#e74c3c", "1" = "#3498db"), guide = "none") +
   scale_x_continuous(breaks = c(-pi, 0, pi), labels = c("-π", "0", "π")) +
   labs(
-    title = "Macrostate Outcomes vs. Microstate (mu)",
+    title = "Macrostate Outcomes vs. Microstate (microstate)",
     subtitle = "Paired Angles: Alice (Left) vs. Bob (Right)",
-    x = "Action Quanta (Microstate mu)",
+    x = "Action Quanta (Microstate microstate)",
     y = "Observable Spin Outcome"
   ) +
   theme_minimal() +
