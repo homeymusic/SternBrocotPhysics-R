@@ -101,35 +101,3 @@ void micro_macro_erasures_momentum(NumericVector momenta, std::string dir, int c
   });
   pool.wait();
 }
-
-//' @export
-// [[Rcpp::export]]
-void micro_macro_erasures_angle(NumericVector angles, std::string dir, int count, int n_threads = 0) {
-  int max_depth_limit = 2000;
-  std::vector<double> angles_cpp = Rcpp::as<std::vector<double>>(angles);
-  size_t n = angles_cpp.size();
-  int threads = (n_threads <= 0) ? (int)std::thread::hardware_concurrency() - 2 : n_threads;
-  if (threads < 1) threads = 1;
-
-  RcppThread::ThreadPool pool(threads);
-  pool.parallelFor(0, n, [&](int i) {
-    double angle_deg = angles_cpp[i];
-    double angle_rad = angle_deg * (M_PI / 180.0);
-
-    // Conjugate Action Quanta
-    // Alice gets the Cosine perspective, Bob gets the Sine perspective
-    double delta_alice = std::pow(std::cos(angle_rad), 2);
-    double delta_bob   = std::pow(std::sin(angle_rad), 2);
-
-    // Alice (The Cosine Perspective)
-    char f_alice[128];
-    std::snprintf(f_alice, sizeof(f_alice), "micro_macro_erasures_alice_%013.6f.csv.gz", angle_deg);
-    write_erasure_simulation(dir + "/" + f_alice, "angle", angle_deg, angle_deg, delta_alice, count, max_depth_limit, false);
-
-    // Bob (The Sine Perspective)
-    char f_bob[128];
-    std::snprintf(f_bob, sizeof(f_bob), "micro_macro_erasures_bob_%013.6f.csv.gz", angle_deg);
-    write_erasure_simulation(dir + "/" + f_bob, "angle", angle_deg, angle_deg, delta_bob, count, max_depth_limit, true);
-  });
-  pool.wait();
-}

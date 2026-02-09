@@ -23,11 +23,6 @@ micro_macro_erasures_momentum <- function(momenta, dir, count, n_threads = 0L) {
     invisible(.Call(`_SternBrocotPhysics_micro_macro_erasures_momentum`, momenta, dir, count, n_threads))
 }
 
-#' @export
-micro_macro_erasures_angle <- function(angles, dir, count, n_threads = 0L) {
-    invisible(.Call(`_SternBrocotPhysics_micro_macro_erasures_angle`, angles, dir, count, n_threads))
-}
-
 #' Detect Oscillatory Nodes in Physical State Density
 #'
 #' @param sub_df A DataFrame containing 'x' and 'y'.

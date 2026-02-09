@@ -46,14 +46,18 @@ void micro_macro_bell_erasure_sweep(NumericVector angles, std::string dir, int c
       double phase_a = angle_rad - mu_a;
       double phase_b = angle_rad - mu_b;
 
-      double delta_a = std::pow(std::cos(phase_a), 2);
-      double delta_b = std::pow(std::sin(phase_b), 2);
+      double delta_a = std::pow(std::cos(phase_a), 2) / std::abs(std::sin(phase_a));
+      double delta_b = std::pow(std::sin(phase_b), 2) / std::abs(std::cos(phase_b));
 
       EraseResult res_a = erase_single_native(mu_a, delta_a, max_depth);
       EraseResult res_b = erase_single_native(mu_b, delta_b, max_depth);
 
-      int spin_a = (std::cos(res_a.erasure_distance) >= 0) ? 1 : -1;
-      int spin_b = (std::cos(res_b.erasure_distance) >= 0) ? 1 : -1;
+      // Alice measures the 'In-Phase' projection
+      int spin_a = (std::sin(res_a.erasure_distance) >= 0) ? 1 : -1;
+
+      // Bob measures the 'Quadrature' projection to find the phase difference
+      // Using sin here creates the anti-correlation needed to pull E down from +1.0
+      int spin_b = (std::sin(res_b.erasure_distance) >= 0) ? 1 : -1;
 
       // ROW A
       gzprintf(file_a, "%.6f,%d,%d,%.6f,%.6f,%.6f,%.6f,%.0f,%.0f,%s,%s,%d,%.6f,%d,%d\n",

@@ -4,7 +4,7 @@ library(ggplot2)
 library(SternBrocotPhysics)
 
 # --- CONFIGURATION ---
-data_dir <- "/Volumes/SanDisk4TB/SternBrocot/07_canonical_bell"
+data_dir <- "/Volumes/SanDisk4TB/SternBrocot/07_canonical_bell_curve"
 rows_to_sweep <- 1e6
 alice_fixed <- 0.0 + 1e-5
 bob_sweep <- seq(0, 360, by = 2) + 1e-5 # 2-degree resolution
