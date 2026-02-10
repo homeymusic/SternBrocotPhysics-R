@@ -7,7 +7,8 @@ library(SternBrocotPhysics)
 data_dir <- "/Volumes/SanDisk4TB/SternBrocot/07_canonical_bell_curve"
 rows_to_sweep <- 1e6
 alice_fixed <- 0.0 + 1e-5
-bob_sweep <- seq(0, 360, by = 2) + 1e-5
+detector_aperture = 2
+bob_sweep <- seq(0, 360, by = detector_aperture) + 1e-5
 all_angles <- sort(unique(c(alice_fixed, bob_sweep)))
 
 # 1. CLEAN SLATE
@@ -18,6 +19,7 @@ unlink(list.files(data_dir, full.names = TRUE))
 
 SternBrocotPhysics::micro_macro_bell_erasure_sweep(
   angles = all_angles,
+  detector_aperture = detector_aperture,
   dir = normalizePath(data_dir, mustWork = TRUE),
   count = rows_to_sweep,
   kappa = 4/ pi,
