@@ -9,8 +9,8 @@
 using namespace Rcpp;
 
 //' @export
- // [[Rcpp::export]]
- void micro_macro_bell_erasure_sweep(
+// [[Rcpp::export]]
+void micro_macro_bell_erasure_sweep(
      NumericVector angles,
      std::string dir,
      int count,

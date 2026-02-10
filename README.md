@@ -3,15 +3,17 @@ Stern-Brocot Physics
 
 # Stern-Brocot Physics
 
+<figure>
+<img src="man/figures/hero_bell.png" alt="The Golden Universe" />
+<figcaption aria-hidden="true">The Golden Universe</figcaption>
+</figure>
+
 ## Quantum Harmonic Oscillator
 
 An R package for computational experiments in classical and quantum
 physics using the Stern-Brocot tree.
 
 ![](man/figures/README-dual-aspect-program-length-1.png)<!-- -->
-
-![](man/figures/README-dual-aspect-fine-structure-1.png)<!-- -->
-![](man/figures/README-zoomed-fine-structure-y-tighter-1.png)<!-- -->
 
 ![](man/figures/README-dual-aspect-node-count-1.png)<!-- -->
 

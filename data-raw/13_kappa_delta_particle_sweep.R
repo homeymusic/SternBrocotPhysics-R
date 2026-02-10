@@ -1,10 +1,9 @@
-here::i_am("data-raw/13_kappa_delta_particle_sweep.R")
 library(data.table)
 library(ggplot2)
 library(SternBrocotPhysics)
 
 # --- CONFIGURATION ---
-data_dir <- "/Volumes/SanDisk4TB/SternBrocot/13_kappa_delta_particle_sweep"
+data_dir <- "data_raw/13_kappa_delta_particle_sweep"
 if (!dir.exists(data_dir)) dir.create(data_dir, recursive = TRUE)
 
 # 1. PARAMETERS FOR THE GRID SEARCH
@@ -12,19 +11,18 @@ alice_fixed <- 0.0 + 1e-5
 bob_sweep <- seq(0, 180, by = 4) + 1e-5
 all_angles <- sort(unique(c(alice_fixed, bob_sweep)))
 
-# Reasonable simulation count for a grid sweep
-# (Deterministic source is fast, so we can afford 50k-100k)
 sim_count <- 5e4
 
-# A. Source Uncertainty (Delta Particle)
-# User Hypothesis: Around 0.2 or 0.4
-delta_p_values <- c(0.1, 0.2, 0.4, 0.8)
+# UPDATED TUNING RANGES
+# PRECISION SWEEP
+# We are looking for the "Goldilocks" zone between 1.1 and 1.2
+# My prediction: The point where RMSE is lowest will also be where S ~= 2.82
+delta_p_values <- c(1.12, 1.14, 1.16, 1.18)
 
-# B. Detector Uncertainty (Kappa)
-# User Hypothesis: Around 16pi
-# Previous plots showed saturation around 16pi-32pi
-kappa_coeffs <- c(8, 16, 32, 64)
-kappa_values <- pi * kappa_coeffs
+# CLEAN DETECTORS ONLY
+# We discard 2pi and 4pi because they are too "noisy/sloppy" to see the real physics.
+kappa_coeffs   <- c(8, 12, 16, 32)
+kappa_values   <- pi * kappa_coeffs
 
 results_list <- list()
 
@@ -36,17 +34,17 @@ for (d_p in delta_p_values) {
     k <- kappa_values[i]
     k_coef <- kappa_coeffs[i]
 
-    # Construct a unique ID for this run
+    # Unique ID
     run_id <- sprintf("dp%.1f_k%.0fpi", d_p, k_coef)
     cat(sprintf("\nRunning: Delta_P = %.1f | Kappa = %.0f π\n", d_p, k_coef))
 
-    # A. Run Simulation (Physical Source + Physical Detector)
+    # A. Run Simulation
     SternBrocotPhysics::micro_macro_bell_erasure_sweep(
       angles = all_angles,
       dir = normalizePath(data_dir, mustWork = TRUE),
       count = sim_count,
-      kappa = k,               # Detector Squeeze
-      delta_particle = d_p,    # Source Quantization
+      kappa = k,
+      delta_particle = d_p,
       mu_start = -pi,
       mu_end = pi,
       n_threads = 6
@@ -54,11 +52,7 @@ for (d_p in delta_p_values) {
 
     # B. Calculate Correlation
     f_a <- sprintf("erasure_alice_%013.6f.csv.gz", alice_fixed)
-    dt_a <- fread(file.path(data_dir, f_a), select = c("spin", "found", "erasure_distance"))
-
-    # Optional: Quick check on source quantization?
-    # mean_source_cost <- mean(abs(dt_a$erasure_distance))
-    # cat(sprintf("  -> Mean Source Cost: %.4f\n", mean_source_cost))
+    dt_a <- fread(file.path(data_dir, f_a), select = c("spin", "found"))
 
     run_dt_list <- list()
 
@@ -69,11 +63,19 @@ for (d_p in delta_p_values) {
 
         valid <- dt_a$found & dt_b$found
         if (any(valid)) {
-          # Standard Correlation E = <AB>
+          # E = <AB>
           corr <- mean(as.numeric(dt_a$spin[valid]) * as.numeric(dt_b$spin[valid]))
+
+          # Calculate Residual against Quantum Prediction (-cos(theta))
+          # Theta is converted to radians for the cos function
+          rads <- (b_ang - alice_fixed) * pi / 180
+          q_pred <- -cos(rads)
+          resid_sq <- (corr - q_pred)^2
+
           run_dt_list[[length(run_dt_list) + 1]] <- data.table(
             phi = b_ang - alice_fixed,
-            E = corr
+            E = corr,
+            ResSq = resid_sq
           )
         }
       }
@@ -81,19 +83,22 @@ for (d_p in delta_p_values) {
 
     temp_dt <- rbindlist(run_dt_list)
 
-    # C. Compute S-Value
+    # C. Compute S-Value & Fit Metric
     E_45  <- approx(temp_dt$phi, temp_dt$E, xout = 45)$y
     E_135 <- approx(temp_dt$phi, temp_dt$E, xout = 135)$y
     S_val <- if(!is.na(E_45)) abs(3 * E_45 - E_135) else 0
 
-    # D. Labeling
+    # RMSE (Root Mean Square Error) from Cosine
+    rmse_val <- sqrt(mean(temp_dt$ResSq, na.rm=TRUE))
+
     label_str <- sprintf("κ=%.0fπ (S=%.2f)", k_coef, S_val)
 
     temp_dt[, `:=`(
       DeltaP = factor(sprintf("Source Δ = %.1f", d_p)),
       KappaLabel = label_str,
       KappaVal = k_coef,
-      S = S_val
+      S = S_val,
+      RMSE = rmse_val
     )]
 
     results_list[[run_id]] <- temp_dt
@@ -102,44 +107,47 @@ for (d_p in delta_p_values) {
 
 final_dt <- rbindlist(results_list)
 
-# 3. HELPER: CLASSICAL LIMIT
+# 3. HELPER: CLASSICAL LIMIT LINE
 classical_limit <- function(x_deg) {
   x <- x_deg %% 360
   ifelse(x <= 180, -1 + (2 * x / 180), 1 - (2 * (x - 180) / 180))
 }
 
-# 4. PLOT: FACET BY SOURCE DELTA
-# We want to find the Delta that allows Kappa to hit the target.
+# 4. PLOT
 gp <- ggplot(final_dt, aes(x = phi, y = E, color = KappaLabel)) +
-  # Reference Lines
-  stat_function(fun = classical_limit, geom = "area", fill = "grey85", alpha = 0.5) +
+
+  # Classical Limit (Red Line)
+  stat_function(fun = classical_limit, color = "firebrick", linetype = "solid", size = 0.6, alpha=0.6) +
+
+  # Quantum Prediction (Black Dashed)
   stat_function(fun = function(x) -cos(x * pi / 180), color = "black", size = 0.8, linetype = "dashed") +
 
+  # Simulation Data
   geom_line(size = 1) +
-  geom_point(size = 1, alpha = 0.6) +
 
-  # Facet by the Source Parameter
   facet_wrap(~DeltaP, ncol = 2) +
 
   scale_color_viridis_d(option = "turbo", name = "Detector κ") +
   scale_x_continuous(breaks = seq(0, 180, by = 45)) +
-  ylim(-1.1, 1.1) +
+  ylim(-1.05, 1.05) +
 
   labs(
     title = "Grid Search: Tuning the Physical Universe",
-    subtitle = "Facets: Source Uncertainty (Δp) | Color: Detector Squeeze (κ)",
+    subtitle = "Black Dashed: Quantum (-cos) | Red Line: Classical Limit",
     x = "Relative Phase (Degrees)",
     y = "Correlation E"
   ) +
   theme_minimal() +
   theme(
     strip.text = element_text(size = 12, face = "bold"),
-    legend.position = "bottom"
+    legend.position = "bottom",
+    panel.grid.minor = element_blank()
   )
 
 print(gp)
 
-# 5. PRINT SUMMARY TABLE (Top Performers)
-cat("\n--- TOP CONFIGURATIONS ---\n")
-summary_dt <- unique(final_dt[, .(DeltaP, KappaLabel, S)])
-print(summary_dt[order(-S)][1:10])
+# 5. PRINT SUMMARY TABLE (Sorted by Fit to Cosine)
+# Lower RMSE = Better fit to Quantum Mechanics
+cat("\n--- TOP CONFIGURATIONS (Sorted by Fit to Quantum Cosine) ---\n")
+summary_dt <- unique(final_dt[, .(DeltaP, KappaLabel, S, RMSE)])
+print(summary_dt[order(RMSE)][1:10])
