@@ -3,8 +3,7 @@ library(ggplot2)
 library(SternBrocotPhysics)
 
 # --- CONFIGURATION ---
-# We use a temporary directory for the data generation
-data_dir <- "data_raw/temp_phi_vs_pi"
+data_dir <- "/Volumes/SanDisk4TB/SternBrocot/06_bell_test"
 if (!dir.exists(data_dir)) dir.create(data_dir, recursive = TRUE)
 
 # --- CONSTANTS ---
@@ -94,7 +93,7 @@ gp <- ggplot(dt_plot, aes(x = phi)) +
                 color = "black", size = 1, linetype = "dashed") +
 
   # Simulation Lines
-  geom_line(aes(y = E, color = Candidate), size = 1.2, alpha = 0.9) +
+  geom_point(aes(y = E, color = Candidate), alpha = 0.4) +
 
   scale_color_manual(values = c(
     "Golden Ratio (1/φ)" = "#DAA520",

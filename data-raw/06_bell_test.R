@@ -25,12 +25,25 @@ angle_pairs <- list(
 # Flatten pairs to get unique angles for the generation step
 unique_angles <- unique(unlist(angle_pairs)) + 1e-5
 
-# 3. GENERATE DETERMINISTIC DATA
-cat("--- GENERATING DETERMINISTIC THERMAL MANIFOLD ---\n")
+# --- SIMULATION PARAMETERS ---
+# Full 360 degree sweep
+alice_fixed <- 0.0 + 1e-5
+bob_sweep   <- seq(0, 360, by = 2) + 1e-5 # Step by 2 for speed, still smooth
+all_angles  <- sort(unique(c(alice_fixed, bob_sweep)))
+sim_count   <- 5e4  # Sufficient for visual comparison
+
+cat("--- GENERATING PHI vs PI COMPARISON ---\n")
+
+all_results <- list()
+
 SternBrocotPhysics::micro_macro_bell_erasure_sweep(
   angles = unique_angles,
   dir = normalizePath(data_dir, mustWork = TRUE),
   count = rows_to_sweep,
+  kappa = 4/ pi,
+  delta_particle = 2/ pi,
+  mu_start = -pi,
+  mu_end = pi,
   n_threads = 4
 )
 

@@ -34,7 +34,8 @@ Suggests:
     patchwork,
     rmarkdown,
     scales,
-    tidyr
+    tidyr,
+    viridis
 VignetteBuilder: knitr
 Remotes: 
     RcppCore/RcppParallel

@@ -15,12 +15,16 @@ if (!dir.exists(data_dir)) dir.create(data_dir, recursive = TRUE)
 unlink(list.files(data_dir, full.names = TRUE))
 
 # 2. GENERATE DATA
-cat("--- GENERATING CANONICAL DATA (0 to 2π Sweep) ---\n")
+
 SternBrocotPhysics::micro_macro_bell_erasure_sweep(
   angles = all_angles,
   dir = normalizePath(data_dir, mustWork = TRUE),
   count = rows_to_sweep,
-  n_threads = 6
+  kappa = 4/ pi,
+  delta_particle = 2/ pi,
+  mu_start = -pi,
+  mu_end = pi,
+  n_threads = 4
 )
 
 # 3. CALCULATE CORRELATION

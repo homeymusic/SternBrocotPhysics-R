@@ -8,23 +8,22 @@ output_dir <- "man/figures"
 if (!dir.exists(output_dir)) dir.create(output_dir, recursive = TRUE)
 
 # TEMP DATA DIR
-data_dir <- "data_raw/temp_hero_shot"
+data_dir <- "/Volumes/SanDisk4TB/SternBrocot/06_bell_test"
 if (!dir.exists(data_dir)) dir.create(data_dir, recursive = TRUE)
 
-# --- THE GOLDEN CONSTANTS ---
-PHI         <- (1 + sqrt(5)) / 2
-INV_PHI     <- 1 / PHI   # 0.618033...
-FIXED_KAPPA <- 4 / pi    # 1.2732...
+FIXED_KAPPA <- 4 / pi
+# CIRCLE_PROJECTION <- 2 / pi
+CIRCLE_PROJECTION <- (sqrt(5) - 1) / 2
 
 # --- SIMULATION PARAMETERS ---
 # Full 360 degree sweep for symmetry
 alice_fixed <- 0.0 + 1e-5
-bob_sweep   <- seq(0, 360, by = 1) + 1e-5
+bob_sweep   <- seq(0, 360, by = 10) + 1e-5
 all_angles  <- sort(unique(c(alice_fixed, bob_sweep)))
 sim_count   <- 1e5
 
 cat("--- GENERATING HERO SHOT ---\n")
-cat(sprintf("Delta: 1/φ (%.6f) | Kappa: 4/π (%.4f)\n", INV_PHI, FIXED_KAPPA))
+cat(sprintf("Delta: pi / 2 (%.6f) | Kappa: 4/π (%.4f)\n", CIRCLE_PROJECTION, FIXED_KAPPA))
 
 # 1. RUN SIMULATION
 SternBrocotPhysics::micro_macro_bell_erasure_sweep(
@@ -32,7 +31,7 @@ SternBrocotPhysics::micro_macro_bell_erasure_sweep(
   dir = normalizePath(data_dir, mustWork = TRUE),
   count = sim_count,
   kappa = FIXED_KAPPA,
-  delta_particle = INV_PHI,
+  delta_particle = CIRCLE_PROJECTION,
   mu_start = -pi,
   mu_end = pi,
   n_threads = 6
@@ -65,7 +64,7 @@ dt_plot[, Quantum := -cos(phi * pi / 180)]
 rmse_val <- sqrt(mean((dt_plot$E - dt_plot$Quantum)^2))
 
 # 4. PLOT
-subtitle_str <- sprintf("Parameters: Δ=1/φ, κ=4/π | S=%.5f (Target 2.828) | RMSE=%.4f",
+subtitle_str <- sprintf("Parameters: Δ=2/π, κ=4/π | S=%.5f (Target 2.828) | RMSE=%.4f",
                         S_val, rmse_val)
 
 # Classical Limit Function (Sawtooth)
@@ -77,21 +76,23 @@ gp <- ggplot(dt_plot, aes(x = phi)) +
 
   # Classical Limit (Red Line)
   stat_function(fun = classical_sawtooth,
-                color = "firebrick", size = 0.8, alpha = 0.6) +
+                color = "gray", size = 0.8, alpha = 0.6) +
 
   # Quantum Prediction (Black Dashed)
   stat_function(fun = function(x) -cos(x * pi / 180),
-                color = "black", size = 1, linetype = "dashed") +
+                color = "darkgray", size = 1) +
 
-  # Golden Universe Simulation
-  geom_line(aes(y = E), color = "#DAA520", size = 1.5) +
+  geom_point(aes(y = E), color = "red", alpha = 0.5, size = 0.1) +
 
-  scale_x_continuous(breaks = seq(0, 360, by = 90),
-                     labels = c("0°", "90°", "180°", "270°", "360°")) +
+  scale_x_continuous(
+    breaks = seq(0, 360, by = 45),           # Create breaks every 45 degrees
+    labels = paste0(seq(0, 360, by = 45), "°") # Automatically add "°" to the numbers
+  ) +
+
   ylim(-1.1, 1.1) +
 
   labs(
-    title = "The Golden Universe: Quantum Correlations from Erasure",
+    title = "Bell Test",
     subtitle = subtitle_str,
     x = "Relative Phase",
     y = "Correlation E"
@@ -102,6 +103,8 @@ gp <- ggplot(dt_plot, aes(x = phi)) +
     plot.subtitle = element_text(face = "italic", hjust = 0.5, color="grey30"),
     panel.grid.minor = element_blank()
   )
+
+print(gp)
 
 # 5. SAVE
 save_path <- file.path(output_dir, "hero_bell.png")
