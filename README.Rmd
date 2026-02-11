@@ -42,6 +42,7 @@ agg_dir  <- file.path(base_data_dir_4TB, "02_micro_marco_densities")
 summary_path <- file.path(agg_dir, "02_micro_marco_densities.csv.gz")
 
 # Matches the %013.6f and 'density' naming convention from generation scripts
+# Updated to ensure string-perfect lookup for 0.001 resolution
 get_histogram_path <- function(momentum_val) {
   file.path(agg_dir, sprintf("density_P_%013.6f.csv.gz", momentum_val))
 }
@@ -99,7 +100,7 @@ generate_plot_grid <- function(target_data, plot_title, file_name, show_placehol
 
     if (file.exists(f_path)) {
       d_temp <- data.table::fread(f_path)
-      h_pts <- d_temp[type == "density"] # type 'density' matches worker output
+      h_pts <- d_temp[type == "density"] # type 'density' matches 02 aggregator
       n_pts <- d_temp[type == "node"]
       bw <- if(nrow(h_pts) > 1) diff(h_pts$x[1:2]) else 0.1
 
@@ -194,11 +195,14 @@ generate_physics_grid <- function(jumps_subset) {
 ```
 
 ```{r jump-detection, echo=F}
-dt_summary <- data.table::fread(summary_path)
+# Selecting specific columns for performance with 300k+ rows
+dt_summary <- data.table::fread(summary_path, 
+                                select = c("normalized_momentum", "program_length_median", 
+                                           "node_count", "program_length_mean", "program_length_sd"))
 data.table::setorder(dt_summary, normalized_momentum)
 
-# Force numerical matching to the expected resolution grid from R scripts
-granularity_p <- 0.01
+# Force numerical matching to the new high-resolution grid (0.001)
+granularity_p <- 0.001
 dt_summary <- dt_summary[abs(normalized_momentum %% granularity_p) < 1e-9]
 
 # Convert to numeric for calculation
@@ -213,8 +217,8 @@ jumps <- lapply(seq_along(jump_indices), function(i) {
   m_at <- dt_summary$normalized_momentum[idx + 1]
   list(
     n = paste("Transition", i),
-    # Use 0.01 granularity to see the neighborhood of the jump
-    p_vals = c(m_at - 0.01, m_at, m_at + 0.01) 
+    # Use 0.001 granularity to look at immediate local neighborhood of the jump
+    p_vals = c(m_at - 0.001, m_at, m_at + 0.001) 
   )
 })
 
@@ -281,6 +285,7 @@ grid::grid.draw(combined_blob_plot)
 save_plot(combined_blob_plot, "program_length.pdf", width = 12, height = 6)
 ```
 
+
 ```{r dual-aspect-node-count, echo=FALSE, fig.width=12, fig.height=6}
 plot_nodes_q <- dt_summary[normalized_momentum > 0.0, .(
   q_val = 1 / as.numeric(normalized_momentum),
@@ -327,11 +332,14 @@ save_plot(combined_nodes_plot, "nodes.pdf", width = 12, height = 6)
 ```
 
 ```{r prepare-eigenstate-data, echo=FALSE}
+# Prepare all eigenstate and median data once
 plot_nodes_p <- prepare_plot_data(dt_summary)
 max_n_found <- max(plot_nodes_p$nodes, na.rm = TRUE)
 
+# Full collection median
 dt_full_median <- get_median_by_nodes(plot_nodes_p)
 
+# Eigenstate collection with gaps
 dt_eigen_raw <- plot_nodes_p[is_eigenstate == TRUE]
 dt_eigen_subset <- get_median_by_nodes(dt_eigen_raw)
 dt_eigen_median <- data.table::data.table(n = 0:max_n_found)
@@ -339,59 +347,105 @@ dt_eigen_median <- merge(dt_eigen_median, dt_eigen_subset, by = "n", all.x = TRU
 ```
 
 ```{r filter-closest-eigenstates, echo=FALSE, fig.width=8, fig.height=6}
+# PASS 1: Get exact eigenstates
 dt_eigen_raw <- plot_nodes_p[is_eigenstate == TRUE]
 dt_eigen_exact <- get_median_by_nodes(dt_eigen_raw)
 
+# Calculate the physical limit based on max momentum observed
 max_p_observed <- max(plot_nodes_p$p_val, na.rm = TRUE)
 n_cutoff <- floor(max_p_observed / (pi)) 
 
+# PASS 2: Only consider nodes up to the physical cutoff
 all_nodes <- data.table::data.table(n = 0:n_cutoff)
+
+# Identify which nodes are missing within the VALID range
 dt_with_exact <- merge(all_nodes, dt_eigen_exact, by = "n", all.x = TRUE)
 missing_nodes <- dt_with_exact[is.na(momentum)]$n
 
+# For missing nodes, get the median
 dt_median_approx <- data.table::rbindlist(lapply(missing_nodes, function(node_count) {
   candidates <- plot_nodes_p[nodes == node_count]
+  
   if (nrow(candidates) > 0) {
+    # Sort by momentum
     data.table::setorder(candidates, p_val)
+    # Get median index
     median_idx <- floor((nrow(candidates) + 1) / 2)
-    data.table::data.table(n = node_count, momentum = candidates$p_val[median_idx], is_approximation = TRUE)
+    
+    data.table::data.table(
+      n = node_count,
+      momentum = candidates$p_val[median_idx],
+      is_approximation = TRUE
+    )
   } else {
-    data.table::data.table(n = node_count, momentum = NA_real_, is_approximation = TRUE)
+    data.table::data.table(
+      n = node_count,
+      momentum = NA_real_,
+      is_approximation = TRUE
+    )
   }
 }))
 
-dt_hybrid_eigenstates <- rbind(dt_eigen_exact[, is_approximation := FALSE], dt_median_approx, fill = TRUE)
+dt_hybrid_eigenstates <- rbind(
+  dt_eigen_exact[, is_approximation := FALSE],
+  dt_median_approx,
+  fill = TRUE
+)
 data.table::setorder(dt_hybrid_eigenstates, n)
+
+# Remove any remaining NAs
 dt_final <- dt_hybrid_eigenstates[!is.na(momentum)]
 
+# Calculate max nodes safely for plotting
 max_nodes_for_plot <- max(dt_final$n, na.rm = TRUE)
 
+# Visualization
 p_momentum_hybrid <- ggplot(plot_nodes_p, aes(x = p_val, y = nodes)) +
   geom_point(color = "grey70", size = 0.2, alpha = 0.4) +
   geom_vline(xintercept = p_markers, color = "grey80", linetype = "dashed", alpha = 0.5) +
-  geom_point(data = dt_final[is_approximation == FALSE], aes(x = momentum, y = n), color = "red", size = 1.5) +
-  geom_point(data = dt_final[is_approximation == TRUE], aes(x = momentum, y = n), color = "orange", size = 1.5, shape = 17) +
-  geom_path(data = dt_final, aes(x = momentum, y = n), color = "darkred", linewidth = 0.5, alpha = 0.6) +
+  # Exact eigenstates in red
+  geom_point(data = dt_final[is_approximation == FALSE], 
+             aes(x = momentum, y = n), color = "red", size = 1.5) +
+  # Approximations in orange
+  geom_point(data = dt_final[is_approximation == TRUE], 
+             aes(x = momentum, y = n), color = "orange", size = 1.5, shape = 17) +
+  geom_path(data = dt_final, aes(x = momentum, y = n), 
+            color = "darkred", linewidth = 0.5, alpha = 0.6) +
   geom_line(data = data.table::data.table(nodes = 0:max_nodes_for_plot, 
-                                          p_ideal = (0:max_nodes_for_plot) * pi)[p_ideal <= max_p_observed],
-            aes(x = p_ideal, y = nodes), color = "blue", linetype = "dotted", alpha = 0.5, inherit.aes = FALSE) +
+                                          p_ideal = (0:max_nodes_for_plot) * pi)[
+                                            p_ideal <= max_p_observed
+                                          ],
+            aes(x = p_ideal, y = nodes), 
+            color = "blue", linetype = "dotted", alpha = 0.5, inherit.aes = FALSE) +
   labs(
     title = latex2exp::TeX("Schrödinger Eigenstates with Median Approximations"),
-    subtitle = latex2exp::TeX("Red: Exact ($P = \\pi n$) | Orange: Median Approx | Blue: Theoretical"),
+    subtitle = latex2exp::TeX(paste0(
+      "Red circles: Exact eigenstates ($P = \\pi n$) | ",
+      "Orange triangles: Median $P$ for missing nodes | ",
+      "Blue line: Theoretical $P = \\pi n$"
+    )),
     x = latex2exp::TeX("Momentum $P$ ($p/p_0$)"),
-    y = latex2exp::TeX("Quantum Number $n$ (Node Count)")
+    y = latex2exp::TeX("Quantum Number $n$ (Node Count)"),
+    caption = "Red: Exact States | Orange: Median (Non-Eigen). | Blue: Ideal Trend | Grey: Full Phase Space"
   ) +
   theme_minimal()
 
 print(p_momentum_hybrid)
 save_plot(p_momentum_hybrid, "eigenstates.pdf", width = 8, height = 6)
 
-dt_hybrid_for_distributions <- dt_final[, .(n, momentum, is_approximation)]
+# Create dataset for plotting distributions (including the flag)
+dt_hybrid_for_distributions <- data.table::data.table(
+  n = dt_final$n, 
+  momentum = dt_final$momentum,
+  is_approximation = dt_final$is_approximation
+)
 
+# Generate distribution plots
 render_hybrid_eigen <- generate_plot_grid(
   dt_hybrid_for_distributions, 
   "Eigenstate Distributions: Exact States and Median Approximations", 
-  "eigen_nodes_hybrid.pdf"
+  "eigen_nodes_hybrid.pdf", 
+  show_placeholders = FALSE
 )
 ```
 
@@ -405,10 +459,15 @@ library(scales)
 
 ggplot(momentum_counts, aes(x = as.factor(n), y = Count)) +
   geom_col(fill = "steelblue", color = "black", alpha = 0.8) +
-  labs(title = "Data Availability per Quantum Number (n)", x = "Node Count", y = "Momentum entries") +
+  labs(
+    title = "Data Availability: Count of Momentum Values per Quantum Number (n)",
+    x = "Quantum Number (Node Count)",
+    y = "Number of Data Points (Momentum entries)"
+  ) +
   coord_flip() +
   scale_x_discrete(breaks = function(x) x[seq(1, length(x), by = 10)]) +
-  theme_minimal()
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold"))
 ```
 
 ```{r plot-median-distribution, echo=FALSE, fig.width=8, fig.height=6}
@@ -455,9 +514,7 @@ save_plot(subset_plot, "distributions.pdf", width = 10, height = dynamic_h)
 
 # Ellipse Parameterization (A = PQ)
 
-This visualization shows two overlapping ellipses centered at (0,0) where $A = PQ$. 
-
-```{r experimental_ellipses, fig.width=10, fig.height=3 * length(jumps), echo=FALSE}
+```{r experimental_ellipses, fig.width=10, fig.height=dynamic_h_ellipse, echo=FALSE}
 ellipse_data <- lapply(jumps, function(j) {
   data.frame(
     transition_name = j$n,
@@ -505,12 +562,15 @@ ellipse_plot <- ggplot(plot_ready) +
   theme(
     aspect.ratio = 1,
     legend.position = "bottom",
-    strip.text = element_text(face = "bold", size = 8)
+    strip.text = element_text(face = "bold", size = 8),
+    plot.title = element_text(hjust = 0.5, face = "bold"),
+    plot.subtitle = element_text(hjust = 0.5, size = 9, face = "italic")
   )
 
-ellipse_plot
-
+# Calculate dynamic height: 3.5 inches per row is the sweet spot for 3-column facets
 num_transitions <- length(unique(ellipse_data$transition_name))
-dynamic_h_ellipse <- num_transitions * 3
+dynamic_h_ellipse <- max(4, num_transitions * 3.5) 
+
+print(ellipse_plot)
 save_plot(ellipse_plot, "conjugate_quanta.pdf", width = 10, height = dynamic_h_ellipse)
 ```

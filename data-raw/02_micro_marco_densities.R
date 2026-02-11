@@ -1,171 +1,134 @@
 library(future)
-# Use all available cores minus 1 (to keep the system responsive)
+library(future.apply)
+library(data.table)
+library(progressr) # Highly recommended for 300k files
+
 plan(multisession, workers = parallel::detectCores() - 2)
 
-# --- CONFIGURATION ---
 base_data_dir_4TB <- "/Volumes/SanDisk4TB/SternBrocot"
 raw_dir  <- file.path(base_data_dir_4TB, "01_micro_macro_erasures")
 agg_dir  <- file.path(base_data_dir_4TB, "02_micro_marco_densities")
-
 if (!dir.exists(agg_dir)) dir.create(agg_dir, recursive = TRUE)
 
 summary_file <- file.path(agg_dir, "02_micro_marco_densities.csv.gz")
 
+# FAST FILE AUDIT
+cat("Auditing files (this may take a minute with 300k entries)...\n")
 all_files <- list.files(raw_dir, pattern = "\\.csv\\.gz$", full.names = TRUE)
-
 existing_densities <- list.files(agg_dir, pattern = "density_P_.*\\.csv\\.gz$")
-processed_p <- if(length(existing_densities) > 0) {
-  as.numeric(gsub("density_P_([0-9.]+)\\.csv\\.gz", "\\1", existing_densities))
-} else numeric(0)
 
-all_p <- as.numeric(gsub(".*_P_([0-9.]+)\\.csv\\.gz", "\\1", all_files))
-files_to_process <- all_files[!sapply(all_p, function(x) any(abs(x - processed_p) < 1e-7))]
+# String-based matching is 100x faster than numeric tolerance for large sets
+all_p_names <- gsub("micro_macro_erasures_P_([0-9.]+)\\.csv\\.gz", "\\1", basename(all_files))
+done_p_names <- gsub("density_P_([0-9.]+)\\.csv\\.gz", "\\1", existing_densities)
 
-# Audit info
-cat("Audit: Found", length(all_files), "total raw files.\n")
-cat("Audit: Skipping", length(all_files) - length(files_to_process), "already processed files.\n")
-cat("Focus Audit: Processing", length(files_to_process), "remaining files.\n\n")
+files_to_process <- all_files[!(all_p_names %in% done_p_names)]
 
-# --- WORKER LOGIC ---
+cat(sprintf("Audit: %d total, %d already done, %d to process.\n",
+            length(all_files), length(done_p_names), length(files_to_process)))
+
+# --- UPDATED WORKER LOGIC ---
 process_file_full <- function(f, out_path) {
-  # Define is_near locally so future workers reliably find it
   is_near <- function(a, b) abs(a - b) < 1e-10
 
   tryCatch({
     library(data.table)
     setDTthreads(1)
-    library(SternBrocotPhysics) # Explicitly load inside worker
+    library(SternBrocotPhysics)
 
-    P_val <- as.numeric(gsub(".*_P_([0-9.]+)\\.csv\\.gz", "\\1", f))
-    density_file_name <- sprintf("density_P_%013.6f.csv.gz", P_val)
-    full_path <- file.path(out_path, density_file_name)
+    # Use the filename string directly to maintain 0.001 precision
+    p_str <- gsub(".*_P_([0-9.]+)\\.csv\\.gz", "\\1", f)
+    P_val <- as.numeric(p_str)
 
+    full_path <- file.path(out_path, sprintf("density_P_%s.csv.gz", p_str))
+
+    # Fast skip if exists
     if (file.exists(full_path)) return(NULL)
 
     dt <- data.table::fread(f,
-                            select = c("found", "erasure_distance", "program_length", "shannon_entropy", "numerator", "denominator"),
-                            # Changed to integer to stop fread warnings
-                            colClasses = c(found="integer", erasure_distance="numeric", program_length="integer",
-                                           shannon_entropy="numeric", numerator="numeric", denominator="numeric"))
+                            select = c("found", "erasure_distance", "program_length",
+                                       "shannon_entropy", "numerator", "denominator"),
+                            colClasses = c(found="integer", erasure_distance="numeric",
+                                           program_length="integer", shannon_entropy="numeric",
+                                           numerator="numeric", denominator="numeric"))
 
-    # Coerce to logical to match your dt[found == TRUE] filter
-    dt[, found := as.logical(found)]
-    dt <- dt[found == TRUE]
-
+    dt <- dt[as.logical(found) == TRUE]
     if (nrow(dt) == 0) return(NULL)
-
-    # CREATE NEW METRIC: absolute value of erasure_distance
-    dt[, fine_structure := abs(erasure_distance)]
 
     action <- P_val * P_val
     raw_fluc <- dt$erasure_distance * action
     f_rng <- range(raw_fluc, na.rm = TRUE)
-    # FIX: Reverted to explicit indices for worker compatibility
+
+    # Use 402 breaks for consistent wavefunction resolution
     h <- graphics::hist(raw_fluc, breaks = seq(f_rng[1], f_rng[2], length.out = 402), plot = FALSE)
     plot_df <- data.table(x = h$mids, y = h$counts)
-
-    # Use is_near function consistently here for robust zero-snapping
     plot_df[is_near(x, 0), x := 0]
 
-    # Reusable function to check Gabor/DC case for any data subset (for N=NA check)
-    is_gabor_dc <- function(data_subset) {
-      if (nrow(data_subset) < 2 || sum(data_subset$y) == 0) return(TRUE)
-      total_y <- sum(data_subset$y)
-      mean_x <- sum(data_subset$x * data_subset$y) / total_y
-      x_sd <- sqrt(sum(data_subset$y * (data_subset$x - mean_x)^2) / total_y)
-      gabor_thresh <- (1 / (4 * pi)) / (1 + sqrt(x_sd))
-      local_mean <- mean(data_subset$y, na.rm = TRUE)
-      return(all(abs(data_subset$y - local_mean) < gabor_thresh * local_mean))
-    }
+    # Gabor/DC Case Check
+    total_y <- sum(plot_df$y)
+    mean_x <- sum(plot_df$x * plot_df$y) / total_y
+    x_sd <- sqrt(sum(plot_df$y * (plot_df$x - mean_x)^2) / total_y)
+    gabor_thresh <- (1 / (4 * pi)) / (1 + sqrt(x_sd))
 
-    is_dc_case <- is_gabor_dc(plot_df)
-
-    if (is_dc_case) {
+    if (all(abs(plot_df$y - mean(plot_df$y)) < gabor_thresh * mean(plot_df$y))) {
       node_count_final <- NA_real_
       dot_df <- data.table(x = numeric(0), y = numeric(0))
     } else {
-      global_h_range <- max(plot_df$y, na.rm = TRUE) - min(plot_df$y, na.rm = TRUE)
+      global_h_range <- max(plot_df$y) - min(plot_df$y)
 
-      # --- SYMMETRY FIX: Calculate threshold once for the full data ---
-      total_y_global <- sum(plot_df$y)
-      mean_x_global  <- sum(plot_df$x * plot_df$y) / total_y_global
-      x_sd_global    <- sqrt(sum(plot_df$y * (plot_df$x - mean_x_global)^2) / total_y_global)
-      global_thresh  <- (1 / (4 * pi)) / (1 + sqrt(x_sd_global))
+      # Node detection
+      res_r <- as.data.table(SternBrocotPhysics::find_nodes_cpp(plot_df[x > 0], gabor_thresh, global_h_range))
+      res_l <- as.data.table(SternBrocotPhysics::find_nodes_cpp(plot_df[x < 0][order(-x)], gabor_thresh, global_h_range))
 
+      dot_df <- unique(rbind(res_l, res_r, fill = TRUE)[complete.cases(x, y)])
 
-      run_detection <- function(sub_df, scan_dir, use_thresh) {
-        if (is.null(sub_df) || nrow(sub_df) < 2 || sum(sub_df$y) == 0) {
-          return(data.table(x = numeric(0), y = numeric(0)))
-        }
-        sub_df <- if(scan_dir == "right") sub_df[order(x), ] else sub_df[order(-x), ]
-        thresh <- use_thresh
-        return(as.data.table(SternBrocotPhysics::find_nodes_cpp(sub_df, thresh, global_h_range)))
-      }
-
-      res_r <- run_detection(plot_df[x > 0], "right", use_thresh = global_thresh)
-      res_l <- run_detection(plot_df[x < 0], "left",  use_thresh = global_thresh)
-
-      # unique() handles merging the potential overlapping node at x=0
-      dot_df <- unique(data.table::rbindlist(list(res_l, res_r), fill = TRUE)[complete.cases(x, y)])
-
-      # --- CLEANED UP GAP LOGIC ---
+      # Gap Logic for Zero-Node
       if (nrow(res_l) > 0 && nrow(res_r) > 0) {
-        left_inner <- res_l[which.max(x)]
-        right_inner <- res_r[which.min(x)]
-        gap_df <- plot_df[x > left_inner$x & x < right_inner$x]
-
-        if (nrow(gap_df) >= 2) {
-          # Use the global threshold here too
-          thresh_gap <- global_thresh
-
-          if (!SternBrocotPhysics::contains_peak_cpp(gap_df, thresh_gap, global_h_range)) {
-            dot_df   <- dot_df[!(is_near(x, left_inner$x) | is_near(x, right_inner$x))]
-            y_center <- plot_df$y[which.min(abs(plot_df$x))]
-            dot_df   <- rbind(dot_df, data.table(x = 0, y = y_center))[order(x)]
-          }
-
+        if (!SternBrocotPhysics::contains_peak_cpp(plot_df[x > res_l[which.max(x)]$x & x < res_r[which.min(x)]$x],
+                                                   gabor_thresh, global_h_range)) {
+          dot_df <- rbind(dot_df[!(abs(x) < 1e-5)], data.table(x = 0, y = plot_df$y[which.min(abs(plot_df$x))]))
         }
       }
-      node_count_final <- as.numeric(nrow(dot_df))
+      node_count_final <- nrow(dot_df)
     }
 
+    # Write per-momentum density
     data.table::fwrite(rbind(
       data.table(type="density", x=plot_df$x, y=plot_df$y, node_count=node_count_final),
       data.table(type="node",    x=dot_df$x,  y=dot_df$y,  node_count=node_count_final),
-      fill=TRUE),
-      full_path, compress="gzip")
+      fill=TRUE), full_path, compress="gzip")
 
+    # Aggregate stats for summary
     num_cols <- names(dt)[sapply(dt, is.numeric)]
-    stats_list <- list(normalized_momentum = P_val, node_count = node_count_final, n_found = nrow(dt))
-    stats_list <- c(stats_list, setNames(lapply(dt[, ..num_cols], mean, na.rm=TRUE), paste0(num_cols, "_mean")),
-                    setNames(lapply(dt[, ..num_cols], median, na.rm=TRUE), paste0(num_cols, "_median")),
-                    setNames(lapply(dt[, ..num_cols], sd, na.rm=TRUE), paste0(num_cols, "_sd")))
+    stats <- list(normalized_momentum = P_val, node_count = node_count_final, n_found = nrow(dt))
+    stats <- c(stats, setNames(lapply(dt[, ..num_cols], mean, na.rm=TRUE), paste0(num_cols, "_mean")),
+               setNames(lapply(dt[, ..num_cols], median, na.rm=TRUE), paste0(num_cols, "_median")),
+               setNames(lapply(dt[, ..num_cols], sd, na.rm=TRUE), paste0(num_cols, "_sd")))
 
-    return(as.data.table(stats_list))
-  }, error = function(e) { message("Worker Error: ", e$message); return(NULL) })
+    return(as.data.table(stats))
+  }, error = function(e) return(NULL))
 }
 
-# --- EXECUTION ---
+# EXECUTION
 if (length(files_to_process) > 0) {
-  # Call future.apply explicitly
-  new_results <- future.apply::future_lapply(files_to_process,
-                                             process_file_full,
-                                             out_path = agg_dir,
-                                             future.seed = TRUE,
-                                             future.packages = c("data.table", "SternBrocotPhysics"),
-                                             future.scheduling = 100)
-  new_dt <- data.table::rbindlist(new_results, fill = TRUE)
+  with_progress({
+    p <- progressor(steps = length(files_to_process))
+    new_results <- future_lapply(files_to_process, function(f) {
+      res <- process_file_full(f, out_path = agg_dir)
+      p()
+      res
+    }, future.seed = TRUE, future.scheduling = 1000)
+  })
+
+  new_dt <- rbindlist(new_results, fill = TRUE)
 
   if (nrow(new_dt) > 0) {
     if (file.exists(summary_file)) {
-      final_dt <- unique(rbind(data.table::fread(summary_file), new_dt, fill = TRUE), by = "normalized_momentum")
+      final_dt <- unique(rbind(fread(summary_file), new_dt, fill = TRUE), by = "normalized_momentum")
     } else {
       final_dt <- new_dt
     }
-    data.table::fwrite(final_dt[order(normalized_momentum)], summary_file, compress = "gzip")
+    fwrite(final_dt[order(normalized_momentum)], summary_file, compress = "gzip")
     message("Success. Summary saved.")
-  } else {
-    message("No new data processed.")
   }
 }
-future::plan(future::sequential)
+plan(sequential)
