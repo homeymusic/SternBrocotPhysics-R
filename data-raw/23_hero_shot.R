@@ -10,8 +10,8 @@ if (!dir.exists(output_dir)) dir.create(output_dir, recursive = TRUE)
 data_dir <- "/Volumes/SanDisk4TB/SternBrocot/23_hero_shot"
 if (!dir.exists(data_dir)) dir.create(data_dir, recursive = TRUE)
 
-FIXED_KAPPA <- 4 / pi
-CIRCLE_PROJECTION <- 2 / pi
+CONJUGATE_CONSTRAINT <- pi/2 # system action
+FIXED_KAPPA <- pi/4 # detector angle
 
 # --- SIMULATION PARAMETERS ---
 alice_fixed <- 0.0 + 1e-5
@@ -29,8 +29,8 @@ SternBrocotPhysics::micro_macro_bell_erasure_sweep(
   detector_aperture = detector_aperture,
   dir = normalizePath(data_dir, mustWork = TRUE),
   count = sim_count,
-  kappa = FIXED_KAPPA,
-  delta_particle = CIRCLE_PROJECTION,
+  kappa = 1/FIXED_KAPPA,
+  delta_particle = 1/CONJUGATE_CONSTRAINT,
   mu_start = -pi,
   mu_end = pi,
   n_threads = 6
@@ -103,8 +103,8 @@ E_135 <- approx(dt_plot$phi, dt_plot$E, xout = 135)$y
 S_val <- abs(3 * E_45 - E_135)
 rmse_val <- sqrt(mean((dt_plot$E - dt_plot$Quantum)^2))
 
-subtitle_str <- sprintf("Parameters: Δ=2/π, κ=4/π | S=%.5f (Target 2.828) | RMSE=%.4f",
-                        S_val, rmse_val)
+subtitle_str <- sprintf("Parameters: Δ=%.5f, κ=%.5f | S=%.5f (Target 2.828) | RMSE=%.4f",
+                        CONJUGATE_CONSTRAINT, FIXED_KAPPA, S_val, rmse_val)
 
 classical_sawtooth <- function(x) {
   ifelse(x <= 180, -1 + (2*x/180), 3 - (2*x/180))
