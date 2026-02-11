@@ -2,8 +2,8 @@
 # Generator token: 10BE3573-1514-4C36-9D1C-5A225CD40393
 
 #' @export
-micro_macro_bell_erasure_sweep <- function(angles, detector_aperture, dir, count, kappa, delta_particle, mu_start, mu_end, n_threads = 0L) {
-    invisible(.Call(`_SternBrocotPhysics_micro_macro_bell_erasure_sweep`, angles, detector_aperture, dir, count, kappa, delta_particle, mu_start, mu_end, n_threads))
+micro_macro_bell_erasure_sweep <- function(detector_angles, dir, count, angular_momentum, microstate_particle_angle_start, microstate_particle_angle_end, n_threads = 0L) {
+    invisible(.Call(`_SternBrocotPhysics_micro_macro_bell_erasure_sweep`, detector_angles, dir, count, angular_momentum, microstate_particle_angle_start, microstate_particle_angle_end, n_threads))
 }
 
 erase_by_uncertainty <- function(x, uncertainty) {

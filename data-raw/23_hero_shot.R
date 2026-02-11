@@ -10,29 +10,26 @@ if (!dir.exists(output_dir)) dir.create(output_dir, recursive = TRUE)
 data_dir <- "/Volumes/SanDisk4TB/SternBrocot/23_hero_shot"
 if (!dir.exists(data_dir)) dir.create(data_dir, recursive = TRUE)
 
-CONJUGATE_CONSTRAINT <- pi/2 # system action
-FIXED_KAPPA <- pi/4 # detector angle
+ANGULAR_MOMENTUM <- sqrt(pi)/2 # de Gosson
 
 # --- SIMULATION PARAMETERS ---
 alice_fixed <- 0.0 + 1e-5
-detector_aperture = 1
+detector_aperture = 0.1
 bob_sweep   <- seq(0, 360, by = detector_aperture) + 1e-5
 all_angles  <- sort(unique(c(alice_fixed, bob_sweep)))
-sim_count   <- 1e5
+sim_count   <- 1e3
 
 cat("--- GENERATING HERO SHOT ---\n")
-cat(sprintf("Delta: pi / 2 (%.6f) | Kappa: 4/π (%.4f)\n", CIRCLE_PROJECTION, FIXED_KAPPA))
+cat(sprintf("Angular Momentum: (%.6f)\n", ANGULAR_MOMENTUM))
 
 # 1. RUN SIMULATION
 SternBrocotPhysics::micro_macro_bell_erasure_sweep(
-  angles = all_angles,
-  detector_aperture = detector_aperture,
+  detector_angles = all_angles,
   dir = normalizePath(data_dir, mustWork = TRUE),
   count = sim_count,
-  kappa = 1/FIXED_KAPPA,
-  delta_particle = 1/CONJUGATE_CONSTRAINT,
-  mu_start = -pi,
-  mu_end = pi,
+  angular_momentum = ANGULAR_MOMENTUM,
+  microstate_particle_angle_start = -pi,
+  microstate_particle_angle_end = pi,
   n_threads = 6
 )
 
@@ -57,7 +54,7 @@ for (b_ang in bob_sweep) {
 
     if (any(valid)) {
       # Physics Correlation
-      corr <- mean(as.numeric(dt_a$spin[valid]) * as.numeric(dt_b$spin[valid]))
+      corr <- -mean(as.numeric(dt_a$spin[valid]) * as.numeric(dt_b$spin[valid]))
 
       # Average Metrics for this angle
       avg_unc <- (mean(dt_a$uncertainty[valid]) + mean(dt_b$uncertainty[valid])) / 2
@@ -103,8 +100,8 @@ E_135 <- approx(dt_plot$phi, dt_plot$E, xout = 135)$y
 S_val <- abs(3 * E_45 - E_135)
 rmse_val <- sqrt(mean((dt_plot$E - dt_plot$Quantum)^2))
 
-subtitle_str <- sprintf("Parameters: Δ=%.5f, κ=%.5f | S=%.5f (Target 2.828) | RMSE=%.4f",
-                        CONJUGATE_CONSTRAINT, FIXED_KAPPA, S_val, rmse_val)
+subtitle_str <- sprintf("Parameters: Δ=%.5f | S=%.5f (Target 2.828) | RMSE=%.4f",
+                        ANGULAR_MOMENTUM, S_val, rmse_val)
 
 classical_sawtooth <- function(x) {
   ifelse(x <= 180, -1 + (2*x/180), 3 - (2*x/180))
