@@ -26,7 +26,7 @@ message(sprintf("Target Directory: %s", raw_directory))
 
 # Call the Rcpp API
 # Ensure the C++ side has been recompiled with the 'spin' logic removed
-SternBrocotPhysics::micro_macro_erasures_momentum(
+SternBrocotPhysics::micro_macro_erasures(
   momenta   = normalized_momenta,
   dir       = normalizePath(raw_directory, mustWork = TRUE),
   count     = microstates_count,

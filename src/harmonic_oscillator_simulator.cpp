@@ -21,7 +21,7 @@ static std::string fmt_val(double val, const char* format = "%.6f") {
 
 //' @export
 // [[Rcpp::export]]
-void micro_macro_erasures_momentum(NumericVector momenta, std::string dir, int count, int n_threads = 0) {
+void micro_macro_erasures(NumericVector momenta, std::string dir, int count, int n_threads = 0) {
   int max_depth_limit = 2000;
   std::vector<double> p_vec = Rcpp::as<std::vector<double>>(momenta);
   size_t n = p_vec.size();

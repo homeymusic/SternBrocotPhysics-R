@@ -4,12 +4,12 @@ plan(multisession, workers = parallel::detectCores() - 2)
 
 # --- CONFIGURATION ---
 base_data_dir_4TB <- "/Volumes/SanDisk4TB/SternBrocot"
-raw_dir  <- file.path(base_data_dir_4TB, "01_micro_macro_erasures_momentum")
-agg_dir  <- file.path(base_data_dir_4TB, "02_micro_marco_momentum_densities")
+raw_dir  <- file.path(base_data_dir_4TB, "01_micro_macro_erasures")
+agg_dir  <- file.path(base_data_dir_4TB, "02_micro_marco_densities")
 
 if (!dir.exists(agg_dir)) dir.create(agg_dir, recursive = TRUE)
 
-summary_file <- file.path(agg_dir, "02_micro_marco_momentum_densities.csv.gz")
+summary_file <- file.path(agg_dir, "02_micro_marco_densities.csv.gz")
 
 all_files <- list.files(raw_dir, pattern = "\\.csv\\.gz$", full.names = TRUE)
 
@@ -33,6 +33,7 @@ process_file_full <- function(f, out_path) {
 
   tryCatch({
     library(data.table)
+    setDTthreads(1)
     library(SternBrocotPhysics) # Explicitly load inside worker
 
     P_val <- as.numeric(gsub(".*_P_([0-9.]+)\\.csv\\.gz", "\\1", f))
