@@ -1,10 +1,10 @@
 # 01_micro_macro_erasures.R
-here::i_am("data-raw/01_micro_macro_momentum_erasures.R")
+here::i_am("data-raw/01_micro_macro_erasures.R")
 library(SternBrocotPhysics)
 
 # Drive Path Configuration
 base_data_dir_4TB <- "/Volumes/SanDisk4TB/SternBrocot"
-raw_directory  <- file.path(base_data_dir_4TB, "01_micro_macro_momentum_erasures")
+raw_directory  <- file.path(base_data_dir_4TB, "01_micro_macro_erasures")
 
 if (!dir.exists(raw_directory)) {
   dir.create(raw_directory, recursive = TRUE)
@@ -12,7 +12,7 @@ if (!dir.exists(raw_directory)) {
 
 # Simulation Parameters
 # 1e6 + 1 ensures we hit the 0.0 midpoint exactly in the mu_source linear spread
-microstates_count <- 1e6 + 1
+microstates_count <- 1e5 + 1
 
 # Granularity p = 0.01; sequence up to 301
 granularity_p <- 0.01
