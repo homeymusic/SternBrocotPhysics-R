@@ -509,9 +509,9 @@
 <text x='195.08' y='556.10' text-anchor='middle' style='font-size: 8.80px; fill: #4D4D4D; font-family: sans;' textLength='12.72px' lengthAdjust='spacingAndGlyphs'>-10</text>
 <text x='376.10' y='556.10' text-anchor='middle' style='font-size: 8.80px; fill: #4D4D4D; font-family: sans;' textLength='4.89px' lengthAdjust='spacingAndGlyphs'>0</text>
 <text x='557.13' y='556.10' text-anchor='middle' style='font-size: 8.80px; fill: #4D4D4D; font-family: sans;' textLength='9.79px' lengthAdjust='spacingAndGlyphs'>10</text>
-<text x='376.10' y='568.24' text-anchor='middle' style='font-size: 11.00px; font-family: sans;' textLength='5.50px' lengthAdjust='spacingAndGlyphs'>x</text>
-<text transform='translate(13.05,291.61) rotate(-90)' text-anchor='middle' style='font-size: 11.00px; font-family: sans;' textLength='5.50px' lengthAdjust='spacingAndGlyphs'>y</text>
-<text x='37.69' y='30.35' style='font-size: 11.00px; font-family: sans;' textLength='58.11px' lengthAdjust='spacingAndGlyphs'>Expected: 6</text>
-<text x='37.69' y='14.56' style='font-size: 13.20px; font-family: sans;' textLength='150.58px' lengthAdjust='spacingAndGlyphs'>P = 17 | Nodes Found: 58</text>
+<text x='376.10' y='568.24' text-anchor='middle' style='font-size: 11.00px; font-family: sans;' textLength='101.51px' lengthAdjust='spacingAndGlyphs'>coordinate q (Action)</text>
+<text transform='translate(13.05,291.61) rotate(-90)' text-anchor='middle' style='font-size: 11.00px; font-family: sans;' textLength='64.83px' lengthAdjust='spacingAndGlyphs'>density count</text>
+<text x='37.69' y='30.35' style='font-size: 11.00px; font-family: sans;' textLength='116.62px' lengthAdjust='spacingAndGlyphs'>Expected: 6 | Found: 58</text>
+<text x='37.69' y='14.56' style='font-size: 13.20px; font-family: sans;' textLength='144.71px' lengthAdjust='spacingAndGlyphs'>Diagnostic Scan | P = 17</text>
 </g>
 </svg>
