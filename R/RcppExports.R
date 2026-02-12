@@ -23,19 +23,12 @@ erasures <- function(momenta, dir, count, n_threads = 0L) {
     invisible(.Call(`_SternBrocotPhysics_erasures`, momenta, dir, count, n_threads))
 }
 
-#' Detect Oscillatory Nodes in Physical State Density
+#' Detect Significant Physical Features (Hysteresis)
 #'
-#' @param sub_df A DataFrame containing 'x' and 'y'.
-#' @param thresh The sensitivity threshold.
-#' @param global_h_range The total range of the histogram counts.
-#' @return A DataFrame of detected node coordinates (x, y).
+#' @param sub_df DataFrame with x (coordinate) and y (density)
+#' @param thresh The Gabor Uncertainty Threshold
 #' @export
-count_nodes_cpp <- function(sub_df, thresh, global_h_range) {
-    .Call(`_SternBrocotPhysics_count_nodes_cpp`, sub_df, thresh, global_h_range)
-}
-
-#' @export
-contains_peak_cpp <- function(sub_df, thresh, global_h_range) {
-    .Call(`_SternBrocotPhysics_contains_peak_cpp`, sub_df, thresh, global_h_range)
+count_nodes_cpp <- function(sub_df, thresh) {
+    .Call(`_SternBrocotPhysics_count_nodes_cpp`, sub_df, thresh)
 }
 

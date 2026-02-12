@@ -2,20 +2,15 @@
 % Please edit documentation in R/RcppExports.R
 \name{count_nodes_cpp}
 \alias{count_nodes_cpp}
-\title{Detect Oscillatory Nodes in Physical State Density}
+\title{Detect Significant Physical Features (Hysteresis)}
 \usage{
-count_nodes_cpp(sub_df, thresh, global_h_range)
+count_nodes_cpp(sub_df, thresh)
 }
 \arguments{
-\item{sub_df}{A DataFrame containing 'x' and 'y'.}
+\item{sub_df}{DataFrame with x (coordinate) and y (density)}
 
-\item{thresh}{The sensitivity threshold.}
-
-\item{global_h_range}{The total range of the histogram counts.}
-}
-\value{
-A DataFrame of detected node coordinates (x, y).
+\item{thresh}{The Gabor Uncertainty Threshold}
 }
 \description{
-Detect Oscillatory Nodes in Physical State Density
+Detect Significant Physical Features (Hysteresis)
 }

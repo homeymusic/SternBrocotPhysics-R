@@ -78,28 +78,14 @@ BEGIN_RCPP
 END_RCPP
 }
 // count_nodes_cpp
-DataFrame count_nodes_cpp(DataFrame sub_df, double thresh, double global_h_range);
-RcppExport SEXP _SternBrocotPhysics_count_nodes_cpp(SEXP sub_dfSEXP, SEXP threshSEXP, SEXP global_h_rangeSEXP) {
+DataFrame count_nodes_cpp(DataFrame sub_df, double thresh);
+RcppExport SEXP _SternBrocotPhysics_count_nodes_cpp(SEXP sub_dfSEXP, SEXP threshSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< DataFrame >::type sub_df(sub_dfSEXP);
     Rcpp::traits::input_parameter< double >::type thresh(threshSEXP);
-    Rcpp::traits::input_parameter< double >::type global_h_range(global_h_rangeSEXP);
-    rcpp_result_gen = Rcpp::wrap(count_nodes_cpp(sub_df, thresh, global_h_range));
-    return rcpp_result_gen;
-END_RCPP
-}
-// contains_peak_cpp
-bool contains_peak_cpp(DataFrame sub_df, double thresh, double global_h_range);
-RcppExport SEXP _SternBrocotPhysics_contains_peak_cpp(SEXP sub_dfSEXP, SEXP threshSEXP, SEXP global_h_rangeSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< DataFrame >::type sub_df(sub_dfSEXP);
-    Rcpp::traits::input_parameter< double >::type thresh(threshSEXP);
-    Rcpp::traits::input_parameter< double >::type global_h_range(global_h_rangeSEXP);
-    rcpp_result_gen = Rcpp::wrap(contains_peak_cpp(sub_df, thresh, global_h_range));
+    rcpp_result_gen = Rcpp::wrap(count_nodes_cpp(sub_df, thresh));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -110,8 +96,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_SternBrocotPhysics_erase_depth", (DL_FUNC) &_SternBrocotPhysics_erase_depth, 2},
     {"_SternBrocotPhysics_erase_uncertainty_and_depth", (DL_FUNC) &_SternBrocotPhysics_erase_uncertainty_and_depth, 3},
     {"_SternBrocotPhysics_erasures", (DL_FUNC) &_SternBrocotPhysics_erasures, 4},
-    {"_SternBrocotPhysics_count_nodes_cpp", (DL_FUNC) &_SternBrocotPhysics_count_nodes_cpp, 3},
-    {"_SternBrocotPhysics_contains_peak_cpp", (DL_FUNC) &_SternBrocotPhysics_contains_peak_cpp, 3},
+    {"_SternBrocotPhysics_count_nodes_cpp", (DL_FUNC) &_SternBrocotPhysics_count_nodes_cpp, 2},
     {NULL, NULL, 0}
 };
 

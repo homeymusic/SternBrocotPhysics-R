@@ -2,7 +2,7 @@
 % Please edit documentation in R/node_counter.R
 \name{count_nodes}
 \alias{count_nodes}
-\title{Count Nodes in Coordinate Density}
+\title{Count Nodes using Gabor Hysteresis}
 \usage{
 count_nodes(density)
 }
@@ -10,5 +10,5 @@ count_nodes(density)
 \item{density}{A data.table containing 'x' and 'y' columns.}
 }
 \description{
-Count Nodes in Coordinate Density
+Count Nodes using Gabor Hysteresis
 }

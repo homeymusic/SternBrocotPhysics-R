@@ -1,17 +1,14 @@
 #include <Rcpp.h>
 using namespace Rcpp;
 
-//' Detect Oscillatory Nodes in Physical State Density
+//' Detect Significant Physical Features (Hysteresis)
 //'
-//' @param sub_df A DataFrame containing 'x' and 'y'.
-//' @param thresh The sensitivity threshold.
-//' @param global_h_range The total range of the histogram counts.
-//' @return A DataFrame of detected node coordinates (x, y).
+//' @param sub_df DataFrame with x (coordinate) and y (density)
+//' @param thresh The Gabor Uncertainty Threshold
 //' @export
 // [[Rcpp::export]]
-DataFrame count_nodes_cpp(DataFrame sub_df, double thresh, double global_h_range) {
+DataFrame count_nodes_cpp(DataFrame sub_df, double thresh) {
 
-  // 1. Column Extraction & Validation
   if (!sub_df.containsElementNamed("x") || !sub_df.containsElementNamed("y")) {
     stop("DataFrame must contain 'x' and 'y' columns.");
   }
@@ -20,80 +17,62 @@ DataFrame count_nodes_cpp(DataFrame sub_df, double thresh, double global_h_range
   NumericVector y = sub_df["y"];
   int n = x.size();
 
-  // 2. Handle Edge Cases (Empty or Single Point)
-  if (n < 2) {
-    return DataFrame::create(_["x"] = NumericVector(0), _["y"] = NumericVector(0));
-  }
+  if (n < 2) return DataFrame::create(_["x"] = NumericVector(0), _["y"] = NumericVector(0));
 
-  if (global_h_range <= 0) global_h_range = 1.0;
-  double scaled_thresh = thresh * global_h_range;
+  std::vector<double> node_x;
+  std::vector<double> node_y;
 
-  // 3. Logic Setup
-  std::vector<double> res_x;
-  std::vector<double> res_y;
-  bool ready_to_fire = true;
-  double accumulator = 0;
+  // --- STATE MACHINE ---
+  // State: 0 = Seeking Valley (Moving Down), 1 = Seeking Peak (Moving Up)
+  int state = 0;
 
-  // 4. Node Detection Loop
-  for(int i = 0; i < (n - 1); ++i) {
-    double local_change = y[i+1] - y[i];
-    accumulator += local_change;
+  // Track extrema values AND their coordinates
+  double local_max = y[0];
+  double local_max_x = x[0]; // New tracker
 
-    if (ready_to_fire) {
-      if (accumulator < -scaled_thresh) accumulator = -scaled_thresh;
-      if (accumulator >= scaled_thresh) {
-        res_x.push_back(x[i+1]);
-        res_y.push_back(y[i+1]);
-        ready_to_fire = false;
-        accumulator = 0;
+  double local_min = y[0];
+  double local_min_x = x[0]; // New tracker
+
+  for(int i = 1; i < n; ++i) {
+    double val = y[i];
+    double coord = x[i];
+
+    if (state == 1) {
+      // --- STATE: CLIMBING (SEEKING PEAK) ---
+      if (val > local_max) {
+        local_max = val;
+        local_max_x = coord; // Update peak location
+      } else {
+        // Check for significant drop (Peak Confirmed)
+        if (val < (local_max - thresh)) {
+          state = 0;           // Switch to looking for a valley
+          local_min = val;
+          local_min_x = coord; // Reset floor tracker
+        }
       }
-    } else {
-      if (accumulator > scaled_thresh) accumulator = scaled_thresh;
-      if (accumulator <= -scaled_thresh) {
-        ready_to_fire = true;
-        accumulator = 0;
+    }
+    else {
+      // --- STATE: FALLING (SEEKING VALLEY/NODE) ---
+      if (val < local_min) {
+        local_min = val;
+        local_min_x = coord; // Update valley location
+      } else {
+        // Check for significant rise (Valley/Node Confirmed)
+        if (val > (local_min + thresh)) {
+          // FEATURE: We record the node at the TRUE BOTTOM, not current x[i]
+          node_x.push_back(local_min_x);
+          node_y.push_back(local_min);
+
+          state = 1;           // Switch to looking for a peak
+          local_max = val;
+          local_max_x = coord; // Reset ceiling tracker
+        }
       }
     }
   }
 
-
-  // 5. Direct Return
   return DataFrame::create(
-    _["x"] = wrap(res_x),
-    _["y"] = wrap(res_y)
+    _["x"] = wrap(node_x),
+    _["y"] = wrap(node_y)
   );
-}
-
-//' @export
-// [[Rcpp::export]]
-bool contains_peak_cpp(DataFrame sub_df, double thresh, double global_h_range) {
-  if (!sub_df.containsElementNamed("x") || !sub_df.containsElementNamed("y")) return false;
-  NumericVector y = sub_df["y"];
-  int n = y.size();
-  if (n < 2) return false;
-  if (global_h_range <= 0) global_h_range = 1.0;
-
-  double accumulator = 0;
-  bool rising = true; // State 1: Looking for the climb/summit
-
-  for(int i = 0; i < (n - 1); ++i) {
-    double local_change = (y[i+1] - y[i]) / global_h_range;
-    accumulator += local_change;
-
-    if (rising) {
-      if (accumulator < -thresh) accumulator = -thresh;
-      if (accumulator >= thresh) {
-        // Summit reached: Now we must see the descent
-        rising = false;
-        accumulator = 0;
-      }
-    } else {
-      if (accumulator > thresh) accumulator = thresh;
-      if (accumulator <= -thresh) {
-        // Descent confirmed: Peak is complete
-        return true;
-      }
-    }
-  }
-  return false;
 }

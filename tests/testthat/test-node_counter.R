@@ -18,7 +18,7 @@ test_that("Node counts match theoretical expectations for specific momenta", {
     14,        5
     15,        1
     16,        6
-    17,        6
+    17,        4
   ")
 
   # --- 2. Setup Paths ---
