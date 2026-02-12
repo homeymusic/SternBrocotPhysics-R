@@ -8,30 +8,396 @@ Stern-Brocot Physics
 <figcaption aria-hidden="true">The Golden Universe</figcaption>
 </figure>
 
-## Quantum Harmonic Oscillator
+------------------------------------------------------------------------
 
-An R package for computational experiments in classical and quantum
-physics using the Stern-Brocot tree.
+## 1. Summary: Node Count Evolution
 
-![](man/figures/README-dual-aspect-program-length-1.png)<!-- -->
+![](README_files/figure-gfm/summary-plot-1.png)<!-- -->
 
-![](man/figures/README-dual-aspect-node-count-1.png)<!-- -->
+------------------------------------------------------------------------
 
-![](man/figures/README-filter-closest-eigenstates-1.png)<!-- -->
+## 2. Full Diagnostic Scan (101 Momentum Steps)
 
-![](man/figures/README-plot-hybrid-eigen-grid-1.png)<!-- -->
+Each plot below represents a single file from
+`02_erasure_distance_densities`. Red dots are pulled from
+`03_erasure_distance_density_nodes`.
 
-![](man/figures/README-momentum-counts-histogram-1.png)<!-- -->
+![](README_files/figure-gfm/diagnostic-scan-1.png)<!-- -->
 
-![](man/figures/README-plot-median-distribution-1.png)<!-- -->
+------------------------------------------------------------------------
 
-![](man/figures/README-plot-full-grid-1.png)<!-- -->
+![](README_files/figure-gfm/diagnostic-scan-2.png)<!-- -->
 
-![](man/figures/README-distributions-for-manuscript-1.png)<!-- -->
+------------------------------------------------------------------------
 
-# Ellipse Parameterization (A = PQ)
+![](README_files/figure-gfm/diagnostic-scan-3.png)<!-- -->
 
-This visualization shows two overlapping ellipses centered at (0,0)
-where $A = PQ$.
+------------------------------------------------------------------------
 
-![](man/figures/README-experimental_ellipses-1.png)<!-- -->
+![](README_files/figure-gfm/diagnostic-scan-4.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-5.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-6.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-7.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-8.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-9.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-10.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-11.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-12.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-13.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-14.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-15.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-16.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-17.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-18.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-19.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-20.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-21.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-22.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-23.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-24.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-25.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-26.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-27.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-28.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-29.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-30.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-31.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-32.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-33.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-34.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-35.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-36.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-37.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-38.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-39.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-40.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-41.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-42.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-43.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-44.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-45.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-46.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-47.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-48.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-49.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-50.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-51.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-52.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-53.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-54.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-55.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-56.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-57.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-58.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-59.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-60.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-61.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-62.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-63.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-64.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-65.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-66.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-67.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-68.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-69.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-70.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-71.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-72.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-73.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-74.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-75.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-76.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-77.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-78.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-79.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-80.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-81.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-82.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-83.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-84.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-85.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-86.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-87.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-88.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-89.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-90.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-91.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-92.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-93.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-94.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/diagnostic-scan-95.png)<!-- -->
+
+------------------------------------------------------------------------

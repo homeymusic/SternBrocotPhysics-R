@@ -1,10 +1,10 @@
-# 01_micro_macro_erasures.R
-here::i_am("data-raw/01_micro_macro_erasures.R")
+# 01_erasures.R
+here::i_am("data-raw/01_erasures.R")
 library(SternBrocotPhysics)
 
 # Drive Path Configuration
 base_data_dir_4TB <- "/Volumes/SanDisk4TB/SternBrocot"
-raw_directory  <- file.path(base_data_dir_4TB, "01_micro_macro_erasures")
+raw_directory  <- file.path(base_data_dir_4TB, "01_erasures")
 
 if (!dir.exists(raw_directory)) {
   dir.create(raw_directory, recursive = TRUE)
@@ -13,10 +13,8 @@ if (!dir.exists(raw_directory)) {
 microstates_count <- 1e5 + 1
 
 # Granularity p = 0.01; sequence up to 301
-# granularity_p <- 0.1
-# normalized_momenta <- seq(1.0, 301, by = granularity_p)
-
-normalized_momenta <- c(9.97, 9.98)
+granularity_p <- 1
+normalized_momenta <- seq(1.0, 101, by = granularity_p)
 
 # Status Update
 n_files <- length(normalized_momenta)
@@ -26,7 +24,7 @@ message(sprintf("Target Directory: %s", raw_directory))
 
 # Call the Rcpp API
 # Ensure the C++ side has been recompiled with the 'spin' logic removed
-SternBrocotPhysics::micro_macro_erasures(
+SternBrocotPhysics::erasures(
   momenta   = normalized_momenta,
   dir       = normalizePath(raw_directory, mustWork = TRUE),
   count     = microstates_count,

@@ -28,7 +28,7 @@ inline bool check_file_exists(const std::string& name) {
 
 //' @export
 // [[Rcpp::export]]
-void micro_macro_erasures(NumericVector momenta, std::string dir, int count, int n_threads = 0) {
+void erasures(NumericVector momenta, std::string dir, int count, int n_threads = 0) {
   int max_depth_limit = 2000;
   std::vector<double> p_vec = Rcpp::as<std::vector<double>>(momenta);
   size_t n = p_vec.size();
@@ -42,7 +42,7 @@ void micro_macro_erasures(NumericVector momenta, std::string dir, int count, int
     double p = p_vec[i];
 
     char filename[128];
-    std::snprintf(filename, sizeof(filename), "micro_macro_erasures_P_%013.6f.csv.gz", p);
+    std::snprintf(filename, sizeof(filename), "erasures_P_%013.6f.csv.gz", p);
     std::string path = dir + "/" + std::string(filename);
 
     // Use the renamed function here

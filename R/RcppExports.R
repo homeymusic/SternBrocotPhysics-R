@@ -19,8 +19,8 @@ erase_by_uncertainty_and_depth <- function(x, uncertainty, depth) {
 }
 
 #' @export
-micro_macro_erasures <- function(momenta, dir, count, n_threads = 0L) {
-    invisible(.Call(`_SternBrocotPhysics_micro_macro_erasures`, momenta, dir, count, n_threads))
+erasures <- function(momenta, dir, count, n_threads = 0L) {
+    invisible(.Call(`_SternBrocotPhysics_erasures`, momenta, dir, count, n_threads))
 }
 
 #' Detect Oscillatory Nodes in Physical State Density

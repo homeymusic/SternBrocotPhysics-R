@@ -3,7 +3,7 @@
 export(contains_peak_cpp)
 export(count_nodes)
 export(count_nodes_cpp)
+export(erasures)
 export(micro_macro_bell_erasure_sweep)
-export(micro_macro_erasures)
 importFrom(Rcpp,sourceCpp)
 useDynLib(SternBrocotPhysics, .registration = TRUE)
