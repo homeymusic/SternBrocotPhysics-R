@@ -12,9 +12,8 @@ if (!dir.exists(raw_directory)) {
 
 microstates_count <- 1e5 + 1
 
-# Granularity p = 0.01; sequence up to 301
-granularity_p <- 1
-normalized_momenta <- seq(1.0, 101, by = granularity_p)
+granularity_p <- 0.001
+normalized_momenta <- seq(1.0, 101.0, by = granularity_p)
 
 # Status Update
 n_files <- length(normalized_momenta)
