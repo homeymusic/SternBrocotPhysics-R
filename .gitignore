@@ -54,3 +54,6 @@ inst/doc
 /Meta/
 data-raw/outputs/
 data-raw/outputs
+
+# test plots for human viewing
+_debug_plots
