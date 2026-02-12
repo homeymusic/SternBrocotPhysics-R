@@ -10,13 +10,13 @@ if (!dir.exists(raw_directory)) {
   dir.create(raw_directory, recursive = TRUE)
 }
 
-# Simulation Parameters
-# 1e6 + 1 ensures we hit the 0.0 midpoint exactly in the mu_source linear spread
 microstates_count <- 1e5 + 1
 
 # Granularity p = 0.01; sequence up to 301
-granularity_p <- 0.001
-normalized_momenta <- seq(1.0, 301, by = granularity_p)
+# granularity_p <- 0.1
+# normalized_momenta <- seq(1.0, 301, by = granularity_p)
+
+normalized_momenta <- c(9.97, 9.98)
 
 # Status Update
 n_files <- length(normalized_momenta)

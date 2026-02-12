@@ -30,8 +30,8 @@ micro_macro_erasures <- function(momenta, dir, count, n_threads = 0L) {
 #' @param global_h_range The total range of the histogram counts.
 #' @return A DataFrame of detected node coordinates (x, y).
 #' @export
-find_nodes_cpp <- function(sub_df, thresh, global_h_range) {
-    .Call(`_SternBrocotPhysics_find_nodes_cpp`, sub_df, thresh, global_h_range)
+count_nodes_cpp <- function(sub_df, thresh, global_h_range) {
+    .Call(`_SternBrocotPhysics_count_nodes_cpp`, sub_df, thresh, global_h_range)
 }
 
 #' @export

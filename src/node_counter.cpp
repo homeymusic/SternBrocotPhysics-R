@@ -9,7 +9,7 @@ using namespace Rcpp;
 //' @return A DataFrame of detected node coordinates (x, y).
 //' @export
 // [[Rcpp::export]]
-DataFrame find_nodes_cpp(DataFrame sub_df, double thresh, double global_h_range) {
+DataFrame count_nodes_cpp(DataFrame sub_df, double thresh, double global_h_range) {
 
   // 1. Column Extraction & Validation
   if (!sub_df.containsElementNamed("x") || !sub_df.containsElementNamed("y")) {

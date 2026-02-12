@@ -19,6 +19,7 @@ LinkingTo:
     RcppParallel,
     RcppThread
 Imports: 
+    data.table,
     Rcpp,
     RcppParallel
 Suggests: 
@@ -34,9 +35,12 @@ Suggests:
     patchwork,
     rmarkdown,
     scales,
+    testthat (>= 3.0.0),
     tidyr,
+    vdiffr,
     viridis
 VignetteBuilder: knitr
 Remotes: 
     RcppCore/RcppParallel
 SystemRequirements: zlib (for compressed file I/O)
+Config/testthat/edition: 3
