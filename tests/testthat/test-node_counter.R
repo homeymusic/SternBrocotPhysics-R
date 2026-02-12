@@ -5,13 +5,18 @@ library(SternBrocotPhysics)
 test_that("Node counts match theoretical expectations for specific momenta", {
   truth_table <- data.table::fread("
     momentum, expected_nodes
-    2.10,     0
-    9.97,     1
-    9.98,     1
-    6.36,     2
-    6.65,     2
-    12.46,    4
-    13.13,    4
+    3,        0
+    5,        1
+    7,        2
+    9,        3
+    10,       1
+    11,       1
+    12,       1
+    13,       4
+    14,       5
+    15,       1
+    16,       6
+    17,       6
   ")
 
   # Setup Paths
@@ -34,14 +39,14 @@ test_that("Node counts match theoretical expectations for specific momenta", {
     if (!file.exists(fixture_path)) {
       message(sprintf("Generating missing fixture for P = %s...", m_val))
 
-      SternBrocotPhysics::micro_macro_erasures(
+      SternBrocotPhysics::erasures(
         momenta   = m_val,
         dir       = normalizePath(temp_raw_dir, mustWork = TRUE),
         count     = 1e5 + 1,
         n_threads = 1
       )
 
-      raw_file <- file.path(temp_raw_dir, sprintf("micro_macro_erasures_P_%s.csv.gz", m_str))
+      raw_file <- file.path(temp_raw_dir, sprintf("erasures_P_%s.csv.gz", m_str))
       dt_raw <- data.table::fread(raw_file, select = c("found", "erasure_distance"))
 
       # Use explicit subsetting to avoid NSE issues in tests
