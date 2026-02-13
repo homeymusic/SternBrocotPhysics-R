@@ -4,7 +4,7 @@ library(foreach)
 library(doParallel)
 
 # --- QUICK SWEEP CONFIGURATION ---
-base_data_dir_4TB <- "/Volumes/SanDisk4TB/SternBrocot"
+base_data_dir_4TB <- "/Volumes/SanDisk4TB/SternBrocot-data"
 raw_directory     <- file.path(base_data_dir_4TB, "19_quick_manuscript_sweep")
 if (!dir.exists(raw_directory)) dir.create(raw_directory, recursive = TRUE)
 

@@ -2,7 +2,7 @@ library(data.table)
 library(SternBrocotPhysics)
 
 # --- CONFIGURATION ---
-base_data_dir_4TB <- "/Volumes/SanDisk4TB/SternBrocot"
+base_data_dir_4TB <- "/Volumes/SanDisk4TB/SternBrocot-data"
 raw_directory     <- file.path(base_data_dir_4TB, "21_golden_ratio_check")
 if (!dir.exists(raw_directory)) dir.create(raw_directory, recursive = TRUE)
 

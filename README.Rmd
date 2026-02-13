@@ -21,7 +21,7 @@ library(data.table)
 
 ```{r load-data, echo=F, message=F}
 # Path Configuration
-base_dir     <- "/Volumes/SanDisk4TB/SternBrocot"
+base_dir     <- "/Volumes/SanDisk4TB/SternBrocot-data"
 summary_path <- file.path(base_dir, "04_erasure_distance_summary.csv.gz")
 agg_dir      <- file.path(base_dir, "02_erasure_distance_densities")
 nodes_dir    <- file.path(base_dir, "03_erasure_distance_density_nodes")

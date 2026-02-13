@@ -1,7 +1,7 @@
 library(data.table)
 
 # --- 1. Configuration ---
-base_data_dir_4TB <- "/Volumes/SanDisk4TB/SternBrocot"
+base_data_dir_4TB <- "/Volumes/SanDisk4TB/SternBrocot-data"
 nodes_dir    <- file.path(base_data_dir_4TB, "03_erasure_distance_density_nodes")
 summary_file <- file.path(base_data_dir_4TB, "04_erasure_distance_summary.csv.gz")
 

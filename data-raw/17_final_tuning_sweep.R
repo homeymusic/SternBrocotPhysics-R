@@ -5,7 +5,7 @@ library(doParallel)
 
 # --- CONFIGURATION ---
 # 1. DIRECTORY SETUP (4TB External Drive)
-base_data_dir_4TB <- "/Volumes/SanDisk4TB/SternBrocot"
+base_data_dir_4TB <- "/Volumes/SanDisk4TB/SternBrocot-data"
 raw_directory     <- file.path(base_data_dir_4TB, "17_final_tuning_sweep")
 
 if (!dir.exists(raw_directory)) dir.create(raw_directory, recursive = TRUE)

@@ -7,7 +7,7 @@ library(SternBrocotPhysics)
 # --- 1. Configuration ---
 plan(multisession, workers = parallel::detectCores() - 2)
 
-base_data_dir_4TB <- "/Volumes/SanDisk4TB/SternBrocot"
+base_data_dir_4TB <- "/Volumes/SanDisk4TB/SternBrocot-data"
 density_dir <- file.path(base_data_dir_4TB, "02_erasure_distance_densities")
 nodes_out_dir <- file.path(base_data_dir_4TB, "03_erasure_distance_density_nodes")
 
