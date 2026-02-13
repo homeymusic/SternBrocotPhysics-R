@@ -10,12 +10,18 @@ test_that("Node counts match theoretical expectations for specific momenta", {
     1,         0
     3,         0
     5,         1
+    5.67,      1
     7,         2
+    7.64,      2
+    7.68,      2
     9,         3
     10,        1
     11,        1
     12,        1
     13,        4
+    13.04,     4
+    13.05,     4
+    13.07,     4
     14,        5
     15,        1
     16,        6
@@ -77,10 +83,12 @@ test_that("Node counts match theoretical expectations for specific momenta", {
 
     results <- count_nodes(density_data)
 
+    bw <- if(nrow(density_data) > 1) diff(density_data$x[1:2])[1] else 0.1
+
     # --- DEBUGGING & PLOTS ---
     p <- ggplot(density_data, aes(x, y)) +
-      geom_col(fill = "black", alpha = 0.25) +
-      geom_step(direction = "hv", color = "black", linewidth = 0.3) +
+      geom_col(fill = "black", alpha = 0.25, width = bw) +
+      geom_step(direction = "mid", color = "black", linewidth = 0.3) +
       labs(title = paste("Diagnostic | P =", m_val),
            subtitle = sprintf("Actual: %s | Expected: %s", results$node_count, expected_n)) +
       theme_minimal()

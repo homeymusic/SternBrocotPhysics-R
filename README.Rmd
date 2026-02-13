@@ -90,7 +90,7 @@ for (i in seq_len(nrow(dt_representatives))) {
     
     p <- ggplot(h_pts, aes(coordinate_q, density_count)) +
       geom_col(fill = "black", alpha = 0.2, width = bw) +
-      geom_step(direction = "hv", color = "black", linewidth = 0.3) +
+      geom_step(direction = "mid", color = "black", linewidth = 0.3) +
       labs(title = sprintf("Node Count: %d | %s", n_val, type_label),
            subtitle = sprintf("P = %f", p_val),
            x = "q", y = "Occupancy") +
