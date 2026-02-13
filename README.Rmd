@@ -56,12 +56,13 @@ ggplot(dt_plot, aes(x = normalized_momentum, y = node_count)) +
 
 ---
 
-## 2. Representative Diagnostic Scan (One Median Plot per Node Count)
+## 2. Representative Diagnostic Scan (First 8 Eigenstates: n=0 to n=7)
 ```{r diagnostic-scan, echo=FALSE, results='asis', fig.width=8, fig.height=4}
 # 1. Selection Logic: 
-# Filter out NA node_counts, then prioritize Eigenstates, then lowest momentum
-dt_representatives <- dt_summary[!is.na(node_count)][
-  order(node_count, -is_eigenstate, normalized_momentum)
+# Filter for node counts 0 through 7.
+# For each n, pick the momentum P closest to the ideal eigenstate (P = n * pi).
+dt_representatives <- dt_summary[node_count %in% 0:7][
+  order(abs(normalized_momentum - node_count * pi))
 ][, .SD[1], by = node_count]
 
 # 2. Sort by node_count for the report flow
@@ -72,7 +73,7 @@ for (i in seq_len(nrow(dt_representatives))) {
   n_val  <- dt_representatives$node_count[i]
   is_eig <- dt_representatives$is_eigenstate[i]
   
-  # Ensure is_eig is not NA before the if() check (extra safety)
+  # Ensure is_eig is not NA
   is_eig_safe <- isTRUE(is_eig)
   
   p_str  <- sprintf("%013.6f", p_val)
@@ -85,14 +86,15 @@ for (i in seq_len(nrow(dt_representatives))) {
     
     bw <- if(nrow(h_pts) > 1) diff(h_pts$coordinate_q[1:2]) else 0.1
     
-    # Using the safe boolean check
-    type_label <- if(is_eig_safe) "Eigenstate" else "Lowest Momentum (Non-Eigenstate)"
+    # Label as "Eigenstate" if it falls in the expected [n*pi, (n+1)*pi) range
+    type_label <- if(is_eig_safe) "Eigenstate" else "Closest Representative (Non-Eigenstate)"
     
     p <- ggplot(h_pts, aes(coordinate_q, density_count)) +
       geom_col(fill = "black", alpha = 0.2, width = bw) +
       geom_step(direction = "mid", color = "black", linewidth = 0.3) +
+      coord_cartesian(xlim = c(-p_val, p_val)) +
       labs(title = sprintf("Node Count: %d | %s", n_val, type_label),
-           subtitle = sprintf("P = %f", p_val),
+           subtitle = sprintf("P = %f (Ideal Eigenstate P ≈ %.2f)", p_val, n_val * pi),
            x = "q", y = "Occupancy") +
       theme_minimal(base_family = "mono")
     

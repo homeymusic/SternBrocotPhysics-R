@@ -109,10 +109,10 @@ classical_sawtooth <- function(x) {
 
 gp <- ggplot(dt_plot, aes(x = phi)) +
   stat_function(fun = classical_sawtooth,
-                color = "gray", linewidth = 0.8, alpha = 0.6) +
+                color = "darkgray", linewidth = 0.8, alpha = 0.6) +
   stat_function(fun = function(x) -cos(x * pi / 180),
-                color = "darkgray", linewidth = 1) +
-  geom_point(aes(y = E), color = "red", alpha = 0.5, size = 0.1) +
+                color = "gray", linewidth = 1) +
+  geom_point(aes(y = E), color = "black", alpha = 0.5, size = 0.1) +
   scale_x_continuous(
     breaks = seq(0, 360, by = 45),
     labels = paste0(seq(0, 360, by = 45), "°")

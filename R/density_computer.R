@@ -25,7 +25,7 @@ compute_density <- function(dt, p, bin_width = 0.1) {
   max_extent <- max(abs(f_rng))
 
   # Round up to next whole number + buffer
-  limit <- ceiling(max_extent) + 1.0
+  limit <- ceiling(max_extent)
 
   # Offset by half-bin to capture 0.0 in the center
   half_bin <- bin_width / 2
