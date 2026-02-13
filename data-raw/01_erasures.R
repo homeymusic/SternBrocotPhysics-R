@@ -3,7 +3,7 @@ library(SternBrocotPhysics)
 
 # Drive Path
 base_data_dir_4TB <- "/Volumes/SanDisk4TB/SternBrocot-data"
-raw_directory  <- file.path(base_data_dir_4TB, "01_erasures_dynamic")
+raw_directory  <- file.path(base_data_dir_4TB, "01_erasures")
 
 if (!dir.exists(raw_directory)) dir.create(raw_directory, recursive = TRUE)
 
