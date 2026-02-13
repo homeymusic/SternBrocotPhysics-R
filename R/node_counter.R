@@ -13,13 +13,13 @@ count_nodes <- function(density) {
     return(list(node_count = as.integer(NA), nodes = data.table::data.table(x=numeric(0), y=numeric(0))))
   }
 
+  # DISCOVERY THRESHOLD (2.0 sigma): High bar to find nodes
   hysteresis_thresh <- 2.0 * sqrt(mean_density)
 
   # --- 2. PEAK VALIDATION (Global Amplitude) ---
   min_y <- min(density[["y"]], na.rm = TRUE)
   max_y <- max(density[["y"]], na.rm = TRUE)
 
-  # Reject pure noise / DC offset
   if ((max_y - min_y) < hysteresis_thresh) {
     return(list(node_count = as.integer(NA), nodes = data.table::data.table(x=numeric(0), y=numeric(0))))
   }
@@ -55,7 +55,7 @@ count_nodes <- function(density) {
     max_x <- max(abs(density[["x"]]), na.rm = TRUE)
     dot_df <- dot_df[abs(dot_df[["x"]]) < max_x * 0.90, ]
 
-    # Singularity Patch
+    # --- CENTRAL PEAK VALIDATION (The Stitch) ---
     neg_nodes <- dot_df[dot_df[["x"]] < 0, ]
     pos_nodes <- dot_df[dot_df[["x"]] > 0, ]
 
@@ -65,40 +65,45 @@ count_nodes <- function(density) {
 
       gap_data <- density[density[["x"]] > closest_neg[["x"]] & density[["x"]] < closest_pos[["x"]], ]
 
-      if (nrow(gap_data) > 0) {
-        local_peak <- max(gap_data[["y"]], na.rm = TRUE)
-        avg_depth  <- (closest_neg[["y"]] + closest_pos[["y"]]) / 2
+      should_merge <- FALSE
 
-        if ((local_peak - avg_depth) < hysteresis_thresh) {
-          dot_df <- dot_df[!(dot_df[["x"]] == closest_neg[["x"]] | dot_df[["x"]] == closest_pos[["x"]]), ]
-          min_val <- min(gap_data[["y"]], na.rm = TRUE)
-          dot_df <- rbind(dot_df, data.table::data.table(x=0, y=min_val))
+      if (nrow(gap_data) == 0) {
+        should_merge <- TRUE
+      } else {
+        gap_peak <- max(gap_data[["y"]], na.rm = TRUE)
+        valley_floor <- max(closest_neg[["y"]], closest_pos[["y"]])
+        prominence <- gap_peak - valley_floor
+
+        # SEPARATION THRESHOLD (1.5 sigma): Lower bar to separate existing nodes
+        # We use 0.75 * hysteresis_thresh (which is 2.0 sigma) -> 1.5 sigma
+        merge_thresh <- 0.75 * hysteresis_thresh
+
+        if (prominence < merge_thresh) {
+          should_merge <- TRUE
         }
+      }
+
+      if (should_merge) {
+        dot_df <- dot_df[!(dot_df[["x"]] == closest_neg[["x"]] | dot_df[["x"]] == closest_pos[["x"]]), ]
+        min_val <- if(nrow(gap_data)>0) min(gap_data[["y"]], na.rm=TRUE) else (closest_neg[["y"]]+closest_pos[["y"]])/2
+        dot_df <- rbind(dot_df, data.table::data.table(x=0, y=min_val))
       }
     }
   }
 
   final_count <- nrow(dot_df)
 
-  # --- 5. STRUCTURE VALIDATION (Distinguish n=0 from Flat Box) ---
+  # --- 5. STRUCTURE VALIDATION ---
   if (final_count == 0) {
-    # Extract only the "Active Signal" (the part standing above the noise floor)
-    # FIX: Use standard evaluation for column extraction
     active_subset <- density[density[["y"]] > hysteresis_thresh, ]
 
     if (nrow(active_subset) > 5) {
       active_signal <- active_subset[["y"]]
-
       active_max <- max(active_signal)
       active_min <- min(active_signal)
       active_range <- active_max - active_min
 
-      # Logic:
-      # P=1 (Box): The active signal is just the flat top. Range ~ 0.
-      # P=3 (Steps): The active signal has tiers. Range >> 0.
-
       if (active_range < hysteresis_thresh) {
-        # The "mountain" is perfectly flat on top -> Artificial Box / Vacuum
         return(list(node_count = as.integer(NA), nodes = data.table::data.table(x=numeric(0), y=numeric(0))))
       }
     }

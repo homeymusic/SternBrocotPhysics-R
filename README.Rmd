@@ -28,57 +28,71 @@ nodes_dir    <- file.path(base_dir, "03_erasure_distance_density_nodes")
 
 # Load Summary
 dt_summary <- data.table::fread(summary_path)
+
+# Calculate is_eigenstate and handle NAs immediately
 dt_summary[, is_eigenstate := (floor(normalized_momentum / pi) == node_count)]
+dt_summary[is.na(is_eigenstate), is_eigenstate := FALSE]
 ```
 
 ```{r summary-plot, echo=FALSE, fig.width=12, fig.height=6, warning=FALSE}
-# 1. Clean data for the summary plot: 
-# Ensure node_count is treated as 0 if NA, and filter out any extreme P-values if necessary.
 dt_plot <- copy(dt_summary)
 dt_plot[is.na(node_count), node_count := 0]
 
-# 2. Render without warnings
 ggplot(dt_plot, aes(x = normalized_momentum, y = node_count)) +
-  # Using geom_step often looks better for integer node transitions
-  geom_step(color = "grey80", direction = "hv") + 
-  geom_point(aes(color = is_eigenstate), size = 2, na.rm = TRUE) +
+  # Adding alpha for transparency and jitter to handle overlapping points if node_count is dense
+  geom_point(aes(color = is_eigenstate), 
+             size = 1.2, 
+             alpha = 0.3, 
+             na.rm = TRUE) +
   scale_color_manual(values = c("TRUE" = "red", "FALSE" = "black")) +
   labs(
-    title = "Detected Nodes vs. Momentum (Diagnostic Scan)",
-    subtitle = "Red points indicate theoretical eigenstates (P ≈ nπ). Gaps indicate zero-node ground states.",
+    title = "Detected Nodes vs. Momentum (100k Point Scan)",
+    subtitle = "Red points: Eigenstates (P ≈ nπ). Black points: Intermediate states.",
     x = "Momentum P", y = "Node Count n", color = "Eigenstate?"
   ) +
-  theme_minimal()
+  theme_minimal() +
+  guides(color = guide_legend(override.aes = list(alpha = 1, size = 3)))
 ```
 
 ---
 
-## 2. Full Diagnostic Scan (101 Momentum Steps)
-
-Each plot below represents a single file from `02_erasure_distance_densities`. Red dots are pulled from `03_erasure_distance_density_nodes`.
-
+## 2. Representative Diagnostic Scan (One Median Plot per Node Count)
 ```{r diagnostic-scan, echo=FALSE, results='asis', fig.width=8, fig.height=4}
-# Sort ensures 1 to 101 sequence
-setorder(dt_summary, normalized_momentum)
+# 1. Selection Logic: 
+# Filter out NA node_counts, then prioritize Eigenstates, then lowest momentum
+dt_representatives <- dt_summary[!is.na(node_count)][
+  order(node_count, -is_eigenstate, normalized_momentum)
+][, .SD[1], by = node_count]
 
-for (i in seq_len(nrow(dt_summary))) {
-  p_val <- dt_summary$normalized_momentum[i]
-  p_str <- sprintf("%013.6f", p_val)
+# 2. Sort by node_count for the report flow
+setorder(dt_representatives, node_count)
+
+for (i in seq_len(nrow(dt_representatives))) {
+  p_val  <- dt_representatives$normalized_momentum[i]
+  n_val  <- dt_representatives$node_count[i]
+  is_eig <- dt_representatives$is_eigenstate[i]
   
+  # Ensure is_eig is not NA before the if() check (extra safety)
+  is_eig_safe <- isTRUE(is_eig)
+  
+  p_str  <- sprintf("%013.6f", p_val)
   d_path <- file.path(agg_dir, sprintf("erasure_distance_density_P_%s.csv.gz", p_str))
   n_path <- file.path(nodes_dir, sprintf("erasure_distance_nodes_P_%s.csv.gz", p_str))
   
   if (file.exists(d_path)) {
     h_pts <- data.table::fread(d_path)
-    # Filter out the NAs we put in for zero-node files
     n_pts <- if(file.exists(n_path)) data.table::fread(n_path)[!is.na(coordinate_q)] else data.table::data.table()
     
     bw <- if(nrow(h_pts) > 1) diff(h_pts$coordinate_q[1:2]) else 0.1
     
+    # Using the safe boolean check
+    type_label <- if(is_eig_safe) "Eigenstate" else "Lowest Momentum (Non-Eigenstate)"
+    
     p <- ggplot(h_pts, aes(coordinate_q, density_count)) +
       geom_col(fill = "black", alpha = 0.2, width = bw) +
       geom_step(direction = "hv", color = "black", linewidth = 0.3) +
-      labs(title = sprintf("P = %.1f | n = %d", p_val, dt_summary$node_count[i]),
+      labs(title = sprintf("Node Count: %d | %s", n_val, type_label),
+           subtitle = sprintf("P = %f", p_val),
            x = "q", y = "Occupancy") +
       theme_minimal(base_family = "mono")
     
@@ -86,7 +100,7 @@ for (i in seq_len(nrow(dt_summary))) {
       p <- p + geom_point(data = n_pts, aes(coordinate_q, density_count), color = "red", size = 2)
     }
     
-    cat("\n\n### Scan Step:", i, " | Momentum P =", p_val, "\n")
+    cat("\n\n### Node Count:", n_val, " (P =", p_val, ")\n")
     print(p)
     cat("\n\n---\n\n")
   }

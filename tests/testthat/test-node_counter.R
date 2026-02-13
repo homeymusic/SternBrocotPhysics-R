@@ -5,7 +5,6 @@ library(testthat)
 
 test_that("Node counts match theoretical expectations for specific momenta", {
   # --- 1. Truth Table Definition ---
-  # P=1 is NA (Vacuum), P=17 is 4 (Conservative Physics)
   truth_table <- data.table::fread("
     momentum, expected_nodes
     1,         NA
@@ -20,6 +19,7 @@ test_that("Node counts match theoretical expectations for specific momenta", {
     14,        5
     15,        1
     16,        6
+    16.617,    6
     17,        4
   ")
 
@@ -27,8 +27,12 @@ test_that("Node counts match theoretical expectations for specific momenta", {
   fixtures_dir <- test_path("fixtures")
   if (!dir.exists(fixtures_dir)) dir.create(fixtures_dir, recursive = TRUE)
 
-  debug_dir <- test_path("_debug_plots")
-  if (!dir.exists(debug_dir)) dir.create(debug_dir)
+  debug_plots_dir <- test_path("_debug_plots")
+  if (!dir.exists(debug_plots_dir)) dir.create(debug_plots_dir)
+
+  # NEW: Dedicated directory for raw data dumps
+  debug_data_dir <- test_path("_debug_data")
+  if (!dir.exists(debug_data_dir)) dir.create(debug_data_dir)
 
   # Local Temporary Simulation Path
   temp_raw_dir <- file.path(tempdir(), "raw_sim")
@@ -46,6 +50,7 @@ test_that("Node counts match theoretical expectations for specific momenta", {
     if (!file.exists(fixture_path)) {
       message(sprintf("Generating missing fixture for P = %s...", m_val))
 
+      # Note: Ensure devtools::document() has been run so this function is exported
       SternBrocotPhysics::erasures(
         momenta   = m_val,
         dir       = normalizePath(temp_raw_dir, mustWork = TRUE),
@@ -57,8 +62,6 @@ test_that("Node counts match theoretical expectations for specific momenta", {
 
       if (file.exists(raw_file)) {
         dt_raw <- data.table::fread(raw_file, select = c("found", "erasure_distance"))
-
-        # FIX: Explicit subsetting to avoid testthat scoping error
         dt_raw <- dt_raw[dt_raw$found == 1, ]
 
         if (nrow(dt_raw) > 0) {
@@ -72,8 +75,6 @@ test_that("Node counts match theoretical expectations for specific momenta", {
         }
         unlink(raw_file)
       } else {
-        # Fallback for vacuum state (P=1 often produces no valid erasures)
-        # Create a dummy zero-signal file so we test the NA logic
         dummy_df <- data.table::data.table(x=seq(-10,10,0.1), y=0)
         data.table::fwrite(dummy_df, fixture_path, compress = "gzip")
       }
@@ -98,10 +99,26 @@ test_that("Node counts match theoretical expectations for specific momenta", {
       p <- p + geom_point(data = results$nodes, aes(x, y), color = "red", size = 2, shape = 16)
     }
 
-    pdf_path <- file.path(debug_dir, sprintf("node_debug_P_%s.pdf", m_str))
+    pdf_path <- file.path(debug_plots_dir, sprintf("node_debug_P_%s.pdf", m_str))
     ggsave(pdf_path, plot = p, device = "pdf", width = 8, height = 6)
 
-    # --- Step 4: Assertion ---
+    # --- Step 4: FAILURE DUMP ---
+    is_mismatch <- FALSE
+    if (is.na(expected_n)) {
+      if (!is.na(results$node_count)) is_mismatch <- TRUE
+    } else {
+      if (is.na(results$node_count) || results$node_count != expected_n) is_mismatch <- TRUE
+    }
+
+    if (is_mismatch) {
+      dump_file <- file.path(debug_data_dir, sprintf("FAILURE_DATA_P_%s.csv", m_str))
+      data.table::fwrite(density_data, dump_file)
+
+      message(sprintf("\n[!!!] FAILURE DETECTED AT P=%s", m_val))
+      message(sprintf("      Raw data dumped to: %s", dump_file))
+    }
+
+    # --- Step 5: Assertion ---
     test_info <- sprintf("\n---> FAILURE AT P = %s\n---> Expected: %s\n---> Actual: %s\n---> Plot: %s",
                          m_val,
                          ifelse(is.na(expected_n), "NA", expected_n),
