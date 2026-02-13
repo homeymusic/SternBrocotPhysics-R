@@ -16,9 +16,9 @@ compute_density <- function(dt, p, bin_width = 0.1) {
 
   if (nrow(dt) == 0) return(NULL)
 
-  # --- 1. THE PHYSICS ---
-  # Action q = erasure * P^2
-  raw_fluc <- dt[["erasure_distance"]] * (p^2)
+  q = p
+  action = q * p
+  raw_fluc <- dt[["erasure_distance"]] * action
   f_rng <- range(raw_fluc, na.rm = TRUE)
 
   # --- 2. THE BINNING (Odd-Bin Symmetry) ---

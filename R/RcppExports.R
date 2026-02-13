@@ -34,9 +34,9 @@ erasures <- function(momenta, dir, n_threads = 0L) {
 #' Detect Significant Physical Features (Hysteresis)
 #'
 #' @param sub_df DataFrame with x (coordinate) and y (density)
-#' @param thresh The Gabor Uncertainty Threshold
+#' @param thresh_vec Vector of adaptive thresholds matching sub_df rows
 #' @export
-count_nodes_cpp <- function(sub_df, thresh) {
-    .Call(`_SternBrocotPhysics_count_nodes_cpp`, sub_df, thresh)
+count_nodes_cpp <- function(sub_df, thresh_vec) {
+    .Call(`_SternBrocotPhysics_count_nodes_cpp`, sub_df, thresh_vec)
 }
 

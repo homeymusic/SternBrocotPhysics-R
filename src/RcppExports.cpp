@@ -77,14 +77,14 @@ BEGIN_RCPP
 END_RCPP
 }
 // count_nodes_cpp
-DataFrame count_nodes_cpp(DataFrame sub_df, double thresh);
-RcppExport SEXP _SternBrocotPhysics_count_nodes_cpp(SEXP sub_dfSEXP, SEXP threshSEXP) {
+DataFrame count_nodes_cpp(DataFrame sub_df, NumericVector thresh_vec);
+RcppExport SEXP _SternBrocotPhysics_count_nodes_cpp(SEXP sub_dfSEXP, SEXP thresh_vecSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< DataFrame >::type sub_df(sub_dfSEXP);
-    Rcpp::traits::input_parameter< double >::type thresh(threshSEXP);
-    rcpp_result_gen = Rcpp::wrap(count_nodes_cpp(sub_df, thresh));
+    Rcpp::traits::input_parameter< NumericVector >::type thresh_vec(thresh_vecSEXP);
+    rcpp_result_gen = Rcpp::wrap(count_nodes_cpp(sub_df, thresh_vec));
     return rcpp_result_gen;
 END_RCPP
 }

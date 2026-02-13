@@ -4,12 +4,12 @@
 \alias{count_nodes_cpp}
 \title{Detect Significant Physical Features (Hysteresis)}
 \usage{
-count_nodes_cpp(sub_df, thresh)
+count_nodes_cpp(sub_df, thresh_vec)
 }
 \arguments{
 \item{sub_df}{DataFrame with x (coordinate) and y (density)}
 
-\item{thresh}{The Gabor Uncertainty Threshold}
+\item{thresh_vec}{Vector of adaptive thresholds matching sub_df rows}
 }
 \description{
 Detect Significant Physical Features (Hysteresis)

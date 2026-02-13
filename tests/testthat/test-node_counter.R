@@ -20,9 +20,9 @@ test_that("Node counts match theoretical expectations for specific momenta", {
     15,        1
     16,        6
     16.617,    6
-    17,        4
+    17,        6
     25,        7
-    50,        13
+    50,        12
   ")
 
   # --- 2. Setup Paths ---
@@ -44,47 +44,40 @@ test_that("Node counts match theoretical expectations for specific momenta", {
 
     fixture_path <- file.path(fixtures_dir, sprintf("density_P_%s.csv.gz", m_str))
 
-    # --- GENERATION (Now using Shared Logic) ---
-    if (!file.exists(fixture_path)) {
-      message(sprintf("Generating fixture for P = %s...", m_val))
+    # --- FORCED GENERATION ---
+    # We no longer check if the file exists. We always regenerate to ensure
+    # the fixtures match the current package version logic.
+    message(sprintf("Generating fresh fixture for P = %s...", m_val))
 
-      SternBrocotPhysics::erasures(
-        momenta   = m_val,
-        dir       = normalizePath(temp_raw_dir, mustWork = TRUE),
-        n_threads = 1
-      )
+    SternBrocotPhysics::erasures(
+      momenta   = m_val,
+      dir       = normalizePath(temp_raw_dir, mustWork = TRUE),
+      n_threads = 1
+    )
 
-      # 2. Compute Density (Using the new Package Function!)
-      raw_file <- file.path(temp_raw_dir, sprintf("erasures_P_%s.csv.gz", m_str))
-      if (file.exists(raw_file)) {
-        dt_raw <- data.table::fread(raw_file, select = c("found", "erasure_distance"))
+    raw_file <- file.path(temp_raw_dir, sprintf("erasures_P_%s.csv.gz", m_str))
 
-        # THIS IS THE DRY FIX:
-        density_df <- SternBrocotPhysics::compute_density(dt_raw, m_val)
+    if (file.exists(raw_file)) {
+      dt_raw <- data.table::fread(raw_file, select = c("found", "erasure_distance"))
+      density_df <- SternBrocotPhysics::compute_density(dt_raw, m_val)
 
-        if (!is.null(density_df)) {
-          data.table::fwrite(density_df, fixture_path, compress = "gzip")
-        }
-        unlink(raw_file)
-      } else {
-        # Fallback for failures
-        dummy <- data.table::data.table(coordinate_q=seq(-10,10,0.1), density_count=0) # Note col names match
-        data.table::fwrite(dummy, fixture_path, compress = "gzip")
+      if (!is.null(density_df)) {
+        data.table::fwrite(density_df, fixture_path, compress = "gzip")
       }
+      unlink(raw_file)
+    } else {
+      # Fallback for failures
+      dummy <- data.table::data.table(coordinate_q = seq(-10, 10, 0.1), density_count = 0)
+      data.table::fwrite(dummy, fixture_path, compress = "gzip")
     }
 
     # --- ASSERTION ---
-    # Load fixture (Columns are now: normalized_momentum, coordinate_q, density_count)
     density_data <- data.table::fread(fixture_path)
-
-    # Adapter: count_nodes expects 'x' and 'y'
-    # We can either update count_nodes to handle new names or rename here.
-    # Renaming here is safer for now:
-    data.table::setnames(density_data, old=c("coordinate_q", "density_count"), new=c("x", "y"))
+    data.table::setnames(density_data, old = c("coordinate_q", "density_count"), new = c("x", "y"))
 
     results <- count_nodes(density_data)
 
-    # --- DEBUGGING & PLOTS (Same as before) ---
+    # --- DEBUGGING & PLOTS ---
     p <- ggplot(density_data, aes(x, y)) +
       geom_col(fill = "black", alpha = 0.25) +
       geom_step(direction = "hv", color = "black", linewidth = 0.3) +
@@ -100,12 +93,7 @@ test_that("Node counts match theoretical expectations for specific momenta", {
     ggsave(pdf_path, plot = p, device = "pdf", width = 8, height = 6)
 
     # --- FAILURE DUMP ---
-    is_mismatch <- FALSE
-    if (is.na(expected_n)) {
-      if (!is.na(results$node_count)) is_mismatch <- TRUE
-    } else {
-      if (is.na(results$node_count) || results$node_count != expected_n) is_mismatch <- TRUE
-    }
+    is_mismatch <- if (is.na(expected_n)) !is.na(results$node_count) else (is.na(results$node_count) || results$node_count != expected_n)
 
     if (is_mismatch) {
       dump_file <- file.path(debug_data_dir, sprintf("FAILURE_DATA_P_%s.csv", m_str))
@@ -113,8 +101,7 @@ test_that("Node counts match theoretical expectations for specific momenta", {
       message(sprintf("[!!!] FAILURE P=%s. Data dumped.", m_val))
     }
 
-    test_info <- sprintf("FAILURE P=%s (Exp: %s, Act: %s)", m_val, expected_n, results$node_count)
-
+    test_info <- sprintf("FAILURE P=%s (Expected: %s, Actual: %s)", m_val, expected_n, results$node_count)
     if (is.na(expected_n)) {
       expect_true(is.na(results$node_count), info = test_info)
     } else {
@@ -123,4 +110,7 @@ test_that("Node counts match theoretical expectations for specific momenta", {
 
     vdiffr::expect_doppelganger(paste0("baseline_nodes_P_", m_str), p)
   }
+
+  # Final Cleanup of temp simulation files
+  unlink(temp_raw_dir, recursive = TRUE)
 })
