@@ -18,9 +18,17 @@ erase_by_uncertainty_and_depth <- function(x, uncertainty, depth) {
     .Call(`_SternBrocotPhysics_erase_uncertainty_and_depth`, x, uncertainty, depth)
 }
 
+#' Run Stern-Brocot Erasure Simulation
+#'
+#' Automatically scales the number of microstates (N) based on momentum (P)
+#' to ensure consistent signal-to-noise ratio across the phase space.
+#'
+#' @param momenta Vector of momentum values (P) to simulate.
+#' @param dir Output directory.
+#' @param n_threads Number of threads (0 = auto).
 #' @export
-erasures <- function(momenta, dir, count, n_threads = 0L) {
-    invisible(.Call(`_SternBrocotPhysics_erasures`, momenta, dir, count, n_threads))
+erasures <- function(momenta, dir, n_threads = 0L) {
+    invisible(.Call(`_SternBrocotPhysics_erasures`, momenta, dir, n_threads))
 }
 
 #' Detect Significant Physical Features (Hysteresis)

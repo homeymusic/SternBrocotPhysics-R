@@ -4,10 +4,10 @@ library(SternBrocotPhysics)
 library(testthat)
 
 test_that("Node counts match theoretical expectations for specific momenta", {
-  # --- 1. Truth Table Definition ---
+  # --- 1. Truth Table ---
   truth_table <- data.table::fread("
     momentum, expected_nodes
-    1,         NA
+    1,         0
     3,         0
     5,         1
     7,         2
@@ -21,24 +21,22 @@ test_that("Node counts match theoretical expectations for specific momenta", {
     16,        6
     16.617,    6
     17,        4
+    25,        7
+    50,        13
   ")
 
   # --- 2. Setup Paths ---
-  fixtures_dir <- test_path("fixtures")
-  if (!dir.exists(fixtures_dir)) dir.create(fixtures_dir, recursive = TRUE)
-
+  fixtures_dir    <- test_path("fixtures")
   debug_plots_dir <- test_path("_debug_plots")
-  if (!dir.exists(debug_plots_dir)) dir.create(debug_plots_dir)
+  debug_data_dir  <- test_path("_debug_data")
+  temp_raw_dir    <- file.path(tempdir(), "raw_sim")
 
-  # NEW: Dedicated directory for raw data dumps
-  debug_data_dir <- test_path("_debug_data")
-  if (!dir.exists(debug_data_dir)) dir.create(debug_data_dir)
+  # Ensure directories exist
+  for (d in c(fixtures_dir, debug_plots_dir, debug_data_dir, temp_raw_dir)) {
+    if (!dir.exists(d)) dir.create(d, recursive = TRUE)
+  }
 
-  # Local Temporary Simulation Path
-  temp_raw_dir <- file.path(tempdir(), "raw_sim")
-  if (!dir.exists(temp_raw_dir)) dir.create(temp_raw_dir)
-
-  # --- 3. Loop through Momentum Steps ---
+  # --- 3. Loop ---
   for (i in seq_len(nrow(truth_table))) {
     m_val <- truth_table$momentum[i]
     m_str <- sprintf("%013.6f", m_val)
@@ -46,63 +44,62 @@ test_that("Node counts match theoretical expectations for specific momenta", {
 
     fixture_path <- file.path(fixtures_dir, sprintf("density_P_%s.csv.gz", m_str))
 
-    # --- Step 1: Self-Generate Fixture if missing ---
+    # --- GENERATION (Now using Shared Logic) ---
     if (!file.exists(fixture_path)) {
-      message(sprintf("Generating missing fixture for P = %s...", m_val))
+      message(sprintf("Generating fixture for P = %s...", m_val))
 
-      # Note: Ensure devtools::document() has been run so this function is exported
       SternBrocotPhysics::erasures(
         momenta   = m_val,
         dir       = normalizePath(temp_raw_dir, mustWork = TRUE),
-        count     = 1e5 + 1,
         n_threads = 1
       )
 
+      # 2. Compute Density (Using the new Package Function!)
       raw_file <- file.path(temp_raw_dir, sprintf("erasures_P_%s.csv.gz", m_str))
-
       if (file.exists(raw_file)) {
         dt_raw <- data.table::fread(raw_file, select = c("found", "erasure_distance"))
-        dt_raw <- dt_raw[dt_raw$found == 1, ]
 
-        if (nrow(dt_raw) > 0) {
-          raw_fluc <- dt_raw$erasure_distance * (m_val^2)
-          f_rng <- range(raw_fluc, na.rm = TRUE)
-          h <- graphics::hist(raw_fluc, breaks = seq(f_rng[1], f_rng[2], length.out = 402), plot = FALSE)
+        # THIS IS THE DRY FIX:
+        density_df <- SternBrocotPhysics::compute_density(dt_raw, m_val)
 
-          density_df <- data.frame(x = h$mids, y = h$counts)
-          density_df$x[abs(density_df$x) < 1e-10] <- 0
-          data.table::fwrite(data.table::as.data.table(density_df), fixture_path, compress = "gzip")
+        if (!is.null(density_df)) {
+          data.table::fwrite(density_df, fixture_path, compress = "gzip")
         }
         unlink(raw_file)
       } else {
-        dummy_df <- data.table::data.table(x=seq(-10,10,0.1), y=0)
-        data.table::fwrite(dummy_df, fixture_path, compress = "gzip")
+        # Fallback for failures
+        dummy <- data.table::data.table(coordinate_q=seq(-10,10,0.1), density_count=0) # Note col names match
+        data.table::fwrite(dummy, fixture_path, compress = "gzip")
       }
     }
 
-    # --- Step 2: Run the Measure Logic ---
+    # --- ASSERTION ---
+    # Load fixture (Columns are now: normalized_momentum, coordinate_q, density_count)
     density_data <- data.table::fread(fixture_path)
+
+    # Adapter: count_nodes expects 'x' and 'y'
+    # We can either update count_nodes to handle new names or rename here.
+    # Renaming here is safer for now:
+    data.table::setnames(density_data, old=c("coordinate_q", "density_count"), new=c("x", "y"))
+
     results <- count_nodes(density_data)
 
-    # --- Step 3: Build Diagnostic Plot ---
+    # --- DEBUGGING & PLOTS (Same as before) ---
     p <- ggplot(density_data, aes(x, y)) +
       geom_col(fill = "black", alpha = 0.25) +
       geom_step(direction = "hv", color = "black", linewidth = 0.3) +
-      labs(title = paste("Diagnostic Scan | P =", m_val),
-           subtitle = sprintf("Expected: %s | Found: %s",
-                              ifelse(is.na(expected_n), "NA", expected_n),
-                              ifelse(is.na(results$node_count), "NA", results$node_count)),
-           x = "coordinate q (Action)", y = "density count") +
-      theme_minimal(base_family = "mono")
+      labs(title = paste("Diagnostic | P =", m_val),
+           subtitle = sprintf("Actual: %s | Expected: %s", results$node_count, expected_n)) +
+      theme_minimal()
 
     if (!is.null(results$nodes) && nrow(results$nodes) > 0) {
-      p <- p + geom_point(data = results$nodes, aes(x, y), color = "red", size = 2, shape = 16)
+      p <- p + geom_point(data = results$nodes, aes(x, y), color = "red", size = 2)
     }
 
     pdf_path <- file.path(debug_plots_dir, sprintf("node_debug_P_%s.pdf", m_str))
     ggsave(pdf_path, plot = p, device = "pdf", width = 8, height = 6)
 
-    # --- Step 4: FAILURE DUMP ---
+    # --- FAILURE DUMP ---
     is_mismatch <- FALSE
     if (is.na(expected_n)) {
       if (!is.na(results$node_count)) is_mismatch <- TRUE
@@ -113,17 +110,10 @@ test_that("Node counts match theoretical expectations for specific momenta", {
     if (is_mismatch) {
       dump_file <- file.path(debug_data_dir, sprintf("FAILURE_DATA_P_%s.csv", m_str))
       data.table::fwrite(density_data, dump_file)
-
-      message(sprintf("\n[!!!] FAILURE DETECTED AT P=%s", m_val))
-      message(sprintf("      Raw data dumped to: %s", dump_file))
+      message(sprintf("[!!!] FAILURE P=%s. Data dumped.", m_val))
     }
 
-    # --- Step 5: Assertion ---
-    test_info <- sprintf("\n---> FAILURE AT P = %s\n---> Expected: %s\n---> Actual: %s\n---> Plot: %s",
-                         m_val,
-                         ifelse(is.na(expected_n), "NA", expected_n),
-                         ifelse(is.na(results$node_count), "NA", results$node_count),
-                         pdf_path)
+    test_info <- sprintf("FAILURE P=%s (Exp: %s, Act: %s)", m_val, expected_n, results$node_count)
 
     if (is.na(expected_n)) {
       expect_true(is.na(results$node_count), info = test_info)

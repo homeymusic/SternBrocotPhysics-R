@@ -7,14 +7,24 @@ count_nodes <- function(density) {
     density <- data.table::as.data.table(density)
   }
 
-  # --- 1. Physics-Based Thresholding ---
-  mean_density <- mean(density[["y"]], na.rm = TRUE)
-  if (is.na(mean_density) || mean_density <= 0) {
+  # --- 1. Physics-Based Thresholding (ROBUST) ---
+  # Filter to active region to exclude vacuum zeros
+  active_y <- density[["y"]][density[["y"]] > 1e-9]
+
+  if (length(active_y) < 5) {
     return(list(node_count = as.integer(NA), nodes = data.table::data.table(x=numeric(0), y=numeric(0))))
   }
 
-  # DISCOVERY THRESHOLD (2.0 sigma): High bar to find nodes
-  hysteresis_thresh <- 2.0 * sqrt(mean_density)
+  # USE MEDIAN INSTEAD OF MEAN
+  # High-P states are "U-Shaped" with massive peaks at the edges.
+  # The 'median' stays anchored to the valley floor, preserving sensitivity.
+  robust_baseline <- median(active_y, na.rm = TRUE)
+
+  if (is.na(robust_baseline) || robust_baseline <= 0) {
+    return(list(node_count = as.integer(NA), nodes = data.table::data.table(x=numeric(0), y=numeric(0))))
+  }
+
+  hysteresis_thresh <- 2.0 * sqrt(robust_baseline)
 
   # --- 2. PEAK VALIDATION (Global Amplitude) ---
   min_y <- min(density[["y"]], na.rm = TRUE)
@@ -25,8 +35,6 @@ count_nodes <- function(density) {
   }
 
   # --- 3. OUTWARD SCANNING ---
-
-  # RIGHT SIDE
   right_data <- density[density[["x"]] >= 0, ]
   if (nrow(right_data) > 0) {
     right_data <- right_data[order(right_data[["x"]]), ]
@@ -35,7 +43,6 @@ count_nodes <- function(density) {
     res_r <- data.frame(x=numeric(0), y=numeric(0))
   }
 
-  # LEFT SIDE
   left_data <- density[density[["x"]] < 0, ]
   if (nrow(left_data) > 0) {
     left_data <- left_data[order(-left_data[["x"]]), ]
@@ -52,8 +59,8 @@ count_nodes <- function(density) {
   if (nrow(dot_df) > 0) {
     dot_df <- dot_df[order(dot_df[["x"]]), ]
 
-    max_x <- max(abs(density[["x"]]), na.rm = TRUE)
-    dot_df <- dot_df[abs(dot_df[["x"]]) < max_x * 0.90, ]
+    # REMOVED DESTRUCTIVE SPATIAL FILTER (max_x * 0.90)
+    # The nodes at high P are exactly at the edge. We must keep them.
 
     # --- CENTRAL PEAK VALIDATION (The Stitch) ---
     neg_nodes <- dot_df[dot_df[["x"]] < 0, ]
@@ -73,9 +80,6 @@ count_nodes <- function(density) {
         gap_peak <- max(gap_data[["y"]], na.rm = TRUE)
         valley_floor <- max(closest_neg[["y"]], closest_pos[["y"]])
         prominence <- gap_peak - valley_floor
-
-        # SEPARATION THRESHOLD (1.5 sigma): Lower bar to separate existing nodes
-        # We use 0.75 * hysteresis_thresh (which is 2.0 sigma) -> 1.5 sigma
         merge_thresh <- 0.75 * hysteresis_thresh
 
         if (prominence < merge_thresh) {
@@ -96,13 +100,8 @@ count_nodes <- function(density) {
   # --- 5. STRUCTURE VALIDATION ---
   if (final_count == 0) {
     active_subset <- density[density[["y"]] > hysteresis_thresh, ]
-
     if (nrow(active_subset) > 5) {
-      active_signal <- active_subset[["y"]]
-      active_max <- max(active_signal)
-      active_min <- min(active_signal)
-      active_range <- active_max - active_min
-
+      active_range <- max(active_subset[["y"]]) - min(active_subset[["y"]])
       if (active_range < hysteresis_thresh) {
         return(list(node_count = as.integer(NA), nodes = data.table::data.table(x=numeric(0), y=numeric(0))))
       }

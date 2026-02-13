@@ -28,42 +28,39 @@ files_to_process <- all_files[!(all_p_names %in% done_p_names)]
 process_erasure_distance_density <- function(f, out_path) {
   tryCatch({
     library(data.table)
+    # Use 1 thread per worker to avoid conflict with future_apply
     setDTthreads(1)
 
+    # --- 1. Extract Momentum (P) ---
     p_str <- gsub(".*erasures_P_([0-9.]+)\\.csv\\.gz", "\\1", f)
     P_val <- as.numeric(p_str)
 
-    # Specific measure name in the filename
+    # Define output path
     full_path <- file.path(out_path, sprintf("erasure_distance_density_P_%s.csv.gz", p_str))
 
+    # --- 2. Load Raw Data ---
     dt <- fread(f, select = c("found", "erasure_distance"))
-    dt <- dt[found == 1]
-    if (nrow(dt) == 0) return(NULL)
 
-    # Physics calc: Fluctuation Q = d * P^2
-    # This is the "Action" coordinate
-    raw_fluc <- dt[["erasure_distance"]] * (P_val^2)
-    f_rng <- range(raw_fluc, na.rm = TRUE)
+    # --- 3. THE PRO MOVE: Shared Logic ---
+    # We call the package function. This handles:
+    #   - Filtering found==1
+    #   - The P^2 Action scaling
+    #   - The 0.1 bin width
+    #   - The Odd-Bin Symmetry
+    #   - The floating point cleanup
 
-    # Generate 402-bin Histogram
-    h <- graphics::hist(raw_fluc, breaks = seq(f_rng[1], f_rng[2], length.out = 402), plot = FALSE)
+    # Note: Ensure you have rebuilt the package (Cmd+Shift+B or devtools::install())
+    density_df <- SternBrocotPhysics::compute_density(dt, P_val, bin_width = 0.1)
 
-    # Intuitive Naming: coordinate_q (Action) and density_count (Occupancy)
-    density_df <- data.table(
-      normalized_momentum = P_val,
-      coordinate_q        = h$mids,
-      density_count       = h$counts
-    )
+    if (is.null(density_df)) return(NULL)
 
-    # Cleanup floating point noise at origin for symmetry
-    density_df$coordinate_q[abs(density_df$coordinate_q) < 1e-10] <- 0
-
+    # --- 4. Write Result ---
     fwrite(density_df, full_path, compress = "gzip")
 
     return(data.table(normalized_momentum = P_val, status = "success"))
+
   }, error = function(e) return(NULL))
 }
-
 # --- 4. Execution ---
 if (length(files_to_process) > 0) {
   message(sprintf("Processing %d new erasure_distance density files...", length(files_to_process)))

@@ -28,7 +28,6 @@ DataFrame count_nodes_cpp(DataFrame sub_df, double thresh) {
 
   // Track extrema values AND their coordinates
   double local_max = y[0];
-  double local_max_x = x[0]; // New tracker
 
   double local_min = y[0];
   double local_min_x = x[0]; // New tracker
@@ -41,7 +40,6 @@ DataFrame count_nodes_cpp(DataFrame sub_df, double thresh) {
       // --- STATE: CLIMBING (SEEKING PEAK) ---
       if (val > local_max) {
         local_max = val;
-        local_max_x = coord; // Update peak location
       } else {
         // Check for significant drop (Peak Confirmed)
         if (val < (local_max - thresh)) {
@@ -65,7 +63,6 @@ DataFrame count_nodes_cpp(DataFrame sub_df, double thresh) {
 
           state = 1;           // Switch to looking for a peak
           local_max = val;
-          local_max_x = coord; // Reset ceiling tracker
         }
       }
     }

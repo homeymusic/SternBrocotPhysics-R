@@ -6,6 +6,7 @@
 #include <vector>
 #include <cmath>
 #include <sys/stat.h>
+#include <algorithm> // for std::max
 #include "erase.h"
 
 using namespace Rcpp;
@@ -18,7 +19,6 @@ static std::string fmt_val(double val, const char* format = "%.6f") {
   return std::string(buf);
 }
 
-// RENAMED to avoid collision with Rcpp::file_exists
 inline bool check_file_exists(const std::string& name) {
   struct stat buffer;
   return (stat(name.c_str(), &buffer) == 0);
@@ -26,12 +26,22 @@ inline bool check_file_exists(const std::string& name) {
 
 // --- 2. EXPORTED API ---
 
+//' Run Stern-Brocot Erasure Simulation
+//'
+//' Automatically scales the number of microstates (N) based on momentum (P)
+//' to ensure consistent signal-to-noise ratio across the phase space.
+//'
+//' @param momenta Vector of momentum values (P) to simulate.
+//' @param dir Output directory.
+//' @param n_threads Number of threads (0 = auto).
 //' @export
 // [[Rcpp::export]]
-void erasures(NumericVector momenta, std::string dir, int count, int n_threads = 0) {
-  int max_depth_limit = 2000;
+void erasures(NumericVector momenta, std::string dir, int n_threads = 0) {
+
   std::vector<double> p_vec = Rcpp::as<std::vector<double>>(momenta);
   size_t n = p_vec.size();
+
+  int max_depth_limit = 2000;
 
   int threads = (n_threads <= 0) ? (int)std::thread::hardware_concurrency() - 2 : n_threads;
   if (threads < 1) threads = 1;
@@ -41,23 +51,31 @@ void erasures(NumericVector momenta, std::string dir, int count, int n_threads =
   pool.parallelFor(0, n, [&](int i) {
     double p = p_vec[i];
 
+    // --- ENCAPSULATED PHYSICS LOGIC ---
+    // The Scaling Law: N = Density * Range
+    // Baseline: P=50 needed ~150k. Slope approx 3000.
+    // Floor: 100,000 for statistical significance at low P.
+
+    double auto_n = std::ceil(3000.0 * p);
+    if (auto_n < 100001.0) auto_n = 100001.0;
+
+    int current_count = (int)auto_n;
+
     char filename[128];
     std::snprintf(filename, sizeof(filename), "erasures_P_%013.6f.csv.gz", p);
     std::string path = dir + "/" + std::string(filename);
 
-    // Use the renamed function here
-    if (check_file_exists(path)) {
-      return;
-    }
+    if (check_file_exists(path)) return;
 
     double uncertainty = 1.0 / p;
     gzFile file = gzopen(path.c_str(), "wb1");
     if (!file) return;
 
+    // Header
     gzprintf(file, "momentum,erasure_distance,microstate,macrostate,uncertainty,numerator,denominator,stern_brocot_path,minimal_program,program_length,shannon_entropy,left_count,right_count,max_search_depth,found\n");
 
-    for (int j = 0; j < count; j++) {
-      double mu_source = (count > 1) ? -1.0 + (2.0 * j) / (double)(count - 1) : 0.0;
+    for (int j = 0; j < current_count; j++) {
+      double mu_source = (current_count > 1) ? -1.0 + (2.0 * j) / (double)(current_count - 1) : 0.0;
       EraseResult res = erase_single_native(mu_source, uncertainty, max_depth_limit);
 
       gzprintf(file, "%.6f,%s,%.6f,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%d,%d\n",

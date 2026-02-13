@@ -65,15 +65,14 @@ BEGIN_RCPP
 END_RCPP
 }
 // erasures
-void erasures(NumericVector momenta, std::string dir, int count, int n_threads);
-RcppExport SEXP _SternBrocotPhysics_erasures(SEXP momentaSEXP, SEXP dirSEXP, SEXP countSEXP, SEXP n_threadsSEXP) {
+void erasures(NumericVector momenta, std::string dir, int n_threads);
+RcppExport SEXP _SternBrocotPhysics_erasures(SEXP momentaSEXP, SEXP dirSEXP, SEXP n_threadsSEXP) {
 BEGIN_RCPP
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< NumericVector >::type momenta(momentaSEXP);
     Rcpp::traits::input_parameter< std::string >::type dir(dirSEXP);
-    Rcpp::traits::input_parameter< int >::type count(countSEXP);
     Rcpp::traits::input_parameter< int >::type n_threads(n_threadsSEXP);
-    erasures(momenta, dir, count, n_threads);
+    erasures(momenta, dir, n_threads);
     return R_NilValue;
 END_RCPP
 }
@@ -95,7 +94,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_SternBrocotPhysics_erase_uncertainty", (DL_FUNC) &_SternBrocotPhysics_erase_uncertainty, 2},
     {"_SternBrocotPhysics_erase_depth", (DL_FUNC) &_SternBrocotPhysics_erase_depth, 2},
     {"_SternBrocotPhysics_erase_uncertainty_and_depth", (DL_FUNC) &_SternBrocotPhysics_erase_uncertainty_and_depth, 3},
-    {"_SternBrocotPhysics_erasures", (DL_FUNC) &_SternBrocotPhysics_erasures, 4},
+    {"_SternBrocotPhysics_erasures", (DL_FUNC) &_SternBrocotPhysics_erasures, 3},
     {"_SternBrocotPhysics_count_nodes_cpp", (DL_FUNC) &_SternBrocotPhysics_count_nodes_cpp, 2},
     {NULL, NULL, 0}
 };
