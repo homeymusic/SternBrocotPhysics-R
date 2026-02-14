@@ -15,7 +15,7 @@ count_nodes <- function(density) {
   # Filter to active region to exclude vacuum zeros for the trend calculation
   active_idx <- which(density[["y"]] > 1e-9)
 
-  if (length(active_idx) < 5) {
+  if (length(active_idx) < 3) {
     return(list(node_count = as.integer(NA), nodes = data.table::data.table(x=numeric(0), y=numeric(0))))
   }
 

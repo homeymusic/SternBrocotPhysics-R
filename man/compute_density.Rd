@@ -4,7 +4,7 @@
 \alias{compute_density}
 \title{Compute Action Density from Raw Erasures}
 \usage{
-compute_density(dt, p, bin_width = 0.1)
+compute_density(dt, p, bin_width = 1)
 }
 \arguments{
 \item{dt}{A data.table containing a 'found' and 'erasure_distance' column.}

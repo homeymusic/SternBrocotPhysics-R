@@ -50,7 +50,7 @@ process_erasure_distance_density <- function(f, out_path) {
     #   - The floating point cleanup
 
     # Note: Ensure you have rebuilt the package (Cmd+Shift+B or devtools::install())
-    density_df <- SternBrocotPhysics::compute_density(dt, P_val, bin_width = 0.1)
+    density_df <- SternBrocotPhysics::compute_density(dt, P_val, bin_width = 2/3)
 
     if (is.null(density_df)) return(NULL)
 

@@ -8,7 +8,7 @@
 #' @param bin_width The resolution of the histogram (default 0.1).
 #' @return A data.table with columns: normalized_momentum, coordinate_q, density_count.
 #' @export
-compute_density <- function(dt, p, bin_width = 0.1) {
+compute_density <- function(dt, p, bin_width = 1) {
   # Filter for found states if not already done
   if ("found" %in% names(dt)) {
     dt <- dt[dt$found == 1, ]
