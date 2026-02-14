@@ -11,7 +11,7 @@ compute_density(dt, p, bin_width = 1)
 
 \item{p}{The momentum value (numeric).}
 
-\item{bin_width}{The resolution of the histogram (default 0.1).}
+\item{bin_width}{The resolution of the histogram.}
 }
 \value{
 A data.table with columns: normalized_momentum, coordinate_q, density_count.

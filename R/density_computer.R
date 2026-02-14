@@ -5,7 +5,7 @@
 #'
 #' @param dt A data.table containing a 'found' and 'erasure_distance' column.
 #' @param p The momentum value (numeric).
-#' @param bin_width The resolution of the histogram (default 0.1).
+#' @param bin_width The resolution of the histogram.
 #' @return A data.table with columns: normalized_momentum, coordinate_q, density_count.
 #' @export
 compute_density <- function(dt, p, bin_width = 1) {
