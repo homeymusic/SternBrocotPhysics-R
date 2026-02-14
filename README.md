@@ -1,4 +1,4 @@
-Stern-Brocot Physics
+Stern-Brocot Physics: Minimum Momentum Scan
 ================
 
 # Stern-Brocot Physics
@@ -16,7 +16,7 @@ Stern-Brocot Physics
 
 ------------------------------------------------------------------------
 
-## 2. Representative Diagnostic Scan (First 8 Eigenstates: n=0 to n=7)
+## 2. Representative Diagnostic Scans (n=0 to n=10)
 
 ### Node Count: 0 (P = 1 )
 
@@ -30,38 +30,56 @@ Stern-Brocot Physics
 
 ------------------------------------------------------------------------
 
-### Node Count: 2 (P = 6.28 )
+### Node Count: 2 (P = 4.11 )
 
 ![](README_files/figure-gfm/diagnostic-scan-3.png)<!-- -->
 
 ------------------------------------------------------------------------
 
-### Node Count: 3 (P = 9.2 )
+### Node Count: 3 (P = 8.02 )
 
 ![](README_files/figure-gfm/diagnostic-scan-4.png)<!-- -->
 
 ------------------------------------------------------------------------
 
-### Node Count: 4 (P = 12.57 )
+### Node Count: 4 (P = 8.22 )
 
 ![](README_files/figure-gfm/diagnostic-scan-5.png)<!-- -->
 
 ------------------------------------------------------------------------
 
-### Node Count: 5 (P = 15.03 )
+### Node Count: 5 (P = 13.36 )
 
 ![](README_files/figure-gfm/diagnostic-scan-6.png)<!-- -->
 
 ------------------------------------------------------------------------
 
-### Node Count: 6 (P = 18.85 )
+### Node Count: 6 (P = 13.37 )
 
 ![](README_files/figure-gfm/diagnostic-scan-7.png)<!-- -->
 
 ------------------------------------------------------------------------
 
-### Node Count: 7 (P = 19.87 )
+### Node Count: 7 (P = 17.19 )
 
 ![](README_files/figure-gfm/diagnostic-scan-8.png)<!-- -->
+
+------------------------------------------------------------------------
+
+### Node Count: 8 (P = 17.51 )
+
+![](README_files/figure-gfm/diagnostic-scan-9.png)<!-- -->
+
+------------------------------------------------------------------------
+
+### Node Count: 9 (P = 18.13 )
+
+![](README_files/figure-gfm/diagnostic-scan-10.png)<!-- -->
+
+------------------------------------------------------------------------
+
+### Node Count: 10 (P = 18.37 )
+
+![](README_files/figure-gfm/diagnostic-scan-11.png)<!-- -->
 
 ------------------------------------------------------------------------

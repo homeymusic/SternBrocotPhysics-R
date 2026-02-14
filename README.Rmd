@@ -1,5 +1,5 @@
 ---
-title: "Stern-Brocot Physics"
+title: "Stern-Brocot Physics: Minimum Momentum Scan"
 output:
   github_document: default
 ---
@@ -29,9 +29,14 @@ nodes_dir    <- file.path(base_dir, "03_erasure_distance_density_nodes")
 # Load Summary
 dt_summary <- data.table::fread(summary_path)
 
-# Calculate is_eigenstate and handle NAs immediately
-dt_summary[, is_eigenstate := (floor(normalized_momentum / pi) == node_count)]
-dt_summary[is.na(is_eigenstate), is_eigenstate := FALSE]
+# --- Selection Logic for Nodes 0 to 10 ---
+# Get the row with the absolute minimum momentum for each node count 0-10
+dt_representatives <- dt_summary[node_count %in% 0:10][
+  order(normalized_momentum)
+][, .SD[1], by = node_count]
+
+# Flag these specific points to turn them red in the first plot
+dt_summary[, is_selected := (normalized_momentum %in% dt_representatives$normalized_momentum)]
 ```
 
 ```{r summary-plot, echo=FALSE, fig.width=12, fig.height=6, warning=FALSE}
@@ -39,42 +44,34 @@ dt_plot <- copy(dt_summary)
 dt_plot[is.na(node_count), node_count := 0]
 
 ggplot(dt_plot, aes(x = normalized_momentum, y = node_count)) +
-  # Adding alpha for transparency and jitter to handle overlapping points if node_count is dense
-  geom_point(aes(color = is_eigenstate), 
+  # All points in faint black
+  geom_point(color = "black", 
              size = 1.2, 
-             alpha = 0.3, 
+             alpha = 0.1, 
              na.rm = TRUE) +
-  scale_color_manual(values = c("TRUE" = "red", "FALSE" = "black")) +
+  # Only the selected 0-10 min momentum points in red
+  geom_point(data = dt_plot[is_selected == TRUE], 
+             color = "red", 
+             size = 3) +
   labs(
-    title = "Detected Nodes vs. Momentum (100k Point Scan)",
-    subtitle = "Red points: Eigenstates (P ≈ nπ). Black points: Intermediate states.",
-    x = "Momentum P", y = "Node Count n", color = "Eigenstate?"
+    title = "Detected Nodes vs. Momentum (Highlighted Min Momentum 0-10)",
+    subtitle = "Red dots are the specific instances shown in the detailed plots below.",
+    x = "Momentum P", y = "Node Count n"
   ) +
-  theme_minimal() +
-  guides(color = guide_legend(override.aes = list(alpha = 1, size = 3)))
+  theme_minimal()
 ```
 
 ---
 
-## 2. Representative Diagnostic Scan (First 8 Eigenstates: n=0 to n=7)
-```{r diagnostic-scan, echo=FALSE, results='asis', fig.width=8, fig.height=4}
-# 1. Selection Logic: 
-# Filter for node counts 0 through 7.
-# For each n, pick the momentum P closest to the ideal eigenstate (P = n * pi).
-dt_representatives <- dt_summary[node_count %in% 0:7][
-  order(abs(normalized_momentum - node_count * pi))
-][, .SD[1], by = node_count]
+## 2. Representative Diagnostic Scans (n=0 to n=10)
 
-# 2. Sort by node_count for the report flow
+```{r diagnostic-scan, echo=FALSE, results='asis', fig.width=8, fig.height=4}
+# Sort to ensure sequential order in the output
 setorder(dt_representatives, node_count)
 
 for (i in seq_len(nrow(dt_representatives))) {
   p_val  <- dt_representatives$normalized_momentum[i]
   n_val  <- dt_representatives$node_count[i]
-  is_eig <- dt_representatives$is_eigenstate[i]
-  
-  # Ensure is_eig is not NA
-  is_eig_safe <- isTRUE(is_eig)
   
   p_str  <- sprintf("%013.6f", p_val)
   d_path <- file.path(agg_dir, sprintf("erasure_distance_density_P_%s.csv.gz", p_str))
@@ -82,19 +79,20 @@ for (i in seq_len(nrow(dt_representatives))) {
   
   if (file.exists(d_path)) {
     h_pts <- data.table::fread(d_path)
-    n_pts <- if(file.exists(n_path)) data.table::fread(n_path)[!is.na(coordinate_q)] else data.table::data.table()
+    n_pts <- if(file.exists(n_path)) {
+      data.table::fread(n_path)[!is.na(coordinate_q)] 
+    } else {
+      data.table::data.table()
+    }
     
     bw <- if(nrow(h_pts) > 1) diff(h_pts$coordinate_q[1:2]) else 0.1
-    
-    # Label as "Eigenstate" if it falls in the expected [n*pi, (n+1)*pi) range
-    type_label <- if(is_eig_safe) "Eigenstate" else "Closest Representative (Non-Eigenstate)"
     
     p <- ggplot(h_pts, aes(coordinate_q, density_count)) +
       geom_col(fill = "black", alpha = 0.2, width = bw) +
       geom_step(direction = "mid", color = "black", linewidth = 0.3) +
       coord_cartesian(xlim = c(-p_val, p_val)) +
-      labs(title = sprintf("Node Count: %d | %s", n_val, type_label),
-           subtitle = sprintf("P = %f (Ideal Eigenstate P ≈ %.2f)", p_val, n_val * pi),
+      labs(title = sprintf("Node Count: %d (Minimum Momentum)", n_val),
+           subtitle = sprintf("P = %f", p_val),
            x = "q", y = "Occupancy") +
       theme_minimal(base_family = "mono")
     

@@ -9,11 +9,13 @@ test_that("Node counts match theoretical expectations for specific momenta", {
     momentum, expected_nodes
     1,         0
     3,         0
+    4.11,      1
     5,         1
     5.67,      1
     7,         2
     7.64,      2
     7.68,      2
+    8.22,      3
     9,         3
     10,        1
     11,        1
