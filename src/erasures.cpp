@@ -24,6 +24,17 @@ inline bool check_file_exists(const std::string& name) {
   return (stat(name.c_str(), &buffer) == 0);
 }
 
+// --- 2. EXPORTED API ---
+
+//' Run Stern-Brocot Erasure Simulation
+//'
+//' Automatically scales the number of microstates (N) based on momentum (P)
+//' to ensure consistent signal-to-noise ratio across the phase space.
+//'
+//' @param momenta Vector of momentum values (P) to simulate.
+//' @param dir Output directory.
+//' @param n_threads Number of threads (0 = auto).
+//' @export
 // [[Rcpp::export]]
 void erasures(NumericVector momenta, std::string dir, int n_threads = 0) {
 
