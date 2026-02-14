@@ -53,7 +53,7 @@ count_nodes <- function(density) {
     res_r <- data.frame(x=numeric(0), y=numeric(0))
   }
 
-  left_data <- active_data[active_data[["x"]] < 0, ]
+  left_data <- active_data[active_data[["x"]] <= 0, ]
   if (nrow(left_data) > 0) {
     # Scan Left (Reverse to sort descending: Center -> Out)
     left_data <- left_data[order(-left_data[["x"]]), ]
