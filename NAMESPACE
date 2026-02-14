@@ -3,7 +3,6 @@
 export(compute_density)
 export(count_nodes)
 export(count_nodes_cpp)
-export(erasures)
 export(micro_macro_bell_erasure_sweep)
 import(data.table)
 importFrom(Rcpp,sourceCpp)
