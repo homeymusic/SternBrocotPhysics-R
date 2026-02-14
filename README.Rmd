@@ -1,5 +1,5 @@
 ---
-title: "Stern-Brocot Physics: First Octile (O1) Scan"
+title: "Stern-Brocot Physics: Parabola-Matched Scan"
 output:
   github_document: default
 ---
@@ -10,7 +10,7 @@ output:
 
 ---
 
-## 1. Summary: Node Count Evolution (First Octile Highlights)
+## 1. Summary: Node Count Evolution (Parabola-Matched)
 
 ```{r setup, include=FALSE}
 knitr::opts_knit$set(root.dir = here::here())
@@ -32,43 +32,62 @@ dt_summary <- data.table::fread(summary_path)
 # Handle NAs immediately
 dt_summary[is.na(node_count), node_count := 0]
 
-# --- Selection Logic (First Octile O1 per Node Count) ---
-# We sort by momentum and pick the record at the 12.5% mark.
-# Logic: index = max(1, (N + 7) %/% 8) ensuring the lower value on ties.
-dt_representatives <- dt_summary[
-  order(normalized_momentum), 
-  .SD[max(1, (.N + 7) %/% 8)], 
-  by = node_count
-]
+# --- CSV Export Logic ---
+# Export all data for Node Counts <= 10 and Momentum <= 65
+dt_export <- dt_summary[node_count <= 10 & normalized_momentum <= 65]
+fwrite(dt_export, "~/Desktop/stern_brocot_nodes_0-10_P_le_65.csv")
+
+# --- SELECTION LOGIC: PARABOLA MATCHING ---
+# We want to find the data point closest to the ideal theoretical parabola.
+# Parabola Definition:
+#   Vertex: n=0 at P=3
+#   Rim:    n=10 at P=33
+# Equation: n = k * (P - 3)^2  =>  10 = k * (33-3)^2  => k = 1/90
+# Target P for a given n: P = 3 + sqrt(90 * n)
+
+dt_valid <- dt_summary[normalized_momentum <= 50 & node_count <= 10]
+
+# For each node count, calculate the target P and find the closest actual row
+dt_representatives <- dt_valid[, {
+  target_p <- 3 + sqrt(90 * node_count)
+  .SD[which.min(abs(normalized_momentum - target_p))]
+}, by = node_count]
 
 # Flag for highlighting
-dt_summary[, is_selected := (normalized_momentum %in% dt_representatives$normalized_momentum)]
-
-# Save representatives to desktop
-fwrite(dt_representatives, "~/Desktop/stern_brocot_o1_representatives.csv")
+dt_summary[, is_selected := FALSE]
+dt_summary[normalized_momentum %in% dt_representatives$normalized_momentum, is_selected := TRUE]
 ```
 
 ```{r summary-plot, echo=FALSE, fig.width=12, fig.height=8, warning=FALSE}
-# Filter data to the specified range
-dt_plot <- dt_summary[normalized_momentum <= 60]
+# Plot displays only the valid range P <= 50
+dt_plot <- dt_valid
 
-# Calculate the max node count in this range for axis labeling
-max_n <- max(dt_plot$node_count, na.rm = TRUE)
+# --- TEXTBOOK PARABOLA CONSTRUCTION ---
+# We draw the ideal line so the user can see how close the selected points are.
+p_range <- seq(0, 50, length.out = 200)
+pred_data <- data.table(normalized_momentum = p_range)
+pred_data[, node_count := (1/90) * (normalized_momentum - 3)^2]
+# Filter to positive branch (P >= 3) and valid node counts
+pred_data <- pred_data[node_count >= 0 & normalized_momentum >= 3]
 
 ggplot(dt_plot, aes(x = normalized_momentum, y = node_count)) +
-  # Background: All scanned data points within range
+  # Background: Valid scanned data points (P <= 50)
   geom_point(color = "black", size = 1.0, alpha = 0.05, na.rm = TRUE) +
-  # Foreground: The O1 momentum points in red
-  geom_point(data = dt_plot[is_selected == TRUE], 
-             color = "red", size = 2) +
+  
+  # The "Textbook Parabola" (Green Line)
+  geom_line(data = pred_data, aes(y = node_count), 
+            color = "forestgreen", linetype = "dashed", size = 1.5, alpha = 0.9) +
+  
+  # Foreground: The Closest-Match points in red
+  geom_point(data = dt_representatives, 
+             color = "red", size = 3) +
+  
   # --- AXES ---
-  # X-axis limited at 60
-  # Y-axis shows every integer label from 0 to max_n
-  scale_x_continuous(limits = c(0, 60)) +
-  scale_y_continuous(breaks = seq(0, max_n, by = 1)) +
+  scale_x_continuous(limits = c(0, 50)) +
+  scale_y_continuous(limits = c(0, 10), breaks = seq(0, 10, by = 1)) +
   labs(
-    title = "Detected Nodes vs. Momentum (First Octile Selection)",
-    subtitle = sprintf("Red dots: 12.5th percentile momentum instance (O1). Y-axis labeled 0-%d.", max_n),
+    title = "Detected Nodes vs. Momentum (Parabola-Matched Selection)",
+    subtitle = "Red dots: Experimental data points closest to the ideal Green Line (Vertex P=3, Rim P=33).",
     x = "Momentum P", y = "Node Count n"
   ) +
   theme_minimal() +
@@ -77,7 +96,7 @@ ggplot(dt_plot, aes(x = normalized_momentum, y = node_count)) +
 
 ---
 
-## 2. Representative Diagnostic Scans (P <= 60)
+## 2. Representative Diagnostic Scans (Parabola Matches)
 
 ```{r diagnostic-scan, echo=FALSE, results='asis', fig.width=8, fig.height=4}
 # Sort sequentially for the report flow
@@ -88,9 +107,6 @@ for (i in seq_len(nrow(dt_representatives))) {
   n_val  <- dt_representatives$node_count[i]
   p_str  <- sprintf("%013.6f", p_val)
   
-  # Only plot diagnostic scans if the representative is within the P=60 range
-  if (p_val > 60) next
-  
   d_path <- file.path(agg_dir, sprintf("erasure_distance_density_P_%s.csv.gz", p_str))
   n_path <- file.path(nodes_dir, sprintf("erasure_distance_nodes_P_%s.csv.gz", p_str))
   
@@ -98,14 +114,13 @@ for (i in seq_len(nrow(dt_representatives))) {
     h_pts <- data.table::fread(d_path)
     n_pts <- if(file.exists(n_path)) data.table::fread(n_path)[!is.na(coordinate_q)] else data.table::data.table()
     
-    # --- FIXED BIN WIDTH 1.0 ---
     bw <- 1.0
     
     p <- ggplot(h_pts, aes(coordinate_q, density_count)) +
       geom_col(fill = "black", alpha = 0.3, width = bw) +
       geom_step(direction = "mid", color = "black", linewidth = 0.3) +
       coord_cartesian(xlim = c(-p_val, p_val)) +
-      labs(title = sprintf("Node Count: %d (First Octile / O1)", n_val),
+      labs(title = sprintf("Node Count: %d (Closest to Parabola)", n_val),
            subtitle = sprintf("P = %f | Fixed Bin Width = %.1f", p_val, bw),
            x = "q", y = "Occupancy") +
       theme_minimal(base_family = "mono")
