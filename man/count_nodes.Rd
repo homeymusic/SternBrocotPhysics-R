@@ -4,10 +4,12 @@
 \alias{count_nodes}
 \title{Count Nodes using Outward-Scanning Adaptive Hysteresis}
 \usage{
-count_nodes(density)
+count_nodes(density, debug = FALSE)
 }
 \arguments{
 \item{density}{A data.table containing 'x' and 'y' columns.}
+
+\item{debug}{Logical. If TRUE, prints decision logic to the console.}
 }
 \description{
 Count Nodes using Outward-Scanning Adaptive Hysteresis

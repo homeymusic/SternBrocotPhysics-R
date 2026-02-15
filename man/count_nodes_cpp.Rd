@@ -2,7 +2,7 @@
 % Please edit documentation in R/RcppExports.R
 \name{count_nodes_cpp}
 \alias{count_nodes_cpp}
-\title{Detect Significant Physical Features (Hysteresis)}
+\title{Detect Significant Physical Features (Standard Hysteresis)}
 \usage{
 count_nodes_cpp(sub_df, thresh_vec)
 }
@@ -12,5 +12,5 @@ count_nodes_cpp(sub_df, thresh_vec)
 \item{thresh_vec}{Vector of adaptive thresholds matching sub_df rows}
 }
 \description{
-Detect Significant Physical Features (Hysteresis)
+Detect Significant Physical Features (Standard Hysteresis)
 }

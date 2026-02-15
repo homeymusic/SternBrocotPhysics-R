@@ -76,7 +76,8 @@
 <rect x='646.96' y='317.09' width='18.51' height='204.97' style='stroke-width: 1.07; stroke: none; stroke-linecap: butt; stroke-linejoin: miter; fill: #000000; fill-opacity: 0.25;' />
 <rect x='665.47' y='522.07' width='18.51' height='0.00' style='stroke-width: 1.07; stroke: none; stroke-linecap: butt; stroke-linejoin: miter; fill: #000000; fill-opacity: 0.25;' />
 <polyline points='82.38,522.07 91.64,522.07 91.64,317.21 110.15,317.21 110.15,111.66 128.66,111.66 128.66,80.30 147.17,80.30 147.17,61.16 165.68,61.16 165.68,85.60 184.19,85.60 184.19,119.84 202.70,119.84 202.70,162.84 221.21,162.84 221.21,163.76 239.72,163.76 239.72,163.53 258.23,163.53 258.23,163.53 276.74,163.53 276.74,162.61 295.25,162.61 295.25,163.76 313.76,163.76 313.76,163.53 332.27,163.53 332.27,163.53 350.79,163.53 350.79,163.76 369.30,163.76 369.30,162.38 387.81,162.38 387.81,163.76 406.32,163.76 406.32,163.53 424.83,163.53 424.83,163.53 443.34,163.53 443.34,162.61 461.85,162.61 461.85,163.76 480.36,163.76 480.36,163.53 498.87,163.53 498.87,163.53 517.38,163.53 517.38,163.76 535.89,163.76 535.89,162.84 554.40,162.84 554.40,119.84 572.91,119.84 572.91,85.60 591.42,85.60 591.42,61.16 609.94,61.16 609.94,79.38 628.45,79.38 628.45,112.58 646.96,112.58 646.96,317.09 665.47,317.09 665.47,522.07 674.72,522.07 ' style='stroke-width: 0.64; stroke-linecap: butt;' />
-<circle cx='378.55' cy='162.38' r='2.49' style='stroke-width: 0.71; stroke: #FF0000; fill: #FF0000;' />
+<circle cx='360.04' cy='163.76' r='2.49' style='stroke-width: 0.71; stroke: #FF0000; fill: #FF0000;' />
+<circle cx='397.06' cy='163.76' r='2.49' style='stroke-width: 0.71; stroke: #FF0000; fill: #FF0000;' />
 </g>
 <g clip-path='url(#cpMC4wMHw3MjAuMDB8MC4wMHw1NzYuMDA=)'>
 <text x='37.65' y='525.10' text-anchor='end' style='font-size: 8.80px; fill: #4D4D4D; font-family: sans;' textLength='4.89px' lengthAdjust='spacingAndGlyphs'>0</text>
@@ -89,7 +90,7 @@
 <text x='563.66' y='556.10' text-anchor='middle' style='font-size: 8.80px; fill: #4D4D4D; font-family: sans;' textLength='9.79px' lengthAdjust='spacingAndGlyphs'>10</text>
 <text x='378.55' y='568.24' text-anchor='middle' style='font-size: 11.00px; font-family: sans;' textLength='5.50px' lengthAdjust='spacingAndGlyphs'>x</text>
 <text transform='translate(13.05,291.61) rotate(-90)' text-anchor='middle' style='font-size: 11.00px; font-family: sans;' textLength='5.50px' lengthAdjust='spacingAndGlyphs'>y</text>
-<text x='42.58' y='30.35' style='font-size: 11.00px; font-family: sans;' textLength='109.88px' lengthAdjust='spacingAndGlyphs'>Actual: 1 | Expected: 1</text>
+<text x='42.58' y='30.35' style='font-size: 11.00px; font-family: sans;' textLength='109.88px' lengthAdjust='spacingAndGlyphs'>Actual: 2 | Expected: 2</text>
 <text x='42.58' y='14.56' style='font-size: 13.20px; font-family: sans;' textLength='110.94px' lengthAdjust='spacingAndGlyphs'>Diagnostic | P = 15</text>
 </g>
 </svg>

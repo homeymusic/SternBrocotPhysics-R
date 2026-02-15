@@ -31,7 +31,7 @@ erasures <- function(momenta, dir, n_threads = 0L) {
     invisible(.Call(`_SternBrocotPhysics_erasures`, momenta, dir, n_threads))
 }
 
-#' Detect Significant Physical Features (Hysteresis)
+#' Detect Significant Physical Features (Standard Hysteresis)
 #'
 #' @param sub_df DataFrame with x (coordinate) and y (density)
 #' @param thresh_vec Vector of adaptive thresholds matching sub_df rows
