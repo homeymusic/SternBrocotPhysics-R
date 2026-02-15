@@ -20,6 +20,7 @@ test_that("Node counts match theoretical expectations for specific momenta", {
     10,        1
     11,        1
     12,        1
+    12.034,    4
     13,        4
     13.04,     4
     13.05,     4
@@ -30,7 +31,10 @@ test_that("Node counts match theoretical expectations for specific momenta", {
     16,        6
     16.617,    4
     17,        4
-    25,        3
+    17.05,     4
+    19.673,    7
+    21.974,    9
+    25,        5
     50,        10
   ")
 
