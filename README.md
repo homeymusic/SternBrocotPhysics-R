@@ -231,3 +231,119 @@ Stern-Brocot Physics: Momentum Scan (P \<= 30)
 ![](README_files/figure-gfm/q1-diagnostic-scan-11.png)<!-- -->
 
 ------------------------------------------------------------------------
+
+## 7. Summary: Parabolic Fit
+
+![](README_files/figure-gfm/parabola-offset-summary-1.png)<!-- -->
+
+## 8. Representative Diagnostic Scans (Offset Parabola Matches)
+
+    ## 
+    ## 
+    ## ### Node Count: 0  (P = 1 )
+
+![](README_files/figure-gfm/parabola-plots-1.png)<!-- -->
+
+    ## 
+    ## 
+    ## ---
+    ## 
+    ## 
+    ## 
+    ## ### Node Count: 1  (P = 5.996 )
+
+![](README_files/figure-gfm/parabola-plots-2.png)<!-- -->
+
+    ## 
+    ## 
+    ## ---
+    ## 
+    ## 
+    ## 
+    ## ### Node Count: 2  (P = 7.995 )
+
+![](README_files/figure-gfm/parabola-plots-3.png)<!-- -->
+
+    ## 
+    ## 
+    ## ---
+    ## 
+    ## 
+    ## 
+    ## ### Node Count: 3  (P = 10.534 )
+
+![](README_files/figure-gfm/parabola-plots-4.png)<!-- -->
+
+    ## 
+    ## 
+    ## ---
+    ## 
+    ## 
+    ## 
+    ## ### Node Count: 4  (P = 12.566 )
+
+![](README_files/figure-gfm/parabola-plots-5.png)<!-- -->
+
+    ## 
+    ## 
+    ## ---
+    ## 
+    ## 
+    ## 
+    ## ### Node Count: 5  (P = 14.05 )
+
+![](README_files/figure-gfm/parabola-plots-6.png)<!-- -->
+
+    ## 
+    ## 
+    ## ---
+    ## 
+    ## 
+    ## 
+    ## ### Node Count: 6  (P = 15.391 )
+
+![](README_files/figure-gfm/parabola-plots-7.png)<!-- -->
+
+    ## 
+    ## 
+    ## ---
+    ## 
+    ## 
+    ## 
+    ## ### Node Count: 7  (P = 16.585 )
+
+![](README_files/figure-gfm/parabola-plots-8.png)<!-- -->
+
+    ## 
+    ## 
+    ## ---
+    ## 
+    ## 
+    ## 
+    ## ### Node Count: 8  (P = 17.778 )
+
+![](README_files/figure-gfm/parabola-plots-9.png)<!-- -->
+
+    ## 
+    ## 
+    ## ---
+    ## 
+    ## 
+    ## 
+    ## ### Node Count: 9  (P = 18.842 )
+
+![](README_files/figure-gfm/parabola-plots-10.png)<!-- -->
+
+    ## 
+    ## 
+    ## ---
+    ## 
+    ## 
+    ## 
+    ## ### Node Count: 10  (P = 20.021 )
+
+![](README_files/figure-gfm/parabola-plots-11.png)<!-- -->
+
+    ## 
+    ## 
+    ## ---
