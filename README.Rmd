@@ -15,7 +15,7 @@ library(data.table)
 library(ggplot2)
 
 base_dir  <- "/Volumes/SanDisk4TB/SternBrocot-data"
-agg_dir   <-    file.path(base_dir, "02_erasure_distance_densities")
+density_dir   <-    file.path(base_dir, "02_erasure_distance_densities")
 nodes_dir <-    file.path(base_dir, "03_erasure_distance_density_nodes")
 summary_path <- file.path(base_dir, "04_erasure_distance_summary.csv.gz")
 
@@ -72,8 +72,8 @@ render_profiles <- function(matches_dt, dot_color) {
     q_str <- sprintf("%0.6f", q_val)
     
     # Path handling
-    d_path <- file.path(agg_dir, sprintf("erasure_distance_density_P_%s.csv.gz", q_str))
-    if (!file.exists(d_path)) d_path <- file.path(agg_dir, sprintf("erasure_distance_density_P_%013.6f.csv.gz", q_val))
+    d_path <- file.path(density_dir, sprintf("erasure_distance_density_P_%s.csv.gz", q_str))
+    if (!file.exists(d_path)) d_path <- file.path(density_dir, sprintf("erasure_distance_density_P_%013.6f.csv.gz", q_val))
     n_path <- file.path(nodes_dir, sprintf("erasure_distance_nodes_P_%s.csv.gz", q_str))
     if (!file.exists(n_path)) n_path <- file.path(nodes_dir, sprintf("erasure_distance_nodes_P_%013.6f.csv.gz", q_val))
 
@@ -104,8 +104,8 @@ render_profiles <- function(matches_dt, dot_color) {
       }
       
       # 4. Title Logic
-      plot_title <- sprintf("Nodes: %02d  |  Max Amplitude: %4.1f  |  Max Density: %6s", 
-                            row$node_count, max_q, format(max_h, big.mark=","))
+      plot_title <- sprintf("Nodes: %02d  |  Momentum: %3.3f  | Max Amplitude: %4.1f  |  Max Density: %6s", 
+                            row$node_count, row$normalized_momentum, max_q, format(max_h, big.mark=","))
 
       # 5. Generate Plot
       p <- ggplot(h_pts, aes(x = pct_q, y = pct_density)) +
