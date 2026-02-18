@@ -8,8 +8,8 @@ raw_directory  <- file.path(base_data_dir_4TB, "01_erasures")
 if (!dir.exists(raw_directory)) dir.create(raw_directory, recursive = TRUE)
 
 # --- CONFIGURATION: SCALING FROM FIRST PRINCIPLES ---
-granularity_p <- 0.001
-normalized_momenta <- seq(1.0, 31.0, by = granularity_p)
+granularity_p <- 0.0001
+normalized_momenta <- seq(granularity_p, 5.0, by = granularity_p)
 
 message(sprintf("Launching Dynamic Simulation."))
 message(sprintf("Total Files: %d", length(normalized_momenta)))

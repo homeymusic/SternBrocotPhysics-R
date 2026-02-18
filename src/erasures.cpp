@@ -54,9 +54,7 @@ void erasures(NumericVector momenta, std::string dir, int n_threads = 0) {
   pool.parallelFor(0, n, [&](int i) {
     double p = p_vec[i];
 
-    double auto_n = std::ceil(3000.0 * p);
-    if (auto_n < 100001.0) auto_n = 100001.0;
-    int current_count = (int)auto_n;
+    int current_count = 100001;
 
     char filename[128];
     // %013.6f ensures 1.01 becomes 000001.010000, matching your previous run
@@ -69,7 +67,7 @@ void erasures(NumericVector momenta, std::string dir, int n_threads = 0) {
     }
 
     compute_count++;
-    double uncertainty = 1.0 / p;
+    double uncertainty = 1.0 / (2.0 * M_PI * p);
     gzFile file = gzopen(path.c_str(), "wb1");
     if (!file) return;
 

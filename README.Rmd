@@ -1,376 +1,177 @@
----
-title: "Stern-Brocot Physics: Momentum Scan (P <= 30)"
-output:
-  github_document: default
----
-
-# Stern-Brocot Physics
-
-![The Golden Universe](man/figures/hero_bell.png)
-
----
-
-## 1. Summary: Node Count Evolution (Median of P <= 30)
-
-```{r setup, include=FALSE}
-knitr::opts_knit$set(root.dir = here::here())
-knitr::opts_chunk$set(fig.showtext = TRUE, dpi = 300)
-library(ggplot2)
+```{r ideal-state-selector, echo=FALSE, results='asis', fig.width=12, fig.height=8}
 library(data.table)
-```
+library(ggplot2)
 
-```{r load-data, echo=F, message=F}
-# Path Configuration
-base_dir     <- "/Volumes/SanDisk4TB/SternBrocot-data"
+# --- 1. Define the "Idea" (Theoretical Model) ---
+# We assume the ideal relationship is P = sqrt(n).
+# (You can adjust the coefficient 'k' if your data has a scaling factor, e.g., P = k * sqrt(n))
+get_ideal_momentum <- function(n) {
+  return(sqrt(n)) 
+}
+
+# --- 2. Load Data ---
+base_dir  <- "/Volumes/SanDisk4TB/SternBrocot-data"
 summary_path <- file.path(base_dir, "04_erasure_distance_summary.csv.gz")
-agg_dir      <- file.path(base_dir, "02_erasure_distance_densities")
-nodes_dir    <- file.path(base_dir, "03_erasure_distance_density_nodes")
+agg_dir   <- file.path(base_dir, "02_erasure_distance_densities")
+nodes_dir <- file.path(base_dir, "03_erasure_distance_density_nodes")
 
-# Load Summary
-dt_summary <- data.table::fread(summary_path)
+dt_summary <- fread(summary_path)
 
-# Handle NAs immediately
-dt_summary[is.na(node_count), node_count := 0]
+# --- 3. Find the "Best Match" for each n ---
+target_nodes <- 0:10
+dt_best_matches <- data.table()
 
-# --- CSV Export Logic ---
-# Export all data for Node Counts <= 10 and Momentum <= 65
-dt_export <- dt_summary[node_count <= 10 & normalized_momentum <= 65]
-fwrite(dt_export, "~/Desktop/stern_brocot_nodes_0-10_P_le_65.csv")
-
-# --- GLOBAL FILTER: P <= 30 ---
-# We restrict the analysis window to P <= 30 for all selection logic below.
-dt_window <- dt_summary[node_count <= 10 & normalized_momentum <= 30]
-
-# --- SELECTION 1: MEDIAN MOMENTUM ---
-# Strategy: Select the row with the Median Momentum within the P <= 30 window.
-# Tie-breaking: Use the lower median index.
-
-dt_median_reps <- dt_window[, {
-  # Sort by momentum
-  .SD[order(normalized_momentum)][floor((.N + 1) / 2)]
-}, by = node_count]
-
-# Flag for highlighting
-dt_summary[, is_selected := FALSE]
-dt_summary[normalized_momentum %in% dt_median_reps$normalized_momentum, is_selected := TRUE]
-```
-
-```{r summary-plot, echo=FALSE, fig.width=12, fig.height=8, warning=FALSE}
-# Plotting Background: Use the windowed data (P <= 30) plus a little margin
-dt_plot <- dt_window 
-
-ggplot(dt_plot, aes(x = normalized_momentum, y = node_count)) +
-  # Background: Contextual scan data (faint)
-  geom_point(color = "black", size = 1.0, alpha = 0.05, na.rm = TRUE) +
+for (val_n in target_nodes) {
   
-  # Foreground: The Median points in red
-  geom_point(data = dt_median_reps, 
-             color = "red", size = 3) +
+  # A. Filter: Get all runs that ACTUALLY resulted in 'val_n' nodes
+  candidates <- dt_summary[node_count == val_n]
   
-  # --- AXES ---
-  scale_x_continuous(limits = c(0, 35)) +
-  scale_y_continuous(limits = c(0, 10), breaks = seq(0, 10, by = 1)) +
-  labs(
-    title = "Detected Nodes vs. Momentum (Median of P <= 30)",
-    subtitle = "Red dots: Median momentum calculated ONLY from data where P <= 30.",
-    x = "Momentum P", y = "Node Count n"
-  ) +
-  theme_minimal() +
-  theme(panel.grid.minor.y = element_blank())
-```
+  if (nrow(candidates) > 0) {
+    # B. Calculate Ideal Momentum for this n
+    p_ideal <- get_ideal_momentum(val_n)
+    
+    # C. Select the candidate closest to the Ideal Momentum
+    # This finds the run where the physics behaved "most perfectly"
+    best_idx <- which.min(abs(candidates$normalized_momentum - p_ideal))
+    best_row <- candidates[best_idx]
+    
+    # Add metadata for plotting
+    best_row[, p_ideal_target := p_ideal]
+    best_row[, deviation := normalized_momentum - p_ideal]
+    
+    dt_best_matches <- rbind(dt_best_matches, best_row)
+  }
+}
 
----
-
-## 2. Representative Diagnostic Scans (Median Matches)
-
-```{r diagnostic-scan, echo=FALSE, results='asis', fig.width=8, fig.height=4}
-# Sort sequentially for the report flow
-setorder(dt_median_reps, node_count)
-
-for (i in seq_len(nrow(dt_median_reps))) {
-  p_val  <- dt_median_reps$normalized_momentum[i]
-  n_val  <- dt_median_reps$node_count[i]
-  p_str  <- sprintf("%013.6f", p_val)
+# --- 4. Plot 1: The Selection Overview ---
+# This proves we are picking points along the ideal curve
+p_overview <- ggplot() +
+  # Background (All Data)
+  geom_point(data = dt_summary, aes(x = normalized_momentum, y = node_count), 
+             color = "grey80", size = 1) +
   
-  d_path <- file.path(agg_dir, sprintf("erasure_distance_density_P_%s.csv.gz", p_str))
-  n_path <- file.path(nodes_dir, sprintf("erasure_distance_nodes_P_%s.csv.gz", p_str))
+  # The Ideal Curve (Reference)
+  stat_function(fun = function(x) x^2, color = "blue", linetype = "dotted", alpha=0.5) +
   
+  # The Selected "Golden Samples"
+  geom_point(data = dt_best_matches, aes(x = normalized_momentum, y = node_count), 
+             color = "red", size = 4, shape = 21, fill = "gold", stroke = 1.5) +
+  
+  # Labels
+  geom_text(data = dt_best_matches, aes(x = normalized_momentum, y = node_count, 
+                                        label = sprintf("n=%d", node_count)),
+            nudge_x = -0.2, color = "black", fontface = "bold") +
+  
+  labs(title = "Selecting the 'Ideal' Quantum States",
+       subtitle = "Grey: All Simulations. Red/Gold: The single run closest to Theory (P ~ sqrt(n)) for each n.",
+       x = "Momentum (P)", y = "Observed Nodes (n)") +
+  theme_minimal()
+
+print(p_overview)
+cat("\n\n---\n\n")
+
+# --- 5. Plot 2: The Density Profiles for the Golden Samples ---
+for (i in seq_len(nrow(dt_best_matches))) {
+  
+  row <- dt_best_matches[i]
+  p_val <- row$normalized_momentum
+  n_obs <- row$node_count
+  
+  # Construct Paths
+  p_str <- sprintf("%0.6f", p_val) 
+  d_file <- sprintf("erasure_distance_density_P_%s.csv.gz", p_str)
+  d_path <- file.path(agg_dir, d_file)
+  
+  # Fallback for padded filenames
+  if (!file.exists(d_path)) {
+     d_path <- file.path(agg_dir, sprintf("erasure_distance_density_P_%013.6f.csv.gz", p_val))
+  }
+  
+  n_file <- sprintf("erasure_distance_nodes_P_%s.csv.gz", p_str)
+  n_path <- file.path(nodes_dir, n_file)
+  if (!file.exists(n_path)) {
+     n_path <- file.path(nodes_dir, sprintf("erasure_distance_nodes_P_%013.6f.csv.gz", p_val))
+  }
+
   if (file.exists(d_path)) {
-    h_pts <- data.table::fread(d_path)
-    n_pts <- if(file.exists(n_path)) data.table::fread(n_path)[!is.na(coordinate_q)] else data.table::data.table()
+    h_pts <- fread(d_path)
+    n_pts <- if(file.exists(n_path)) fread(n_path) else data.table()
     
-    bw <- 1.0
+    if (nrow(n_pts) > 0 && "coordinate_q" %in% names(n_pts)) {
+      n_pts <- n_pts[!is.na(coordinate_q)]
+    }
+
+    limit_q <- max(abs(h_pts$coordinate_q)) * 1.1
     
-    # Generate Plot
-    p <- ggplot(h_pts, aes(coordinate_q, density_count)) +
-      geom_col(fill = "black", alpha = 0.3, width = bw) +
-      geom_step(direction = "mid", color = "black", linewidth = 0.3) +
-      coord_cartesian(xlim = c(-p_val, p_val)) +
-      labs(title = sprintf("Node Count: %d (Median Selection)", n_val),
-           subtitle = sprintf("P = %f | Fixed Bin Width = %.1f", p_val, bw),
-           x = "q", y = "Occupancy") +
-      theme_minimal(base_family = "mono")
+    p <- ggplot(h_pts, aes(x = coordinate_q, y = density_count)) +
+      geom_col(fill = "black", alpha = 0.7, width = 1.0) + # Solid black bars for high contrast
+      
+      labs(
+        title = sprintf("Ideal State: n = %d", n_obs),
+        subtitle = sprintf("Selected Run: P = %.4f (Deviation from Theory: %.4f)", p_val, row$deviation),
+        x = "Coordinate (Q)", y = "Density"
+      ) +
+      coord_cartesian(xlim = c(-limit_q, limit_q)) +
+      theme_minimal() +
+      theme(panel.grid.minor = element_blank())
     
-    # Overlay Node detections if available
+    # Overlay the detected nodes as Red dots to show the count clearly
     if (nrow(n_pts) > 0) {
-      p <- p + geom_point(data = n_pts, aes(coordinate_q, density_count), color = "red", size = 2)
+      p <- p + geom_point(data = n_pts, aes(x = coordinate_q, y = density_count), 
+                          color = "red", size = 3)
     }
     
-    # Output to Markdown
-    cat("\n\n### Node Count:", n_val, " (P =", p_val, ")\n")
+    cat(sprintf("\n\n### Best Specimen: n=%d\n", n_obs))
     print(p)
     cat("\n\n---\n\n")
   }
 }
+
 ```
+```{r test-zero-point-offset, echo=FALSE, results='asis'}
+library(data.table)
 
----
+# Load Data
+base_dir  <- "/Volumes/SanDisk4TB/SternBrocot-data"
+summary_path <- file.path(base_dir, "04_erasure_distance_summary.csv.gz")
+dt_summary <- fread(summary_path)
 
-## 3. Summary: Node Count Evolution (Minimum of P <= 30)
+# Filter for "Clean" Quantum States (avoiding the dip)
+# We use n=0,1,2 (Ground states) and n>=9 (High energy) to anchor the fit
+clean_data <- dt_summary[node_count <= 2 | node_count >= 9]
 
-```{r min-summary-plot, echo=FALSE, fig.width=12, fig.height=8, warning=FALSE}
-# --- SELECTION 2: MINIMUM MOMENTUM ---
-# Strategy: Select the row with the absolute lowest normalized_momentum within the P <= 30 window.
-# This finds the "onset" of each node count.
+# --- Model 1: Semi-Classical (Offset 0) ---
+model_0 <- lm(normalized_momentum ~ sqrt(node_count), data = clean_data)
+r2_0 <- summary(model_0)$r.squared
+aic_0 <- AIC(model_0)
+coeffs_0 <- coef(model_0)
 
-dt_min_reps <- dt_window[, .SD[which.min(normalized_momentum)], by = node_count]
+# --- Model 2: Quantum Harmonic Oscillator (Offset 1/2) ---
+model_half <- lm(normalized_momentum ~ sqrt(node_count + 0.5), data = clean_data)
+r2_half <- summary(model_half)$r.squared
+aic_half <- AIC(model_half)
+coeffs_half <- coef(model_half)
 
-ggplot(dt_plot, aes(x = normalized_momentum, y = node_count)) +
-  # Background: Contextual scan data
-  geom_point(color = "black", size = 1.0, alpha = 0.05, na.rm = TRUE) +
-  
-  # Foreground: The Minimum points in Blue
-  geom_point(data = dt_min_reps, 
-             color = "blue", size = 3) +
-  
-  # --- AXES ---
-  scale_x_continuous(limits = c(0, 35)) +
-  scale_y_continuous(limits = c(0, 10), breaks = seq(0, 10, by = 1)) +
-  labs(
-    title = "Detected Nodes vs. Momentum (Minimum/Onset of P <= 30)",
-    subtitle = "Blue dots: The lowest momentum value where each node count is first observed (restricted to P <= 30).",
-    x = "Momentum P", y = "Node Count n"
-  ) +
-  theme_minimal() +
-  theme(panel.grid.minor.y = element_blank())
-```
+# --- Report Results ---
+cat("\n### Statistical Comparison: Which Physics Fits Better?\n\n")
 
-## 4. Representative Diagnostic Scans (Minimum Matches)
+cat("**Model A (Semi-Classical):** $P \\approx a \\sqrt{n} + b$\n")
+cat(sprintf("* R-Squared: %.5f\n", r2_0))
+cat(sprintf("* AIC Score: %.2f (Lower is better)\n", aic_0))
+cat(sprintf("* Intercept (b): %.4f\n\n", coeffs_0[1]))
 
-```{r min-diagnostic-scan, echo=FALSE, results='asis', fig.width=8, fig.height=4}
-# Sort sequentially for the report flow
-setorder(dt_min_reps, node_count)
+cat("**Model B (Quantum Harmonic):** $P \\approx a \\sqrt{n + 1/2} + b$\n")
+cat(sprintf("* R-Squared: %.5f\n", r2_half))
+cat(sprintf("* AIC Score: %.2f (Lower is better)\n", aic_half))
+cat(sprintf("* Intercept (b): %.4f\n\n", coeffs_half[1]))
 
-for (i in seq_len(nrow(dt_min_reps))) {
-  p_val  <- dt_min_reps$normalized_momentum[i]
-  n_val  <- dt_min_reps$node_count[i]
-  p_str  <- sprintf("%013.6f", p_val)
-  
-  d_path <- file.path(agg_dir, sprintf("erasure_distance_density_P_%s.csv.gz", p_str))
-  n_path <- file.path(nodes_dir, sprintf("erasure_distance_nodes_P_%s.csv.gz", p_str))
-  
-  if (file.exists(d_path)) {
-    h_pts <- data.table::fread(d_path)
-    n_pts <- if(file.exists(n_path)) data.table::fread(n_path)[!is.na(coordinate_q)] else data.table::data.table()
-    
-    bw <- 1.0
-    
-    # Generate Plot
-    p <- ggplot(h_pts, aes(coordinate_q, density_count)) +
-      geom_col(fill = "black", alpha = 0.3, width = bw) +
-      geom_step(direction = "mid", color = "black", linewidth = 0.3) +
-      coord_cartesian(xlim = c(-p_val, p_val)) +
-      labs(title = sprintf("Node Count: %d (Minimum Onset)", n_val),
-           subtitle = sprintf("P = %f | Fixed Bin Width = %.1f", p_val, bw),
-           x = "q", y = "Occupancy") +
-      theme_minimal(base_family = "mono")
-    
-    # Overlay Node detections if available
-    if (nrow(n_pts) > 0) {
-      p <- p + geom_point(data = n_pts, aes(coordinate_q, density_count), color = "blue", size = 2)
-    }
-    
-    # Output to Markdown
-    cat("\n\n### Node Count:", n_val, " (P =", p_val, ")\n")
-    print(p)
-    cat("\n\n---\n\n")
-  }
+# Verdict Logic
+if (aic_half < aic_0) {
+  cat("**VERDICT:** The data prefers the **Quantum 1/2 Offset**.\n")
+  cat("The simulation is correctly reproducing the Zero-Point Energy shift!\n")
+} else {
+  cat("**VERDICT:** The data prefers the **Zero Offset**.\n")
+  cat("The 'nodes' in this information-theoretic model might follow a strictly discrete spacing starting from 0.\n")
 }
-```
 
----
-
-## 5. Summary: Node Count Evolution (1st Quartile of P <= 30)
-
-```{r q1-summary-plot, echo=FALSE, fig.width=12, fig.height=8, warning=FALSE}
-# --- SELECTION 3: FIRST QUARTILE MOMENTUM ---
-# Strategy: Select the row with the 1st Quartile (25th Percentile) Momentum within the P <= 30 window.
-# Index logic: floor((N + 1) / 4). Ensure index is at least 1.
-
-dt_q1_reps <- dt_window[, {
-  # Sort by momentum
-  sorted_sd <- .SD[order(normalized_momentum)]
-  # Calculate 1st Quartile index
-  idx <- max(1, floor((.N + 1) / 4))
-  sorted_sd[idx]
-}, by = node_count]
-
-ggplot(dt_plot, aes(x = normalized_momentum, y = node_count)) +
-  # Background: Contextual scan data
-  geom_point(color = "black", size = 1.0, alpha = 0.05, na.rm = TRUE) +
-  
-  # Foreground: The 1st Quartile points in Purple
-  geom_point(data = dt_q1_reps, 
-             color = "purple", size = 3) +
-  
-  # --- AXES ---
-  scale_x_continuous(limits = c(0, 35)) +
-  scale_y_continuous(limits = c(0, 10), breaks = seq(0, 10, by = 1)) +
-  labs(
-    title = "Detected Nodes vs. Momentum (1st Quartile of P <= 30)",
-    subtitle = "Purple dots: 25th percentile momentum calculated ONLY from data where P <= 30.",
-    x = "Momentum P", y = "Node Count n"
-  ) +
-  theme_minimal() +
-  theme(panel.grid.minor.y = element_blank())
-```
-
-## 6. Representative Diagnostic Scans (1st Quartile Matches)
-
-```{r q1-diagnostic-scan, echo=FALSE, results='asis', fig.width=8, fig.height=4}
-# Sort sequentially for the report flow
-setorder(dt_q1_reps, node_count)
-
-for (i in seq_len(nrow(dt_q1_reps))) {
-  p_val  <- dt_q1_reps$normalized_momentum[i]
-  n_val  <- dt_q1_reps$node_count[i]
-  p_str  <- sprintf("%013.6f", p_val)
-  
-  d_path <- file.path(agg_dir, sprintf("erasure_distance_density_P_%s.csv.gz", p_str))
-  n_path <- file.path(nodes_dir, sprintf("erasure_distance_nodes_P_%s.csv.gz", p_str))
-  
-  if (file.exists(d_path)) {
-    h_pts <- data.table::fread(d_path)
-    n_pts <- if(file.exists(n_path)) data.table::fread(n_path)[!is.na(coordinate_q)] else data.table::data.table()
-    
-    bw <- 1.0
-    
-    # Generate Plot
-    p <- ggplot(h_pts, aes(coordinate_q, density_count)) +
-      geom_col(fill = "black", alpha = 0.3, width = bw) +
-      geom_step(direction = "mid", color = "black", linewidth = 0.3) +
-      coord_cartesian(xlim = c(-p_val, p_val)) +
-      labs(title = sprintf("Node Count: %d (1st Q of P<=30)", n_val),
-           subtitle = sprintf("P = %f | Fixed Bin Width = %.1f", p_val, bw),
-           x = "q", y = "Occupancy") +
-      theme_minimal(base_family = "mono")
-    
-    # Overlay Node detections if available
-    if (nrow(n_pts) > 0) {
-      p <- p + geom_point(data = n_pts, aes(coordinate_q, density_count), color = "purple", size = 2)
-    }
-    
-    # Output to Markdown
-    cat("\n\n### Node Count:", n_val, " (P =", p_val, ")\n")
-    print(p)
-    cat("\n\n---\n\n")
-  }
-}
-```
-
-## 7. Summary: Parabolic Fit
-
-```{r parabola-offset-summary, echo=FALSE, fig.width=12, fig.height=8, warning=FALSE}
-# --- SELECTION 4: PARABOLIC FIT WITH OFFSET ---
-# Standard Formula: P = 2 * pi * sqrt(node_count)
-# Shifted Formula:  P = (2 * pi * sqrt(node_count)) + offset
-# We shift the whole curve to the RIGHT by pi.
-
-p_offset <- 0
-
-# 1. Select the rows closest to the shifted parabola
-dt_parabola_reps <- dt_window[, {
-  target_p <- (2 * pi * sqrt(node_count)) + p_offset
-  .SD[which.min(abs(normalized_momentum - target_p))]
-}, by = node_count]
-
-# 2. Generate Theoretical Curve Data for Plotting
-# Formula inverted: n = ((P - offset) / 2pi)^2
-# We only plot P >= offset to show the "right side" of the parabola
-curve_dt <- data.table(p_val = seq(0, 35, length.out = 500))
-curve_dt <- curve_dt[p_val >= p_offset]
-curve_dt[, n_val := ((p_val - p_offset) / (2 * pi))^2]
-
-# 3. Plot
-ggplot(dt_plot, aes(x = normalized_momentum, y = node_count)) +
-  # Background: Contextual scan data
-  geom_point(color = "black", size = 1.0, alpha = 0.05, na.rm = TRUE) +
-  
-  # Theoretical Parabola Line (Shifted)
-  geom_line(data = curve_dt, aes(x = p_val, y = n_val), 
-            color = "darkgreen", linetype = "dashed", linewidth = 1, alpha = 0.8) +
-  
-  # Foreground: The Closest Matches in Green
-  geom_point(data = dt_parabola_reps, 
-             color = "green", size = 3) +
-  
-  # --- AXES ---
-  scale_x_continuous(limits = c(0, 35)) +
-  scale_y_continuous(limits = c(0, 10), breaks = seq(0, 10, by = 1)) +
-  labs(
-    title = "Detected Nodes vs. Coordinate",
-    subtitle = "Green Line: A Parabola. Green Dots: Observed scans closest to the shifted line.",
-    x = "Coordinate Q", y = "Node Count n"
-  ) +
-  theme_minimal() +
-  theme(panel.grid.minor.y = element_blank())
-
-```
-
-## 8. Representative Diagnostic Scans (Offset Parabola Matches)
-
-```{r parabola-plots, echo=FALSE, fig.width=12, fig.height=8, warning=FALSE}
-
-# Sort sequentially for the report flow
-setorder(dt_parabola_reps, node_count)
-
-for (i in seq_len(nrow(dt_parabola_reps))) {
-  p_val  <- dt_parabola_reps$normalized_momentum[i]
-  n_val  <- dt_parabola_reps$node_count[i]
-  p_str  <- sprintf("%013.6f", p_val)
-  
-  # Calculate theoretical P (with offset) for label comparison
-  p_theo <- (2 * pi * sqrt(n_val)) + p_offset
-  diff_p <- p_val - p_theo
-  
-  d_path <- file.path(agg_dir, sprintf("erasure_distance_density_P_%s.csv.gz", p_str))
-  n_path <- file.path(nodes_dir, sprintf("erasure_distance_nodes_P_%s.csv.gz", p_str))
-  
-  if (file.exists(d_path)) {
-    h_pts <- data.table::fread(d_path)
-    n_pts <- if(file.exists(n_path)) data.table::fread(n_path)[!is.na(coordinate_q)] else data.table::data.table()
-    
-    bw <- 1.0
-    
-    # Generate Plot
-    p <- ggplot(h_pts, aes(coordinate_q, density_count)) +
-      geom_col(fill = "black", alpha = 0.3, width = bw) +
-      geom_step(direction = "mid", color = "black", linewidth = 0.3) +
-      coord_cartesian(xlim = c(-p_val, p_val)) +
-      labs(title = sprintf("Node Count: %d (Fit + Offset)", n_val),
-           subtitle = sprintf("Q_obs = %f | Q_theo = %f | Diff = %.4f", p_val, p_theo, diff_p),
-           x = "q", y = "Occupancy") +
-      theme_minimal(base_family = "mono")
-    
-    # Overlay Node detections if available
-    if (nrow(n_pts) > 0) {
-      p <- p + geom_point(data = n_pts, aes(coordinate_q, density_count), color = "green", size = 2)
-    }
-    
-    # Output to Markdown
-    cat("\n\n### Node Count:", n_val, " (P =", p_val, ")\n")
-    print(p)
-    cat("\n\n---\n\n")
-  }
-}
 ```

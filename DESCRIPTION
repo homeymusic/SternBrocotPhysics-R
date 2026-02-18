@@ -29,6 +29,7 @@ Suggests:
     future.apply,
     ggforce,
     ggplot2,
+    ggrepel,
     here,
     knitr,
     latex2exp,
@@ -36,6 +37,7 @@ Suggests:
     rmarkdown,
     scales,
     testthat (>= 3.0.0),
+    tictoc,
     tidyr,
     vdiffr,
     viridis

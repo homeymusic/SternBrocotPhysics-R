@@ -49,10 +49,22 @@ process_erasure_distance_density <- function(f, out_path) {
     #   - The Odd-Bin Symmetry
     #   - The floating point cleanup
 
-    # Note: Ensure you have rebuilt the package (Cmd+Shift+B or devtools::install())
-    density_df <- SternBrocotPhysics::compute_density(dt, P_val, bin_width = 1.0)
+    # --- 3. THE PRO MOVE: Shared Logic ---
+    # We call the package function.
+
+    # CRITICAL FIX: Scale P by 2*PI to match the Coordinate Q invariant.
+    # The Physics (uncertainty) is based on 1/(2*pi*P).
+    # To see the nodes, the Action canvas must scale by the same factor.
+    P_effective <- P_val * 2 * pi
+
+    density_df <- SternBrocotPhysics::compute_density(dt, P_effective, bin_width = 1.0)
 
     if (is.null(density_df)) return(NULL)
+
+    # RESTORE METADATA:
+    # The function will label the rows with P_effective (approx 19.8).
+    # We must set it back to P_val (3.16) so the final plot X-axis is correct.
+    density_df$normalized_momentum <- P_val
 
     # --- 4. Write Result ---
     fwrite(density_df, full_path, compress = "gzip")
