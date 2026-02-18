@@ -62,32 +62,16 @@ p_ov_action <- ggplot() +
   scale_y_continuous(breaks = seq(0, max_n, by = 1), expand = expansion(mult = c(0, 0.1))) +
   theme_minimal()
 
-p_ov_wave <- ggplot() +
-  geom_point(data = dt_summary, aes(x = normalized_momentum, y = node_count), 
-             color = "grey80", size = 1, alpha = 0.5) +
-  stat_function(fun = function(x) x^2 - 0.5, xlim = c(sqrt(0.5), 4.0),
-                color = "darkgreen", linetype = "solid", linewidth = 1) +
-  geom_point(data = dt_wave_matches, aes(x = normalized_momentum, y = node_count), 
-             color = "darkgreen", size = 4, shape = 21, fill = "springgreen", stroke = 1.5) +
-  geom_text(data = dt_wave_matches, aes(x = normalized_momentum, y = node_count, 
-            label = sprintf("n=%d\nQ=%.6f", node_count, normalized_momentum)),
-            nudge_y = 0.8, size = 2.5, fontface = "bold", lineheight = 0.9) +
-  labs(title = "Wave Theory",
-       subtitle = "n = Q\u00b2 - 0.5", x = "Coordinate (Q)", y = "Nodes (n)") +
-  scale_x_continuous(limits = c(0, max_q)) + 
-  scale_y_continuous(breaks = seq(0, max_n, by = 1), expand = expansion(mult = c(0, 0.1))) +
-  theme_minimal()
-
 print(p_ov_action)
 cat("\n\n---\n\n")
-print(p_ov_wave)
 
-render_profiles <- function(matches_dt, dot_color, theory_label) {
+render_profiles <- function(matches_dt, dot_color) {
   for (i in seq_len(nrow(matches_dt))) {
     row <- matches_dt[i]
     q_val <- row$normalized_momentum
     q_str <- sprintf("%0.6f", q_val)
     
+    # Path handling
     d_path <- file.path(agg_dir, sprintf("erasure_distance_density_P_%s.csv.gz", q_str))
     if (!file.exists(d_path)) d_path <- file.path(agg_dir, sprintf("erasure_distance_density_P_%013.6f.csv.gz", q_val))
     n_path <- file.path(nodes_dir, sprintf("erasure_distance_nodes_P_%s.csv.gz", q_str))
@@ -95,27 +79,57 @@ render_profiles <- function(matches_dt, dot_color, theory_label) {
 
     if (file.exists(d_path)) {
       h_pts <- fread(d_path)
-      n_pts <- if(file.exists(n_path)) fread(n_path) else data.table()
-      if (nrow(n_pts) > 0 && "coordinate_q" %in% names(n_pts)) n_pts <- n_pts[!is.na(coordinate_q)]
       
-      p <- ggplot(h_pts, aes(x = coordinate_q, y = density_count)) +
-        geom_col(fill = "grey30", alpha = 0.3, width = 1.0) + 
-        geom_step(color = "black", linewidth = 0.8, direction = "mid") + 
-        geom_point(data = n_pts, aes(x = coordinate_q, y = density_count), 
+      # 1. Normalization Constants
+      max_h <- max(h_pts$density_count, na.rm = TRUE)
+      max_q <- max(abs(h_pts$coordinate_q), na.rm = TRUE) 
+      
+      h_pts[, pct_density := (density_count / max_h) * 100]
+      h_pts[, pct_q       := (coordinate_q / max_q) * 100]
+      
+      # 2. Geometry Prep
+      q_diff <- if(nrow(h_pts) > 1) diff(h_pts$pct_q)[1] else 1.0
+      
+      # Pad with 0s to ensure the black line "drops" to the floor at edges
+      pad_left  <- data.table(pct_q = min(h_pts$pct_q) - q_diff, pct_density = 0)
+      pad_right <- data.table(pct_q = max(h_pts$pct_q) + q_diff, pct_density = 0)
+      h_plot_data <- rbind(pad_left, h_pts[, .(pct_q, pct_density)], pad_right)
+
+      # 3. Node Points
+      n_pts <- if(file.exists(n_path)) fread(n_path) else data.table()
+      if (nrow(n_pts) > 0 && "coordinate_q" %in% names(n_pts)) {
+        n_pts <- n_pts[!is.na(coordinate_q)]
+        n_pts[, pct_density := (density_count / max_h) * 100]
+        n_pts[, pct_q       := (coordinate_q / max_q) * 100]
+      }
+      
+      # 4. Title Logic
+      plot_title <- sprintf("Nodes: %02d  |  Max Amplitude: %4.1f  |  Max Density: %6s", 
+                            row$node_count, max_q, format(max_h, big.mark=","))
+
+      # 5. Generate Plot
+      p <- ggplot(h_pts, aes(x = pct_q, y = pct_density)) +
+        geom_col(width = q_diff, fill = "grey30", alpha = 0.3) +
+        geom_step(data = h_plot_data, color = "black", linewidth = 0.7, direction = "mid") + 
+        geom_point(data = n_pts, aes(x = pct_q, y = pct_density), 
                    color = dot_color, size = 3) +
-        labs(
-          title = sprintf("%s: n = %d", theory_label, row$node_count),
-          subtitle = sprintf("Q = %.6f | Deviation: %.6f", q_val, row$deviation),
-          x = "Coordinate (Q)", y = "Density"
-        ) +
-        theme_minimal()      
-      cat(sprintf("\n\n### %s specimen: n=%d\n", theory_label, row$node_count))
+        geom_vline(xintercept = 0, linetype = "dashed", color = "grey70", linewidth = 0.5) +
+        labs(title = plot_title, x = "Amplitude (%)", y = "Density %") +
+        # CRITICAL: Use coord_cartesian to prevent clipping warnings and edge-gap
+        coord_cartesian(xlim = c(-105, 105), ylim = c(0, 105)) +
+        scale_x_continuous(breaks = seq(-100, 100, 50)) +
+        scale_y_continuous(expand = c(0, 0)) +
+        theme_minimal() +
+        theme(
+          plot.title = element_text(family = "mono", face = "bold", size = 12),
+          panel.grid.minor = element_blank()
+        )
+      
       print(p)
       cat("\n\n---\n\n")
     }
   }
 }
 
-render_profiles(dt_action_matches, "red", "Action Theory")
-render_profiles(dt_wave_matches, "green", "Wave Theory")
+render_profiles(dt_action_matches, "black")
 ```
