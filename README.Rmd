@@ -3,10 +3,10 @@ library(data.table)
 library(ggplot2)
 
 # --- 1. Define the "Idea" (Theoretical Model) ---
-# We assume the ideal relationship is P = sqrt(n).
-# (You can adjust the coefficient 'k' if your data has a scaling factor, e.g., P = k * sqrt(n))
+# Ground State (n=0) occurs at P = 0.5 (where delta_p = p_0).
+# The relationship follows P = sqrt(n) + 0.5
 get_ideal_momentum <- function(n) {
-  return(sqrt(n)) 
+  return(sqrt(n) + 0.5) 
 }
 
 # --- 2. Load Data ---
@@ -17,25 +17,22 @@ nodes_dir <- file.path(base_dir, "03_erasure_distance_density_nodes")
 
 dt_summary <- fread(summary_path)
 
+# --- FILTER: Physicality Constraint ---
+# delta_p := 2 * P * p_0. If delta_p >= p_0, then P >= 0.5
+dt_summary <- dt_summary[normalized_momentum >= 0.5]
+
 # --- 3. Find the "Best Match" for each n ---
 target_nodes <- 0:10
 dt_best_matches <- data.table()
 
 for (val_n in target_nodes) {
-  
-  # A. Filter: Get all runs that ACTUALLY resulted in 'val_n' nodes
   candidates <- dt_summary[node_count == val_n]
   
   if (nrow(candidates) > 0) {
-    # B. Calculate Ideal Momentum for this n
     p_ideal <- get_ideal_momentum(val_n)
-    
-    # C. Select the candidate closest to the Ideal Momentum
-    # This finds the run where the physics behaved "most perfectly"
     best_idx <- which.min(abs(candidates$normalized_momentum - p_ideal))
     best_row <- candidates[best_idx]
     
-    # Add metadata for plotting
     best_row[, p_ideal_target := p_ideal]
     best_row[, deviation := normalized_momentum - p_ideal]
     
@@ -44,45 +41,46 @@ for (val_n in target_nodes) {
 }
 
 # --- 4. Plot 1: The Selection Overview ---
-# This proves we are picking points along the ideal curve
 p_overview <- ggplot() +
-  # Background (All Data)
   geom_point(data = dt_summary, aes(x = normalized_momentum, y = node_count), 
-             color = "grey80", size = 1) +
+             color = "grey80", size = 1, alpha = 0.5) +
   
-  # The Ideal Curve (Reference)
-  stat_function(fun = function(x) x^2, color = "blue", linetype = "dotted", alpha=0.5) +
+  # The Theoretical Curve: n = (P - 0.5)^2
+  stat_function(fun = function(x) (x - 0.5)^2, 
+                xlim = c(0.5, max(dt_summary$normalized_momentum)),
+                color = "blue", linetype = "dotted", linewidth = 1) +
   
-  # The Selected "Golden Samples"
   geom_point(data = dt_best_matches, aes(x = normalized_momentum, y = node_count), 
              color = "red", size = 4, shape = 21, fill = "gold", stroke = 1.5) +
   
-  # Labels
-  geom_text(data = dt_best_matches, aes(x = normalized_momentum, y = node_count, 
-                                        label = sprintf("n=%d", node_count)),
-            nudge_x = -0.2, color = "black", fontface = "bold") +
+  geom_text(data = dt_best_matches, 
+            aes(x = normalized_momentum, y = node_count, 
+                label = sprintf("n=%d\nP=%.2f", node_count, normalized_momentum)),
+            nudge_y = 0.6, size = 3, color = "black", fontface = "bold", lineheight = 0.8) +
   
-  labs(title = "Selecting the 'Ideal' Quantum States",
-       subtitle = "Grey: All Simulations. Red/Gold: The single run closest to Theory (P ~ sqrt(n)) for each n.",
-       x = "Momentum (P)", y = "Observed Nodes (n)") +
-  theme_minimal()
+  labs(title = "Selecting 'Ideal' Quantum States (P \u2265 0.5)",
+       subtitle = "Ground State n=0 starts at P=0.5. Blue Line: n = (P - 0.5)\u00b2",
+       x = "Normalized Momentum (P)", y = "Observed Nodes (n)") +
+  
+  scale_x_continuous(expand = c(0, 0), limits = c(0, max(dt_summary$normalized_momentum) * 1.05)) +
+  scale_y_continuous(expand = c(0, 0), limits = c(0, max(dt_summary$node_count) + 2)) +
+  theme_minimal() +
+  theme(panel.grid.minor = element_blank())
 
 print(p_overview)
 cat("\n\n---\n\n")
 
-# --- 5. Plot 2: The Density Profiles for the Golden Samples ---
+# --- 5. Plot 2: RESTORED Density Profiles with Red Node Markers ---
 for (i in seq_len(nrow(dt_best_matches))) {
   
   row <- dt_best_matches[i]
   p_val <- row$normalized_momentum
   n_obs <- row$node_count
   
-  # Construct Paths
+  # Construct Paths (Handling padding in filenames)
   p_str <- sprintf("%0.6f", p_val) 
   d_file <- sprintf("erasure_distance_density_P_%s.csv.gz", p_str)
   d_path <- file.path(agg_dir, d_file)
-  
-  # Fallback for padded filenames
   if (!file.exists(d_path)) {
      d_path <- file.path(agg_dir, sprintf("erasure_distance_density_P_%013.6f.csv.gz", p_val))
   }
@@ -104,7 +102,7 @@ for (i in seq_len(nrow(dt_best_matches))) {
     limit_q <- max(abs(h_pts$coordinate_q)) * 1.1
     
     p <- ggplot(h_pts, aes(x = coordinate_q, y = density_count)) +
-      geom_col(fill = "black", alpha = 0.7, width = 1.0) + # Solid black bars for high contrast
+      geom_col(fill = "black", alpha = 0.7, width = 1.0) + 
       
       labs(
         title = sprintf("Ideal State: n = %d", n_obs),
@@ -115,63 +113,15 @@ for (i in seq_len(nrow(dt_best_matches))) {
       theme_minimal() +
       theme(panel.grid.minor = element_blank())
     
-    # Overlay the detected nodes as Red dots to show the count clearly
+    # Overlay the detected nodes as Red dots
     if (nrow(n_pts) > 0) {
       p <- p + geom_point(data = n_pts, aes(x = coordinate_q, y = density_count), 
                           color = "red", size = 3)
     }
     
-    cat(sprintf("\n\n### Best Specimen: n=%d\n", n_obs))
+    cat(sprintf("\n\n### Best Specimen: n=%d (P=%.4f)\n", n_obs, p_val))
     print(p)
     cat("\n\n---\n\n")
   }
 }
-
-```
-```{r test-zero-point-offset, echo=FALSE, results='asis'}
-library(data.table)
-
-# Load Data
-base_dir  <- "/Volumes/SanDisk4TB/SternBrocot-data"
-summary_path <- file.path(base_dir, "04_erasure_distance_summary.csv.gz")
-dt_summary <- fread(summary_path)
-
-# Filter for "Clean" Quantum States (avoiding the dip)
-# We use n=0,1,2 (Ground states) and n>=9 (High energy) to anchor the fit
-clean_data <- dt_summary[node_count <= 2 | node_count >= 9]
-
-# --- Model 1: Semi-Classical (Offset 0) ---
-model_0 <- lm(normalized_momentum ~ sqrt(node_count), data = clean_data)
-r2_0 <- summary(model_0)$r.squared
-aic_0 <- AIC(model_0)
-coeffs_0 <- coef(model_0)
-
-# --- Model 2: Quantum Harmonic Oscillator (Offset 1/2) ---
-model_half <- lm(normalized_momentum ~ sqrt(node_count + 0.5), data = clean_data)
-r2_half <- summary(model_half)$r.squared
-aic_half <- AIC(model_half)
-coeffs_half <- coef(model_half)
-
-# --- Report Results ---
-cat("\n### Statistical Comparison: Which Physics Fits Better?\n\n")
-
-cat("**Model A (Semi-Classical):** $P \\approx a \\sqrt{n} + b$\n")
-cat(sprintf("* R-Squared: %.5f\n", r2_0))
-cat(sprintf("* AIC Score: %.2f (Lower is better)\n", aic_0))
-cat(sprintf("* Intercept (b): %.4f\n\n", coeffs_0[1]))
-
-cat("**Model B (Quantum Harmonic):** $P \\approx a \\sqrt{n + 1/2} + b$\n")
-cat(sprintf("* R-Squared: %.5f\n", r2_half))
-cat(sprintf("* AIC Score: %.2f (Lower is better)\n", aic_half))
-cat(sprintf("* Intercept (b): %.4f\n\n", coeffs_half[1]))
-
-# Verdict Logic
-if (aic_half < aic_0) {
-  cat("**VERDICT:** The data prefers the **Quantum 1/2 Offset**.\n")
-  cat("The simulation is correctly reproducing the Zero-Point Energy shift!\n")
-} else {
-  cat("**VERDICT:** The data prefers the **Zero Offset**.\n")
-  cat("The 'nodes' in this information-theoretic model might follow a strictly discrete spacing starting from 0.\n")
-}
-
 ```
