@@ -10,9 +10,15 @@ Stern-Brocot Physics: Momentum Scan (P \<= 30)
 
 ------------------------------------------------------------------------
 
+    ## Warning: Removed 2 rows containing missing values or values outside the scale range
+    ## (`geom_function()`).
+
 ![](README_files/figure-gfm/ideal-state-selector-1.png)<!-- -->
 
 ------------------------------------------------------------------------
+
+    ## Warning: Removed 15 rows containing missing values or values outside the scale range
+    ## (`geom_function()`).
 
 ![](README_files/figure-gfm/ideal-state-selector-2.png)<!-- -->
 

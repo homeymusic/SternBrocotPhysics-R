@@ -27,9 +27,9 @@ get_traditional_p <- function(n) { return(sqrt(n + 0.5)) }
 # --- 2. Load and Constrain Data ---
 dt_summary <- fread(summary_path)
 
-# APPLY CONSTRAINTS: P <= 3.5 and n <= 10 (and the physical floor P >= 0.5)
+# APPLY CONSTRAINTS: P <= 4.0 and n <= 10 (and the physical floor P >= 0.5)
 dt_summary <- dt_summary[normalized_momentum >= 0.5 & 
-                         normalized_momentum <= 3.5 & 
+                         normalized_momentum <= 4.0 & 
                          node_count <= 10]
 
 # --- 3. Match Golden Samples ---
@@ -60,7 +60,7 @@ for (val_n in target_nodes) {
 p_ov_boundary <- ggplot() +
   geom_point(data = dt_summary, aes(x = normalized_momentum, y = node_count), 
              color = "grey80", size = 1, alpha = 0.5) +
-  stat_function(fun = function(x) (x - 0.5)^2, xlim = c(0.5, 3.5),
+  stat_function(fun = function(x) (x - 0.5)^2, xlim = c(0.5, 4.0),
                 color = "blue", linetype = "dotted", linewidth = 1) +
   geom_point(data = dt_boundary_matches, aes(x = normalized_momentum, y = node_count), 
              color = "red", size = 4, shape = 21, fill = "gold", stroke = 1.5) +
@@ -70,7 +70,7 @@ p_ov_boundary <- ggplot() +
             nudge_y = 0.8, size = 2.5, fontface = "bold", lineheight = 0.9) +
   labs(title = "Boundary Logic Selection (Full Precision)",
        subtitle = "n = (P - 0.5)\u00b2", x = "Momentum (P)", y = "Nodes (n)") +
-  scale_x_continuous(limits = c(0, 3.5)) + 
+  scale_x_continuous(limits = c(0, 4.0)) + 
   scale_y_continuous(limits = c(0, 12)) + 
   theme_minimal()
 
@@ -78,7 +78,7 @@ p_ov_boundary <- ggplot() +
 p_ov_trad <- ggplot() +
   geom_point(data = dt_summary, aes(x = normalized_momentum, y = node_count), 
              color = "grey80", size = 1, alpha = 0.5) +
-  stat_function(fun = function(x) x^2 - 0.5, xlim = c(sqrt(0.5), 3.5),
+  stat_function(fun = function(x) x^2 - 0.5, xlim = c(sqrt(0.5), 4.0),
                 color = "darkgreen", linetype = "solid", linewidth = 1) +
   geom_point(data = dt_traditional_matches, aes(x = normalized_momentum, y = node_count), 
              color = "darkgreen", size = 4, shape = 21, fill = "springgreen", stroke = 1.5) +
@@ -88,7 +88,7 @@ p_ov_trad <- ggplot() +
             nudge_y = 0.8, size = 2.5, fontface = "bold", lineheight = 0.9) +
   labs(title = "Traditional Physics Selection (Full Precision)",
        subtitle = "n = P\u00b2 - 0.5", x = "Momentum (P)", y = "Nodes (n)") +
-  scale_x_continuous(limits = c(0, 3.5)) + 
+  scale_x_continuous(limits = c(0, 4.0)) + 
   scale_y_continuous(limits = c(0, 12)) + 
   theme_minimal()
 
@@ -115,13 +115,16 @@ render_profiles <- function(matches_dt, dot_color, label_prefix) {
       if (nrow(n_pts) > 0 && "coordinate_q" %in% names(n_pts)) n_pts <- n_pts[!is.na(coordinate_q)]
       
       p <- ggplot(h_pts, aes(x = coordinate_q, y = density_count)) +
-        geom_col(fill = "black", alpha = 0.7) +
-        geom_point(data = n_pts, aes(x = coordinate_q, y = density_count), color = dot_color, size = 3) +
-        labs(title = sprintf("%s: n = %d", label_prefix, row$node_count),
-             subtitle = sprintf("P = %.4f | Deviation: %.4f", p_val, row$deviation),
-             x = "Coordinate (Q)", y = "Density") +
-        theme_minimal()
-      
+        geom_col(fill = "grey30", alpha = 0.3, width = 1.0) + 
+        geom_step(color = "black", linewidth = 0.8, direction = "mid") + 
+        geom_point(data = n_pts, aes(x = coordinate_q, y = density_count), 
+                   color = dot_color, size = 3) +
+        labs(
+          title = sprintf("Traditional Physics: n = %d", row$node_count),
+          subtitle = sprintf("P = %.6f | Deviation: %.6f", p_val, row$deviation),
+          x = "Coordinate (Q)", y = "Density"
+        ) +
+        theme_minimal()      
       cat(sprintf("\n\n### %s specimen: n=%d\n", label_prefix, row$node_count))
       print(p)
       cat("\n\n---\n\n")
