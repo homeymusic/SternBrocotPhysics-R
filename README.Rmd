@@ -2,126 +2,122 @@
 library(data.table)
 library(ggplot2)
 
-# --- 1. Define the "Idea" (Theoretical Model) ---
-# Ground State (n=0) occurs at P = 0.5 (where delta_p = p_0).
-# The relationship follows P = sqrt(n) + 0.5
-get_ideal_momentum <- function(n) {
-  return(sqrt(n) + 0.5) 
-}
-
-# --- 2. Load Data ---
+# --- 1. Define Paths and Constants ---
 base_dir  <- "/Volumes/SanDisk4TB/SternBrocot-data"
 summary_path <- file.path(base_dir, "04_erasure_distance_summary.csv.gz")
 agg_dir   <- file.path(base_dir, "02_erasure_distance_densities")
 nodes_dir <- file.path(base_dir, "03_erasure_distance_density_nodes")
 
+# Define Theory Functions
+get_boundary_p <- function(n) { return(sqrt(n) + 0.5) }
+get_traditional_p <- function(n) { return(sqrt(n + 0.5)) }
+
+# --- 2. Load and Constrain Data ---
 dt_summary <- fread(summary_path)
 
-# --- FILTER: Physicality Constraint ---
-# delta_p := 2 * P * p_0. If delta_p >= p_0, then P >= 0.5
-dt_summary <- dt_summary[normalized_momentum >= 0.5]
+# APPLY CONSTRAINTS: P <= 3.5 and n <= 10 (and the physical floor P >= 0.5)
+dt_summary <- dt_summary[normalized_momentum >= 0.5 & 
+                         normalized_momentum <= 3.5 & 
+                         node_count <= 10]
 
-# --- 3. Find the "Best Match" for each n ---
+# --- 3. Match Golden Samples ---
 target_nodes <- 0:10
-dt_best_matches <- data.table()
+dt_boundary_matches <- data.table()
+dt_traditional_matches <- data.table()
 
 for (val_n in target_nodes) {
   candidates <- dt_summary[node_count == val_n]
-  
   if (nrow(candidates) > 0) {
-    p_ideal <- get_ideal_momentum(val_n)
-    best_idx <- which.min(abs(candidates$normalized_momentum - p_ideal))
-    best_row <- candidates[best_idx]
+    # Boundary Selection
+    p_ideal_b <- get_boundary_p(val_n)
+    best_b <- candidates[which.min(abs(normalized_momentum - p_ideal_b))]
+    best_b[, deviation := normalized_momentum - p_ideal_b]
+    dt_boundary_matches <- rbind(dt_boundary_matches, best_b)
     
-    best_row[, p_ideal_target := p_ideal]
-    best_row[, deviation := normalized_momentum - p_ideal]
-    
-    dt_best_matches <- rbind(dt_best_matches, best_row)
+    # Traditional Selection
+    p_ideal_t <- get_traditional_p(val_n)
+    best_t <- candidates[which.min(abs(normalized_momentum - p_ideal_t))]
+    best_t[, deviation := normalized_momentum - p_ideal_t]
+    dt_traditional_matches <- rbind(dt_traditional_matches, best_t)
   }
 }
 
-# --- 4. Plot 1: The Selection Overview ---
-p_overview <- ggplot() +
+# --- 4. Overview Plots with Full Precision ---
+
+# A. Boundary Logic Overview
+p_ov_boundary <- ggplot() +
   geom_point(data = dt_summary, aes(x = normalized_momentum, y = node_count), 
              color = "grey80", size = 1, alpha = 0.5) +
-  
-  # The Theoretical Curve: n = (P - 0.5)^2
-  stat_function(fun = function(x) (x - 0.5)^2, 
-                xlim = c(0.5, max(dt_summary$normalized_momentum)),
+  stat_function(fun = function(x) (x - 0.5)^2, xlim = c(0.5, 3.5),
                 color = "blue", linetype = "dotted", linewidth = 1) +
-  
-  geom_point(data = dt_best_matches, aes(x = normalized_momentum, y = node_count), 
+  geom_point(data = dt_boundary_matches, aes(x = normalized_momentum, y = node_count), 
              color = "red", size = 4, shape = 21, fill = "gold", stroke = 1.5) +
-  
-  geom_text(data = dt_best_matches, 
-            aes(x = normalized_momentum, y = node_count, 
-                label = sprintf("n=%d\nP=%.2f", node_count, normalized_momentum)),
-            nudge_y = 0.6, size = 3, color = "black", fontface = "bold", lineheight = 0.8) +
-  
-  labs(title = "Selecting 'Ideal' Quantum States (P \u2265 0.5)",
-       subtitle = "Ground State n=0 starts at P=0.5. Blue Line: n = (P - 0.5)\u00b2",
-       x = "Normalized Momentum (P)", y = "Observed Nodes (n)") +
-  
-  scale_x_continuous(expand = c(0, 0), limits = c(0, max(dt_summary$normalized_momentum) * 1.05)) +
-  scale_y_continuous(expand = c(0, 0), limits = c(0, max(dt_summary$node_count) + 2)) +
-  theme_minimal() +
-  theme(panel.grid.minor = element_blank())
+  # Updated label with %.6f for full precision
+  geom_text(data = dt_boundary_matches, aes(x = normalized_momentum, y = node_count, 
+            label = sprintf("n=%d\nP=%.6f", node_count, normalized_momentum)),
+            nudge_y = 0.8, size = 2.5, fontface = "bold", lineheight = 0.9) +
+  labs(title = "Boundary Logic Selection (Full Precision)",
+       subtitle = "n = (P - 0.5)\u00b2", x = "Momentum (P)", y = "Nodes (n)") +
+  scale_x_continuous(limits = c(0, 3.5)) + 
+  scale_y_continuous(limits = c(0, 12)) + 
+  theme_minimal()
 
-print(p_overview)
+# B. Traditional Logic Overview
+p_ov_trad <- ggplot() +
+  geom_point(data = dt_summary, aes(x = normalized_momentum, y = node_count), 
+             color = "grey80", size = 1, alpha = 0.5) +
+  stat_function(fun = function(x) x^2 - 0.5, xlim = c(sqrt(0.5), 3.5),
+                color = "darkgreen", linetype = "solid", linewidth = 1) +
+  geom_point(data = dt_traditional_matches, aes(x = normalized_momentum, y = node_count), 
+             color = "darkgreen", size = 4, shape = 21, fill = "springgreen", stroke = 1.5) +
+  # Updated label with %.6f for full precision
+  geom_text(data = dt_traditional_matches, aes(x = normalized_momentum, y = node_count, 
+            label = sprintf("n=%d\nP=%.6f", node_count, normalized_momentum)),
+            nudge_y = 0.8, size = 2.5, fontface = "bold", lineheight = 0.9) +
+  labs(title = "Traditional Physics Selection (Full Precision)",
+       subtitle = "n = P\u00b2 - 0.5", x = "Momentum (P)", y = "Nodes (n)") +
+  scale_x_continuous(limits = c(0, 3.5)) + 
+  scale_y_continuous(limits = c(0, 12)) + 
+  theme_minimal()
+
+print(p_ov_boundary)
 cat("\n\n---\n\n")
+print(p_ov_trad)
 
-# --- 5. Plot 2: RESTORED Density Profiles with Red Node Markers ---
-for (i in seq_len(nrow(dt_best_matches))) {
-  
-  row <- dt_best_matches[i]
-  p_val <- row$normalized_momentum
-  n_obs <- row$node_count
-  
-  # Construct Paths (Handling padding in filenames)
-  p_str <- sprintf("%0.6f", p_val) 
-  d_file <- sprintf("erasure_distance_density_P_%s.csv.gz", p_str)
-  d_path <- file.path(agg_dir, d_file)
-  if (!file.exists(d_path)) {
-     d_path <- file.path(agg_dir, sprintf("erasure_distance_density_P_%013.6f.csv.gz", p_val))
-  }
-  
-  n_file <- sprintf("erasure_distance_nodes_P_%s.csv.gz", p_str)
-  n_path <- file.path(nodes_dir, n_file)
-  if (!file.exists(n_path)) {
-     n_path <- file.path(nodes_dir, sprintf("erasure_distance_nodes_P_%013.6f.csv.gz", p_val))
-  }
-
-  if (file.exists(d_path)) {
-    h_pts <- fread(d_path)
-    n_pts <- if(file.exists(n_path)) fread(n_path) else data.table()
+# --- 5. Profile Function ---
+render_profiles <- function(matches_dt, dot_color, label_prefix) {
+  for (i in seq_len(nrow(matches_dt))) {
+    row <- matches_dt[i]
+    p_val <- row$normalized_momentum
+    p_str <- sprintf("%0.6f", p_val)
     
-    if (nrow(n_pts) > 0 && "coordinate_q" %in% names(n_pts)) {
-      n_pts <- n_pts[!is.na(coordinate_q)]
-    }
+    # Path handling
+    d_path <- file.path(agg_dir, sprintf("erasure_distance_density_P_%s.csv.gz", p_str))
+    if (!file.exists(d_path)) d_path <- file.path(agg_dir, sprintf("erasure_distance_density_P_%013.6f.csv.gz", p_val))
+    n_path <- file.path(nodes_dir, sprintf("erasure_distance_nodes_P_%s.csv.gz", p_str))
+    if (!file.exists(n_path)) n_path <- file.path(nodes_dir, sprintf("erasure_distance_nodes_P_%013.6f.csv.gz", p_val))
 
-    limit_q <- max(abs(h_pts$coordinate_q)) * 1.1
-    
-    p <- ggplot(h_pts, aes(x = coordinate_q, y = density_count)) +
-      geom_col(fill = "black", alpha = 0.7, width = 1.0) + 
+    if (file.exists(d_path)) {
+      h_pts <- fread(d_path)
+      n_pts <- if(file.exists(n_path)) fread(n_path) else data.table()
+      if (nrow(n_pts) > 0 && "coordinate_q" %in% names(n_pts)) n_pts <- n_pts[!is.na(coordinate_q)]
       
-      labs(
-        title = sprintf("Ideal State: n = %d", n_obs),
-        subtitle = sprintf("Selected Run: P = %.4f (Deviation from Theory: %.4f)", p_val, row$deviation),
-        x = "Coordinate (Q)", y = "Density"
-      ) +
-      coord_cartesian(xlim = c(-limit_q, limit_q)) +
-      theme_minimal() +
-      theme(panel.grid.minor = element_blank())
-    
-    # Overlay the detected nodes as Red dots
-    if (nrow(n_pts) > 0) {
-      p <- p + geom_point(data = n_pts, aes(x = coordinate_q, y = density_count), 
-                          color = "red", size = 3)
+      p <- ggplot(h_pts, aes(x = coordinate_q, y = density_count)) +
+        geom_col(fill = "black", alpha = 0.7) +
+        geom_point(data = n_pts, aes(x = coordinate_q, y = density_count), color = dot_color, size = 3) +
+        labs(title = sprintf("%s: n = %d", label_prefix, row$node_count),
+             subtitle = sprintf("P = %.4f | Deviation: %.4f", p_val, row$deviation),
+             x = "Coordinate (Q)", y = "Density") +
+        theme_minimal()
+      
+      cat(sprintf("\n\n### %s specimen: n=%d\n", label_prefix, row$node_count))
+      print(p)
+      cat("\n\n---\n\n")
     }
-    
-    cat(sprintf("\n\n### Best Specimen: n=%d (P=%.4f)\n", n_obs, p_val))
-    print(p)
-    cat("\n\n---\n\n")
   }
 }
+
+# Execute profile rendering
+render_profiles(dt_boundary_matches, "red", "Boundary Logic")
+render_profiles(dt_traditional_matches, "green", "Traditional Logic")
 ```
