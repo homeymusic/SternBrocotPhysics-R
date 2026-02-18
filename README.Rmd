@@ -1,3 +1,15 @@
+---
+title: "Stern-Brocot Physics: Momentum Scan (P <= 30)"
+output:
+  github_document: default
+---
+
+# Stern-Brocot Physics
+
+![The Golden Universe](man/figures/hero_bell.png)
+
+---
+
 ```{r ideal-state-selector, echo=FALSE, results='asis', fig.width=12, fig.height=8}
 library(data.table)
 library(ggplot2)

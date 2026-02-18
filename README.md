@@ -1,76 +1,149 @@
-Stern-Brocot Physics: Observed Node Distribution
+Stern-Brocot Physics: Momentum Scan (P \<= 30)
 ================
 
-# 1. Summary: Raw Node Count Evolution
+# Stern-Brocot Physics
 
-This plot is generated directly from the processed data files. It
-contains no theoretical models or hardcoded coordinate ranges.
-
-![](README_files/figure-gfm/plot-raw-data-1.png)<!-- -->
-![](README_files/figure-gfm/highlight-overview-1.png)<!-- -->
-
-### Node Count n=0 (P=0.3600)
-
-![](README_files/figure-gfm/diagnostic-density-plots-1.png)<!-- -->
+<figure>
+<img src="man/figures/hero_bell.png" alt="The Golden Universe" />
+<figcaption aria-hidden="true">The Golden Universe</figcaption>
+</figure>
 
 ------------------------------------------------------------------------
 
-### Node Count n=1 (P=1.5400)
-
-![](README_files/figure-gfm/diagnostic-density-plots-2.png)<!-- -->
+![](README_files/figure-gfm/ideal-state-selector-1.png)<!-- -->
 
 ------------------------------------------------------------------------
 
-### Node Count n=2 (P=1.2300)
+![](README_files/figure-gfm/ideal-state-selector-2.png)<!-- -->
 
-![](README_files/figure-gfm/diagnostic-density-plots-3.png)<!-- -->
+### Boundary Logic specimen: n=0
 
-------------------------------------------------------------------------
-
-### Node Count n=3 (P=1.8200)
-
-![](README_files/figure-gfm/diagnostic-density-plots-4.png)<!-- -->
+![](README_files/figure-gfm/ideal-state-selector-3.png)<!-- -->
 
 ------------------------------------------------------------------------
 
-### Node Count n=4 (P=2.1700)
+### Boundary Logic specimen: n=1
 
-![](README_files/figure-gfm/diagnostic-density-plots-5.png)<!-- -->
-
-------------------------------------------------------------------------
-
-### Node Count n=5 (P=2.5800)
-
-![](README_files/figure-gfm/diagnostic-density-plots-6.png)<!-- -->
+![](README_files/figure-gfm/ideal-state-selector-4.png)<!-- -->
 
 ------------------------------------------------------------------------
 
-### Node Count n=6 (P=2.3900)
+### Boundary Logic specimen: n=2
 
-![](README_files/figure-gfm/diagnostic-density-plots-7.png)<!-- -->
-
-------------------------------------------------------------------------
-
-### Node Count n=7 (P=2.7800)
-
-![](README_files/figure-gfm/diagnostic-density-plots-8.png)<!-- -->
+![](README_files/figure-gfm/ideal-state-selector-5.png)<!-- -->
 
 ------------------------------------------------------------------------
 
-### Node Count n=8 (P=3.8200)
+### Boundary Logic specimen: n=3
 
-![](README_files/figure-gfm/diagnostic-density-plots-9.png)<!-- -->
-
-------------------------------------------------------------------------
-
-### Node Count n=9 (P=2.9500)
-
-![](README_files/figure-gfm/diagnostic-density-plots-10.png)<!-- -->
+![](README_files/figure-gfm/ideal-state-selector-6.png)<!-- -->
 
 ------------------------------------------------------------------------
 
-### Node Count n=10 (P=3.9800)
+### Boundary Logic specimen: n=4
 
-![](README_files/figure-gfm/diagnostic-density-plots-11.png)<!-- -->
+![](README_files/figure-gfm/ideal-state-selector-7.png)<!-- -->
+
+------------------------------------------------------------------------
+
+### Boundary Logic specimen: n=5
+
+![](README_files/figure-gfm/ideal-state-selector-8.png)<!-- -->
+
+------------------------------------------------------------------------
+
+### Boundary Logic specimen: n=6
+
+![](README_files/figure-gfm/ideal-state-selector-9.png)<!-- -->
+
+------------------------------------------------------------------------
+
+### Boundary Logic specimen: n=7
+
+![](README_files/figure-gfm/ideal-state-selector-10.png)<!-- -->
+
+------------------------------------------------------------------------
+
+### Boundary Logic specimen: n=8
+
+![](README_files/figure-gfm/ideal-state-selector-11.png)<!-- -->
+
+------------------------------------------------------------------------
+
+### Boundary Logic specimen: n=9
+
+![](README_files/figure-gfm/ideal-state-selector-12.png)<!-- -->
+
+------------------------------------------------------------------------
+
+### Boundary Logic specimen: n=10
+
+![](README_files/figure-gfm/ideal-state-selector-13.png)<!-- -->
+
+------------------------------------------------------------------------
+
+### Traditional Logic specimen: n=0
+
+![](README_files/figure-gfm/ideal-state-selector-14.png)<!-- -->
+
+------------------------------------------------------------------------
+
+### Traditional Logic specimen: n=1
+
+![](README_files/figure-gfm/ideal-state-selector-15.png)<!-- -->
+
+------------------------------------------------------------------------
+
+### Traditional Logic specimen: n=2
+
+![](README_files/figure-gfm/ideal-state-selector-16.png)<!-- -->
+
+------------------------------------------------------------------------
+
+### Traditional Logic specimen: n=3
+
+![](README_files/figure-gfm/ideal-state-selector-17.png)<!-- -->
+
+------------------------------------------------------------------------
+
+### Traditional Logic specimen: n=4
+
+![](README_files/figure-gfm/ideal-state-selector-18.png)<!-- -->
+
+------------------------------------------------------------------------
+
+### Traditional Logic specimen: n=5
+
+![](README_files/figure-gfm/ideal-state-selector-19.png)<!-- -->
+
+------------------------------------------------------------------------
+
+### Traditional Logic specimen: n=6
+
+![](README_files/figure-gfm/ideal-state-selector-20.png)<!-- -->
+
+------------------------------------------------------------------------
+
+### Traditional Logic specimen: n=7
+
+![](README_files/figure-gfm/ideal-state-selector-21.png)<!-- -->
+
+------------------------------------------------------------------------
+
+### Traditional Logic specimen: n=8
+
+![](README_files/figure-gfm/ideal-state-selector-22.png)<!-- -->
+
+------------------------------------------------------------------------
+
+### Traditional Logic specimen: n=9
+
+![](README_files/figure-gfm/ideal-state-selector-23.png)<!-- -->
+
+------------------------------------------------------------------------
+
+### Traditional Logic specimen: n=10
+
+![](README_files/figure-gfm/ideal-state-selector-24.png)<!-- -->
 
 ------------------------------------------------------------------------
