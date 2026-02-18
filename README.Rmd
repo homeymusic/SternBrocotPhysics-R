@@ -1,12 +1,12 @@
 ---
-title: "Stern-Brocot Physics: Momentum Scan (P <= 30)"
+title: "Stern-Brocot Physics"
 output:
   github_document: default
 ---
 
 # Stern-Brocot Physics
 
-![The Golden Universe](man/figures/hero_bell.png)
+![Violating Bell's Theorem](man/figures/hero_bell.png)
 
 ---
 
@@ -14,100 +14,84 @@ output:
 library(data.table)
 library(ggplot2)
 
-# --- 1. Define Paths and Constants ---
 base_dir  <- "/Volumes/SanDisk4TB/SternBrocot-data"
+agg_dir   <-    file.path(base_dir, "02_erasure_distance_densities")
+nodes_dir <-    file.path(base_dir, "03_erasure_distance_density_nodes")
 summary_path <- file.path(base_dir, "04_erasure_distance_summary.csv.gz")
-agg_dir   <- file.path(base_dir, "02_erasure_distance_densities")
-nodes_dir <- file.path(base_dir, "03_erasure_distance_density_nodes")
 
-# Define Theory Functions
 get_boundary_p <- function(n) { return(sqrt(n) + 0.5) }
 get_traditional_p <- function(n) { return(sqrt(n + 0.5)) }
 
-# --- 2. Load and Constrain Data ---
 dt_summary <- fread(summary_path)
 
-# APPLY CONSTRAINTS: P <= 4.0 and n <= 10 (and the physical floor P >= 0.5)
-dt_summary <- dt_summary[normalized_momentum >= 0.5 & 
-                         normalized_momentum <= 4.0 & 
-                         node_count <= 10]
-
-# --- 3. Match Golden Samples ---
 target_nodes <- 0:10
-dt_boundary_matches <- data.table()
-dt_traditional_matches <- data.table()
+dt_action_matches <- data.table()
+dt_wave_matches <- data.table()
 
 for (val_n in target_nodes) {
   candidates <- dt_summary[node_count == val_n]
   if (nrow(candidates) > 0) {
-    # Boundary Selection
     p_ideal_b <- get_boundary_p(val_n)
     best_b <- candidates[which.min(abs(normalized_momentum - p_ideal_b))]
     best_b[, deviation := normalized_momentum - p_ideal_b]
-    dt_boundary_matches <- rbind(dt_boundary_matches, best_b)
+    dt_action_matches <- rbind(dt_action_matches, best_b)
     
-    # Traditional Selection
     p_ideal_t <- get_traditional_p(val_n)
     best_t <- candidates[which.min(abs(normalized_momentum - p_ideal_t))]
     best_t[, deviation := normalized_momentum - p_ideal_t]
-    dt_traditional_matches <- rbind(dt_traditional_matches, best_t)
+    dt_wave_matches <- rbind(dt_wave_matches, best_t)
   }
 }
 
-# --- 4. Overview Plots with Full Precision ---
+max_n <- max(dt_summary$node_count, na.rm = TRUE)
+max_q <- max(dt_summary$normalized_momentum, na.rm = TRUE)
 
-# A. Boundary Logic Overview
-p_ov_boundary <- ggplot() +
+p_ov_action <- ggplot() +
   geom_point(data = dt_summary, aes(x = normalized_momentum, y = node_count), 
              color = "grey80", size = 1, alpha = 0.5) +
   stat_function(fun = function(x) (x - 0.5)^2, xlim = c(0.5, 4.0),
                 color = "blue", linetype = "dotted", linewidth = 1) +
-  geom_point(data = dt_boundary_matches, aes(x = normalized_momentum, y = node_count), 
+  geom_point(data = dt_action_matches, aes(x = normalized_momentum, y = node_count), 
              color = "red", size = 4, shape = 21, fill = "gold", stroke = 1.5) +
-  # Updated label with %.6f for full precision
-  geom_text(data = dt_boundary_matches, aes(x = normalized_momentum, y = node_count, 
-            label = sprintf("n=%d\nP=%.6f", node_count, normalized_momentum)),
+  geom_text(data = dt_action_matches, aes(x = normalized_momentum, y = node_count, 
+            label = sprintf("n=%d\nQ=%.6f", node_count, normalized_momentum)),
             nudge_y = 0.8, size = 2.5, fontface = "bold", lineheight = 0.9) +
-  labs(title = "Boundary Logic Selection (Full Precision)",
-       subtitle = "n = (P - 0.5)\u00b2", x = "Momentum (P)", y = "Nodes (n)") +
-  scale_x_continuous(limits = c(0, 4.0)) + 
-  scale_y_continuous(limits = c(0, 12)) + 
+  labs(title = "Action Theory",
+       subtitle = "n = (Q - 0.5)\u00b2", x = "Coordinate (Q)", y = "Nodes (n)") +
+  scale_x_continuous(limits = c(0, max_q)) + 
+  scale_y_continuous(breaks = seq(0, max_n, by = 1), expand = expansion(mult = c(0, 0.1))) +
   theme_minimal()
 
-# B. Traditional Logic Overview
-p_ov_trad <- ggplot() +
+p_ov_wave <- ggplot() +
   geom_point(data = dt_summary, aes(x = normalized_momentum, y = node_count), 
              color = "grey80", size = 1, alpha = 0.5) +
   stat_function(fun = function(x) x^2 - 0.5, xlim = c(sqrt(0.5), 4.0),
                 color = "darkgreen", linetype = "solid", linewidth = 1) +
-  geom_point(data = dt_traditional_matches, aes(x = normalized_momentum, y = node_count), 
+  geom_point(data = dt_wave_matches, aes(x = normalized_momentum, y = node_count), 
              color = "darkgreen", size = 4, shape = 21, fill = "springgreen", stroke = 1.5) +
-  # Updated label with %.6f for full precision
-  geom_text(data = dt_traditional_matches, aes(x = normalized_momentum, y = node_count, 
-            label = sprintf("n=%d\nP=%.6f", node_count, normalized_momentum)),
+  geom_text(data = dt_wave_matches, aes(x = normalized_momentum, y = node_count, 
+            label = sprintf("n=%d\nQ=%.6f", node_count, normalized_momentum)),
             nudge_y = 0.8, size = 2.5, fontface = "bold", lineheight = 0.9) +
-  labs(title = "Traditional Physics Selection (Full Precision)",
-       subtitle = "n = P\u00b2 - 0.5", x = "Momentum (P)", y = "Nodes (n)") +
-  scale_x_continuous(limits = c(0, 4.0)) + 
-  scale_y_continuous(limits = c(0, 12)) + 
+  labs(title = "Wave Theory",
+       subtitle = "n = Q\u00b2 - 0.5", x = "Coordinate (Q)", y = "Nodes (n)") +
+  scale_x_continuous(limits = c(0, max_q)) + 
+  scale_y_continuous(breaks = seq(0, max_n, by = 1), expand = expansion(mult = c(0, 0.1))) +
   theme_minimal()
 
-print(p_ov_boundary)
+print(p_ov_action)
 cat("\n\n---\n\n")
-print(p_ov_trad)
+print(p_ov_wave)
 
-# --- 5. Profile Function ---
-render_profiles <- function(matches_dt, dot_color, label_prefix) {
+render_profiles <- function(matches_dt, dot_color, theory_label) {
   for (i in seq_len(nrow(matches_dt))) {
     row <- matches_dt[i]
-    p_val <- row$normalized_momentum
-    p_str <- sprintf("%0.6f", p_val)
+    q_val <- row$normalized_momentum
+    q_str <- sprintf("%0.6f", q_val)
     
-    # Path handling
-    d_path <- file.path(agg_dir, sprintf("erasure_distance_density_P_%s.csv.gz", p_str))
-    if (!file.exists(d_path)) d_path <- file.path(agg_dir, sprintf("erasure_distance_density_P_%013.6f.csv.gz", p_val))
-    n_path <- file.path(nodes_dir, sprintf("erasure_distance_nodes_P_%s.csv.gz", p_str))
-    if (!file.exists(n_path)) n_path <- file.path(nodes_dir, sprintf("erasure_distance_nodes_P_%013.6f.csv.gz", p_val))
+    d_path <- file.path(agg_dir, sprintf("erasure_distance_density_P_%s.csv.gz", q_str))
+    if (!file.exists(d_path)) d_path <- file.path(agg_dir, sprintf("erasure_distance_density_P_%013.6f.csv.gz", q_val))
+    n_path <- file.path(nodes_dir, sprintf("erasure_distance_nodes_P_%s.csv.gz", q_str))
+    if (!file.exists(n_path)) n_path <- file.path(nodes_dir, sprintf("erasure_distance_nodes_P_%013.6f.csv.gz", q_val))
 
     if (file.exists(d_path)) {
       h_pts <- fread(d_path)
@@ -120,19 +104,18 @@ render_profiles <- function(matches_dt, dot_color, label_prefix) {
         geom_point(data = n_pts, aes(x = coordinate_q, y = density_count), 
                    color = dot_color, size = 3) +
         labs(
-          title = sprintf("Traditional Physics: n = %d", row$node_count),
-          subtitle = sprintf("P = %.6f | Deviation: %.6f", p_val, row$deviation),
+          title = sprintf("%s: n = %d", theory_label, row$node_count),
+          subtitle = sprintf("Q = %.6f | Deviation: %.6f", q_val, row$deviation),
           x = "Coordinate (Q)", y = "Density"
         ) +
         theme_minimal()      
-      cat(sprintf("\n\n### %s specimen: n=%d\n", label_prefix, row$node_count))
+      cat(sprintf("\n\n### %s specimen: n=%d\n", theory_label, row$node_count))
       print(p)
       cat("\n\n---\n\n")
     }
   }
 }
 
-# Execute profile rendering
-render_profiles(dt_boundary_matches, "red", "Boundary Logic")
-render_profiles(dt_traditional_matches, "green", "Traditional Logic")
+render_profiles(dt_action_matches, "red", "Action Theory")
+render_profiles(dt_wave_matches, "green", "Wave Theory")
 ```
