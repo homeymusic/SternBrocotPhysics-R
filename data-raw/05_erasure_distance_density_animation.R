@@ -13,7 +13,7 @@ summary_path   <- file.path(base_dir, "04_erasure_distance_summary.csv.gz")
 animation_path <- file.path(base_dir, "05_erasure_distance_density_5sec_SMOKE.mp4")
 
 # 5-second smoke test (300 frames)
-SMOKE_LIMIT <- 300
+SMOKE_LIMIT <- 1000
 
 # 1. Load summary
 dt_summary <- fread(summary_path)
@@ -29,7 +29,7 @@ setorder(files_to_process, momentum)
 
 # SEQUENTIAL SMOKE TEST: First 300 frames
 files_to_process <- head(files_to_process, SMOKE_LIMIT)
-cat(sprintf("Running TRUE-EDGE SMOKE TEST (%d frames)...\n", nrow(files_to_process)))
+cat(sprintf("Running TRUE-EDGE & SMOOTH-NODE SMOKE TEST (%d frames)...\n", nrow(files_to_process)))
 
 # 3. Parallel Processing
 num_cores <- parallel::detectCores() - 1
@@ -42,55 +42,66 @@ processed_list <- mclapply(seq_len(nrow(files_to_process)), function(i) {
   h_pts <- tryCatch({ fread(d_path) }, error = function(e) NULL)
   if (is.null(h_pts) || nrow(h_pts) == 0) return(NULL)
 
-  # Metadata
-  meta <- dt_summary[abs(normalized_momentum - q_val) < 1e-8][1]
-  n_count <- if(nrow(meta) > 0) meta$node_count else 0
-
-  max_h <- max(h_pts$density_count, na.rm = TRUE)
-
-  # --- 1. ISOLATE ACTIVE DATA ---
-  # Remove the trailing zeros that cause the plot to "shrink"
+  # STRIP TRAILING ZEROS: Normalizes ONLY to the active wave
   dt_active <- h_pts[density_count > 0]
   if(nrow(dt_active) == 0) return(NULL)
 
-  # Calculate exact bin width (from the raw file coordinates)
-  q_diff <- median(diff(dt_active$coordinate_q), na.rm=TRUE)
-  if (is.na(q_diff)) q_diff <- 1.0
+  meta <- dt_summary[abs(normalized_momentum - q_val) < 1e-8][1]
+  n_count <- if(nrow(meta) > 0) meta$node_count else 0
+  max_h <- max(dt_active$density_count, na.rm = TRUE)
 
-  # --- 2. TRUE EDGE NORMALIZATION ---
-  # The true physical edge is the center of the last bin + half its width.
-  # For Momentum 0.5: max(abs) is 3. Width is 1. True Edge is 3.5.
-  max_q_edge <- max(abs(dt_active$coordinate_q)) + (q_diff / 2)
+  # True Edge Calculation
+  q_diff_raw <- if(nrow(dt_active) > 1) median(diff(dt_active$coordinate_q), na.rm=TRUE) else 1.0
+  max_q_edge <- max(abs(dt_active$coordinate_q), na.rm = TRUE) + (q_diff_raw / 2)
 
   lbl <- sprintf("Nodes: %02d  |  Momentum: %3.3f  | Max Amplitude: %4.1f  |  Max Density: %6s",
                  n_count, q_val, max_q_edge, format(max_h, big.mark=","))
 
-  # Normalize ONLY the active data to this true edge
-  dt_active[, `:=`(pct_density = (density_count/max_h)*100,
-                   pct_q = (coordinate_q/max_q_edge)*100)]
+  # Normalize
+  dt_active[, `:=`(pct_density = (density_count/max_h)*100, pct_q = (coordinate_q/max_q_edge)*100)]
+  pct_width <- (q_diff_raw / max_q_edge) * 100
 
-  # Convert bin width to percentage terms
-  pct_width <- (q_diff / max_q_edge) * 100
-
-  # --- 3. STEP ALIGNMENT ---
-  # Pad exactly one bin-width to the left and right at y=0.
-  # Because direction="mid" drops halfway between points, this guarantees
-  # a perfectly vertical drop at exactly -100 and +100.
+  # Step Pad
   pad_l <- data.table(pct_q = min(dt_active$pct_q) - pct_width, pct_density = 0)
   pad_r <- data.table(pct_q = max(dt_active$pct_q) + pct_width, pct_density = 0)
 
   dt_step <- rbind(pad_l, dt_active[, .(pct_q, pct_density)], pad_r)
   dt_step[, `:=`(type = "step", frame_id = i, label = lbl, is_ghost = FALSE)]
 
-  # --- 4. NODES ---
+  # --- NODES & PLATEAU CENTERING ---
   n_path <- file.path(nodes_dir, paste0("erasure_distance_nodes_", row_info$key_str, ".csv.gz"))
   n_pts <- tryCatch({ fread(n_path) }, error = function(e) data.table())
 
   if (nrow(n_pts) > 0 && "coordinate_q" %in% names(n_pts)) {
     n_pts <- n_pts[!is.na(coordinate_q)]
-    # Nodes use the exact same max_q_edge, guaranteeing they are perfectly centered on the plateaus
-    n_pts[, `:=`(pct_density = (density_count/max_h)*100,
-                 pct_q = (coordinate_q/max_q_edge)*100)]
+
+    # Plateau Detection: If adjacent bins are within 1.5% density, group them
+    thresh <- max(max_h * 0.015, 5)
+
+    for (r in seq_len(nrow(n_pts))) {
+      qn <- n_pts$coordinate_q[r]
+      idx <- which(dt_active$coordinate_q == qn)
+
+      if (length(idx) > 0) {
+        idx <- idx[1]
+        dn <- dt_active$density_count[idx]
+
+        # Walk left
+        l_idx <- idx
+        while(l_idx > 1 && abs(dt_active$density_count[l_idx - 1] - dn) <= thresh) l_idx <- l_idx - 1
+
+        # Walk right
+        r_idx <- idx
+        while(r_idx < nrow(dt_active) && abs(dt_active$density_count[r_idx + 1] - dn) <= thresh) r_idx <- r_idx + 1
+
+        # Center the node exactly on the plateau
+        n_pts$coordinate_q[r] <- mean(dt_active$coordinate_q[l_idx:r_idx])
+        n_pts$density_count[r] <- mean(dt_active$density_count[l_idx:r_idx])
+      }
+    }
+
+    # Normalize with exact same max_q_edge
+    n_pts[, `:=`(pct_density = (density_count/max_h)*100, pct_q = (coordinate_q/max_q_edge)*100)]
     dt_nodes <- n_pts[, .(pct_q, pct_density)]
     dt_nodes[, is_ghost := FALSE]
   } else {
@@ -120,7 +131,7 @@ p <- ggplot() +
   scale_alpha_manual(values = c("TRUE" = 1, "FALSE" = 0), guide = "none") +
   labs(title = "{current_frame}", x = "Amplitude (%)", y = "Density %") +
 
-  # STRICT BOUNDARIES: Cropping exactly at -100 and 100 hides the pad points
+  # STRICT BOUNDARIES
   coord_cartesian(xlim = c(-100, 100), ylim = c(0, 105), clip = "on") +
   scale_x_continuous(breaks = seq(-100, 100, 50), expand = c(0, 0)) +
   scale_y_continuous(expand = c(0, 0)) +
@@ -138,4 +149,4 @@ p <- ggplot() +
 animate(p, nframes = length(unique(dt_all$label)), fps = 60, width = 1600, height = 1000, res = 150,
         renderer = av_renderer(animation_path))
 
-cat("True-Edge Smoke Test Complete: ", animation_path, "\n")
+cat("True-Edge & Smooth-Node Smoke Test Complete: ", animation_path, "\n")
