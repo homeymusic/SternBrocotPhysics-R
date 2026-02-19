@@ -20,6 +20,7 @@ existing_nodes <- list.files(nodes_out_dir, pattern = "^erasure_distance_nodes_P
 all_p_names  <- gsub("erasure_distance_density_P_([0-9.]+)\\.csv\\.gz", "\\1", basename(density_files))
 done_p_names <- gsub("erasure_distance_nodes_P_([0-9.]+)\\.csv\\.gz", "\\1", existing_nodes)
 
+# To ensure the new metric is included, consider clearing the nodes_out_dir first.
 files_to_process <- density_files[!(all_p_names %in% done_p_names)]
 
 # --- 3. Parallel Worker ---
@@ -28,6 +29,9 @@ process_erasure_nodes <- function(f, out_path) {
     library(data.table)
     library(SternBrocotPhysics)
 
+    # Use 1 thread per worker to avoid conflict with future_apply
+    setDTthreads(1)
+
     p_str <- gsub(".*erasure_distance_density_P_([0-9.]+)\\.csv\\.gz", "\\1", f)
     P_val <- as.numeric(p_str)
     out_file <- file.path(out_path, sprintf("erasure_distance_nodes_P_%s.csv.gz", p_str))
@@ -35,30 +39,34 @@ process_erasure_nodes <- function(f, out_path) {
     density_data <- fread(f)
     input_dt <- density_data[, .(x = coordinate_q, y = density_count)]
 
-    # Call node counter
+    # Call updated node counter (returns node_count, nodes, and normalized_total_variation)
     analysis <- SternBrocotPhysics::count_nodes(input_dt)
 
-    # HARDENED LOGIC: Create a row even if nodes are 0
+    # Prepare node coordinate table
     if (!is.null(analysis$nodes) && nrow(analysis$nodes) > 0) {
       nodes_df <- as.data.table(analysis$nodes)
       setnames(nodes_df, c("x", "y"), c("coordinate_q", "density_count"))
     } else {
-      # Placeholder for P where no nodes are detected (Quantum Ground State)
+      # Placeholder for P where no nodes are detected (e.g., Ground State)
       nodes_df <- data.table(coordinate_q = NA_real_, density_count = NA_real_)
     }
 
-    # Metadata is essential for the 04 summary aggregator
+    # Metadata & Topological Complexity Metrics
     nodes_df[, normalized_momentum := P_val]
     nodes_df[, node_count := as.integer(analysis$node_count)]
 
+    # Save the physics-based complexity metric (Normalized Total Variation)
+    nodes_df[, complexity_ntv := as.numeric(analysis$normalized_total_variation)]
+
     fwrite(nodes_df, out_file, compress = "gzip")
     return(data.table(normalized_momentum = P_val, status = "success"))
+
   }, error = function(e) return(NULL))
 }
 
 # --- 4. Execution ---
 if (length(files_to_process) > 0) {
-  message(sprintf("Extracting nodes from %d erasure_distance density files...", length(files_to_process)))
+  message(sprintf("Extracting nodes & complexity from %d density files...", length(files_to_process)))
   with_progress({
     p <- progressor(steps = length(files_to_process))
     future_lapply(files_to_process, function(f) {
@@ -68,7 +76,7 @@ if (length(files_to_process) > 0) {
     }, future.seed = TRUE, future.scheduling = 1000)
   })
 } else {
-  message("All node files (including zero-node files) are up to date.")
+  message("All node files (with complexity metrics) are up to date.")
 }
 
 plan(sequential)

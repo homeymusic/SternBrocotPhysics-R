@@ -1,7 +1,14 @@
-#' Count Nodes using Outward-Scanning Adaptive Hysteresis
+#' Count Nodes and Calculate Topological Complexity
 #'
-#' @param density A data.table containing 'x' and 'y' columns.
+#' Uses outward-scanning adaptive hysteresis to detect nodes and calculates the
+#' Normalized Total Variation (NTV) to rank states by their physical intricacy.
+#'
+#' @param density A data.table containing 'x' (coordinate) and 'y' (density) columns.
 #' @param debug Logical. If TRUE, prints decision logic to the console.
+#' @return A list containing:
+#'   \item{node_count}{Integer count of detected nodes.}
+#'   \item{nodes}{A data.table of the detected node coordinates.}
+#'   \item{normalized_total_variation}{Dimensionless metric of skyline intricacy.}
 #' @import data.table
 #' @export
 count_nodes <- function(density, debug = FALSE) {
@@ -9,35 +16,40 @@ count_nodes <- function(density, debug = FALSE) {
     density <- data.table::as.data.table(density)
   }
 
+  # Ensure strict coordinate ordering
   density <- density[order(density[["x"]]), ]
 
   # --- 1. Physics-Based Adaptive Thresholding ---
   active_idx <- which(density[["y"]] > 1e-9)
 
   if (length(active_idx) < 3) {
-    return(list(node_count = as.integer(NA), nodes = data.table::data.table(x=numeric(0), y=numeric(0))))
+    return(list(
+      node_count = as.integer(NA),
+      nodes = data.table::data.table(x=numeric(0), y=numeric(0)),
+      normalized_total_variation = 0
+    ))
   }
 
   active_data <- density[active_idx, ]
 
-  # Use LOWESS to estimate the baseline
+  # Use LOWESS to estimate the baseline (envelope)
   trend_fit <- stats::lowess(active_data[["x"]], active_data[["y"]], f = 0.2)
   local_baseline <- trend_fit$y
 
-  # CHANGED:
-  # 1. Coeff 0.2 to catch P=21.974 center (Depth ~11 vs Baseline ~2000).
-  # 2. Floor 5.0 to suppress tail noise in P=15.03.
+  # Threshold logic: 0.2 coefficient catches deep features; floor 5.0 suppresses noise.
   thresh_vec <- pmax(0.2 * sqrt(local_baseline), 5.0)
   data.table::set(active_data, j = "threshold", value = thresh_vec)
 
   if (debug) {
     message(sprintf("DEBUG: P ~ %0.2f. Baseline ~ %0.0f. Threshold ~ %0.2f.",
-                    active_data$x[which.max(active_data$y)], median(local_baseline), median(thresh_vec)))
+                    active_data$x[which.max(active_data$y)],
+                    median(local_baseline),
+                    median(thresh_vec)))
   }
 
   # --- 2. OUTWARD SCANNING (Center-Out) ---
 
-  # Right Scan
+  # Right Scan (Positive Q)
   right_data <- active_data[active_data[["x"]] >= 0, ]
   if (nrow(right_data) > 0) {
     res_r <- count_nodes_cpp(right_data, right_data[["threshold"]])
@@ -46,7 +58,7 @@ count_nodes <- function(density, debug = FALSE) {
     res_r <- data.frame(x=numeric(0), y=numeric(0))
   }
 
-  # Left Scan
+  # Left Scan (Negative Q)
   left_data <- active_data[active_data[["x"]] <= 0, ]
   if (nrow(left_data) > 0) {
     left_data <- left_data[order(-left_data[["x"]]), ] # Sort 0 -> -Inf
@@ -113,10 +125,32 @@ count_nodes <- function(density, debug = FALSE) {
     global_thresh_check <- median(active_data[["threshold"]], na.rm=TRUE)
     active_range <- max(active_data[["y"]]) - min(active_data[["y"]])
     if (active_range < global_thresh_check) {
-      return(list(node_count = as.integer(NA), nodes = data.table::data.table(x=numeric(0), y=numeric(0))))
+      return(list(
+        node_count = as.integer(NA),
+        nodes = data.table::data.table(x=numeric(0), y=numeric(0)),
+        normalized_total_variation = 0
+      ))
     }
   }
 
+  # --- 5. TOPOLOGICAL COMPLEXITY (Normalized Total Variation) ---
+  y_vals <- active_data[["y"]]
+  y_range <- max(y_vals, na.rm = TRUE) - min(y_vals, na.rm = TRUE)
+
+  if (y_range > 0) {
+    # Sum of absolute vertical displacements
+    total_variation <- sum(abs(diff(y_vals)), na.rm = TRUE)
+    # Dimensionless complexity: how many "full heights" were traveled
+    ntv_score <- total_variation / y_range
+  } else {
+    ntv_score <- 0
+  }
+
   if (nrow(dot_df) > 0) dot_df <- dot_df[order(dot_df[["x"]]), ]
-  return(list(node_count = final_count, nodes = dot_df))
+
+  return(list(
+    node_count = final_count,
+    nodes = dot_df,
+    normalized_total_variation = ntv_score
+  ))
 }

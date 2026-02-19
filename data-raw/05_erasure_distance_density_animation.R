@@ -34,7 +34,16 @@ processed_list <- mclapply(seq_len(nrow(files_to_process)), function(i) {
   if (is.null(h_pts) || nrow(h_pts) == 0) return(NULL)
 
   # Trim leading/trailing zeros
-  dt_active <- h_pts[density_count > 0]
+  # Find the first and last indices where density is non-zero
+  first_nz <- which(h_pts$density_count > 0)[1]
+  last_nz  <- rev(which(h_pts$density_count > 0))[1]
+
+  # Slice the data from the first non-zero to the last non-zero
+  if (!is.na(first_nz) && !is.na(last_nz)) {
+    dt_active <- h_pts[first_nz:last_nz]
+  } else {
+    return(NULL) # Entire file was zeros
+  }
   if(nrow(dt_active) == 0) return(NULL)
 
   # Read Nodes (This provides BOTH the dots and the exact node count)
