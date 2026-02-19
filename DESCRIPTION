@@ -23,13 +23,16 @@ Imports:
     Rcpp,
     RcppParallel
 Suggests: 
+    av,
     bit64,
     cowplot,
     dplyr,
     future.apply,
+    gganimate,
     ggforce,
     ggplot2,
     ggrepel,
+    gifski,
     here,
     knitr,
     latex2exp,
