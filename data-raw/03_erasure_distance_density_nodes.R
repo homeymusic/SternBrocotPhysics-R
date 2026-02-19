@@ -56,8 +56,7 @@ process_erasure_nodes <- function(f, out_path) {
     nodes_df[, node_count := as.integer(analysis$node_count)]
 
     # Save the physics-based complexity metric (Normalized Total Variation)
-    nodes_df[, complexity_ntv := as.numeric(analysis$normalized_total_variation)]
-
+    nodes_df[, complexity_ntv := as.numeric(analysis$complexity_ntv)]
     fwrite(nodes_df, out_file, compress = "gzip")
     return(data.table(normalized_momentum = P_val, status = "success"))
 

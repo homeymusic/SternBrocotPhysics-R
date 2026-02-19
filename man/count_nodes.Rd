@@ -15,7 +15,7 @@ count_nodes(density, debug = FALSE)
 A list containing:
   \item{node_count}{Integer count of detected nodes.}
   \item{nodes}{A data.table of the detected node coordinates.}
-  \item{normalized_total_variation}{Dimensionless metric of skyline intricacy.}
+  \item{complexity_ntv}{Dimensionless metric of skyline intricacy.}
 }
 \description{
 Uses outward-scanning adaptive hysteresis to detect nodes and calculates the

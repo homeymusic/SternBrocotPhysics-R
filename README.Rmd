@@ -15,63 +15,70 @@ library(data.table)
 library(ggplot2)
 
 base_dir  <- "/Volumes/SanDisk4TB/SternBrocot-data"
-density_dir   <-    file.path(base_dir, "02_erasure_distance_densities")
-nodes_dir <-    file.path(base_dir, "03_erasure_distance_density_nodes")
+density_dir   <-     file.path(base_dir, "02_erasure_distance_densities")
+nodes_dir <-     file.path(base_dir, "03_erasure_distance_density_nodes")
 summary_path <- file.path(base_dir, "04_erasure_distance_summary.csv.gz")
 
-get_boundary_p <- function(n) { return(sqrt(n) + 0.5) }
-get_traditional_p <- function(n) { return(sqrt(n + 0.5)) }
-
+# Load summary which now contains complexity_ntv
 dt_summary <- fread(summary_path)
 
 target_nodes <- 0:10
-dt_action_matches <- data.table()
-dt_wave_matches <- data.table()
+dt_eigenstate_matches <- data.table()
 
+# --- THE SELECTION LOGIC ---
 for (val_n in target_nodes) {
-  candidates <- dt_summary[node_count == val_n]
-  if (nrow(candidates) > 0) {
-    p_ideal_b <- get_boundary_p(val_n)
-    best_b <- candidates[which.min(abs(normalized_momentum - p_ideal_b))]
-    best_b[, deviation := normalized_momentum - p_ideal_b]
-    dt_action_matches <- rbind(dt_action_matches, best_b)
-    
-    p_ideal_t <- get_traditional_p(val_n)
-    best_t <- candidates[which.min(abs(normalized_momentum - p_ideal_t))]
-    best_t[, deviation := normalized_momentum - p_ideal_t]
-    dt_wave_matches <- rbind(dt_wave_matches, best_t)
+  if (val_n == 0) {
+    # FORCE GROUND STATE TO P=0.5
+    ground_state <- dt_summary[abs(normalized_momentum - 0.5) < 1e-6]
+    if (nrow(ground_state) > 0) {
+      dt_eigenstate_matches <- rbind(dt_eigenstate_matches, ground_state[1])
+    }
+  } else {
+    # SELECT BY COMPLEXITY FOR ALL OTHER NODES
+    candidates <- dt_summary[node_count == val_n]
+    if (nrow(candidates) > 0) {
+      best_eigen <- candidates[which.max(complexity_ntv)]
+      dt_eigenstate_matches <- rbind(dt_eigenstate_matches, best_eigen)
+    }
   }
 }
 
 max_n <- max(dt_summary$node_count, na.rm = TRUE)
 max_q <- max(dt_summary$normalized_momentum, na.rm = TRUE)
 
+# Overview Plot: Mapping complexity across momentum
 p_ov_action <- ggplot() +
-  geom_point(data = dt_summary, aes(x = normalized_momentum, y = node_count), 
-             color = "grey80", size = 1, alpha = 0.5) +
-  stat_function(fun = function(x) (x - 0.5)^2, xlim = c(0.5, 4.0),
-                color = "blue", linetype = "dotted", linewidth = 1) +
-  geom_point(data = dt_action_matches, aes(x = normalized_momentum, y = node_count), 
-             color = "red", size = 4, shape = 21, fill = "gold", stroke = 1.5) +
-  geom_text(data = dt_action_matches, aes(x = normalized_momentum, y = node_count, 
-            label = sprintf("n=%d\nQ=%.6f", node_count, normalized_momentum)),
+  geom_point(data = dt_summary, aes(x = normalized_momentum, y = node_count, color = complexity_ntv), 
+             size = 1.5, alpha = 0.6) +
+  scale_color_viridis_c(option = "magma", name = "Complexity (NTV)") +
+  geom_point(data = dt_eigenstate_matches, aes(x = normalized_momentum, y = node_count), 
+             color = "gray",
+             size = 5,      
+             shape = 21, 
+             fill = NA,     
+             stroke = 1.2) +
+  # geom_point(data = dt_eigenstate_matches, aes(x = normalized_momentum, y = node_count), 
+  #            color = "black", size = 4, shape = 21, fill = "white", stroke = 1.5) +
+  geom_text(data = dt_eigenstate_matches, aes(x = normalized_momentum, y = node_count, 
+            label = sprintf("n=%d\nNTV=%.2f", node_count, complexity_ntv)),
             nudge_y = 0.8, size = 2.5, fontface = "bold", lineheight = 0.9) +
-  labs(title = "Action Theory",
-       subtitle = "n = (Q - 0.5)\u00b2", x = "Coordinate (Q)", y = "Nodes (n)") +
+  labs(title = "Eigenstate Discovery via Topological Complexity",
+       subtitle = "Selection based on Maximum Normalized Total Variation (NTV)", 
+       x = "Coordinate (Q)", y = "Nodes (n)") +
   scale_x_continuous(limits = c(0, max_q)) + 
-  scale_y_continuous(breaks = seq(0, max_n, by = 1), expand = expansion(mult = c(0, 0.1))) +
+  scale_y_continuous(breaks = seq(0, max_n, by = 1), expand = expansion(mult = c(0.05, 0.1))) +
   theme_minimal()
 
 print(p_ov_action)
 cat("\n\n---\n\n")
 
-render_profiles <- function(matches_dt, dot_color) {
+render_profiles <- function(matches_dt, dot_color = "black") {
   for (i in seq_len(nrow(matches_dt))) {
     row <- matches_dt[i]
     q_val <- row$normalized_momentum
-    q_str <- sprintf("%0.6f", q_val)
     
-    # Path handling
+    # Path handling (standard vs fixed-width)
+    q_str <- sprintf("%0.6f", q_val)
     d_path <- file.path(density_dir, sprintf("erasure_distance_density_P_%s.csv.gz", q_str))
     if (!file.exists(d_path)) d_path <- file.path(density_dir, sprintf("erasure_distance_density_P_%013.6f.csv.gz", q_val))
     n_path <- file.path(nodes_dir, sprintf("erasure_distance_nodes_P_%s.csv.gz", q_str))
@@ -80,48 +87,65 @@ render_profiles <- function(matches_dt, dot_color) {
     if (file.exists(d_path)) {
       h_pts <- fread(d_path)
       
-      # 1. Normalization Constants
-      max_h <- max(h_pts$density_count, na.rm = TRUE)
-      max_q <- max(abs(h_pts$coordinate_q), na.rm = TRUE) 
-      
-      h_pts[, pct_density := (density_count / max_h) * 100]
-      h_pts[, pct_q       := (coordinate_q / max_q) * 100]
-      
-      # 2. Geometry Prep
-      q_diff <- if(nrow(h_pts) > 1) diff(h_pts$pct_q)[1] else 1.0
-      
-      # Pad with 0s to ensure the black line "drops" to the floor at edges
-      pad_left  <- data.table(pct_q = min(h_pts$pct_q) - q_diff, pct_density = 0)
-      pad_right <- data.table(pct_q = max(h_pts$pct_q) + q_diff, pct_density = 0)
-      h_plot_data <- rbind(pad_left, h_pts[, .(pct_q, pct_density)], pad_right)
+      # 1. Surgical NZ Trim (The Animation Logic)
+      first_nz <- which(h_pts$density_count > 0)[1]
+      last_nz  <- rev(which(h_pts$density_count > 0))[1]
+      if (is.na(first_nz)) next
+      dt_active <- h_pts[first_nz:last_nz]
 
-      # 3. Node Points
+      # 2. Normalization & Scaling
+      max_h <- max(dt_active$density_count, na.rm = TRUE)
+      q_diff_raw <- if(nrow(dt_active) > 1) median(diff(dt_active$coordinate_q), na.rm=TRUE) else 1.0
+      max_q_edge <- max(abs(dt_active$coordinate_q), na.rm = TRUE) + (q_diff_raw / 2)
+      
+      dt_active[, `:=`(pct_density = (density_count/max_h)*100, 
+                       pct_q = (coordinate_q/max_q_edge)*100)]
+      
+      # 3. Geometry: Step Outline with Padding
+      pct_width <- (q_diff_raw / max_q_edge) * 100
+      pad_l <- data.table(pct_q = min(dt_active$pct_q) - pct_width, pct_density = 0)
+      pad_r <- data.table(pct_q = max(dt_active$pct_q) + pct_width, pct_density = 0)
+      h_plot_data <- rbind(pad_l, dt_active[, .(pct_q, pct_density)], pad_r)
+
+      # 4. Advanced Node Centering (The "Plateau" logic)
       n_pts <- if(file.exists(n_path)) fread(n_path) else data.table()
       if (nrow(n_pts) > 0 && "coordinate_q" %in% names(n_pts)) {
         n_pts <- n_pts[!is.na(coordinate_q)]
-        n_pts[, pct_density := (density_count / max_h) * 100]
-        n_pts[, pct_q       := (coordinate_q / max_q) * 100]
+        thresh <- max(max_h * 0.015, 5) # Adaptive plateau threshold
+        
+        for (r in seq_len(nrow(n_pts))) {
+          idx <- which(dt_active$coordinate_q == n_pts$coordinate_q[r])[1]
+          if (!is.na(idx)) {
+            dn <- dt_active$density_count[idx]
+            # Find plateau boundaries
+            l_idx <- idx; while(l_idx > 1 && abs(dt_active$density_count[l_idx-1] - dn) <= thresh) l_idx <- l_idx - 1
+            r_idx <- idx; while(r_idx < nrow(dt_active) && abs(dt_active$density_count[r_idx+1] - dn) <= thresh) r_idx <- r_idx + 1
+            # Center the point
+            n_pts$coordinate_q[r] <- mean(dt_active$coordinate_q[l_idx:r_idx])
+            n_pts$density_count[r] <- mean(dt_active$density_count[l_idx:r_idx])
+          }
+        }
+        n_pts[, `:=`(pct_density = (density_count/max_h)*100, 
+                     pct_q = (coordinate_q/max_q_edge)*100)]
       }
       
-      # 4. Title Logic
-      plot_title <- sprintf("Nodes: %02d  |  Momentum: %3.3f  | Max Amplitude: %4.1f  |  Max Density: %6s", 
-                            row$node_count, row$normalized_momentum, max_q, format(max_h, big.mark=","))
+      # 5. Plot Title
+      plot_title <- sprintf("Nodes: %02d  |  Q: %3.3f  |  Complexity (NTV): %2.3f  |  Max Density: %s", 
+                            row$node_count, row$normalized_momentum, row$complexity_ntv, format(max_h, big.mark=","))
 
-      # 5. Generate Plot
-      p <- ggplot(h_pts, aes(x = pct_q, y = pct_density)) +
-        geom_col(width = q_diff, fill = "grey30", alpha = 0.3) +
-        geom_step(data = h_plot_data, color = "black", linewidth = 0.7, direction = "mid") + 
-        geom_point(data = n_pts, aes(x = pct_q, y = pct_density), 
-                   color = dot_color, size = 3) +
+      # 6. Final Plot Generation
+      p <- ggplot() +
+        geom_col(data = dt_active, aes(x = pct_q, y = pct_density), width = pct_width, fill = "grey85") +
+        geom_step(data = h_plot_data, aes(x = pct_q, y = pct_density), color = "black", linewidth = 0.7, direction = "mid") + 
+        geom_point(data = n_pts, aes(x = pct_q, y = pct_density), color = dot_color, size = 3) +
         geom_vline(xintercept = 0, linetype = "dashed", color = "grey70", linewidth = 0.5) +
         labs(title = plot_title, x = "Amplitude (%)", y = "Density %") +
-        # CRITICAL: Use coord_cartesian to prevent clipping warnings and edge-gap
         coord_cartesian(xlim = c(-105, 105), ylim = c(0, 105)) +
         scale_x_continuous(breaks = seq(-100, 100, 50)) +
         scale_y_continuous(expand = c(0, 0)) +
         theme_minimal() +
         theme(
-          plot.title = element_text(family = "mono", face = "bold", size = 12),
+          plot.title = element_text(family = "mono", face = "bold", size = 11),
           panel.grid.minor = element_blank()
         )
       
@@ -130,6 +154,6 @@ render_profiles <- function(matches_dt, dot_color) {
     }
   }
 }
+render_profiles(dt_eigenstate_matches, "black")
 
-render_profiles(dt_action_matches, "black")
 ```
