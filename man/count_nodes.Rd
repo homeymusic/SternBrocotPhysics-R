@@ -2,15 +2,22 @@
 % Please edit documentation in R/node_counter.R
 \name{count_nodes}
 \alias{count_nodes}
-\title{Count Nodes using Outward-Scanning Adaptive Hysteresis}
+\title{Count Nodes and Calculate Topological Complexity}
 \usage{
 count_nodes(density, debug = FALSE)
 }
 \arguments{
-\item{density}{A data.table containing 'x' and 'y' columns.}
+\item{density}{A data.table containing 'x' (coordinate) and 'y' (density) columns.}
 
 \item{debug}{Logical. If TRUE, prints decision logic to the console.}
 }
+\value{
+A list containing:
+  \item{node_count}{Integer count of detected nodes.}
+  \item{nodes}{A data.table of the detected node coordinates.}
+  \item{normalized_total_variation}{Dimensionless metric of skyline intricacy.}
+}
 \description{
-Count Nodes using Outward-Scanning Adaptive Hysteresis
+Uses outward-scanning adaptive hysteresis to detect nodes and calculates the
+Normalized Total Variation (NTV) to rank states by their physical intricacy.
 }

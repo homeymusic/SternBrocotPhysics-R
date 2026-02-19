@@ -133,24 +133,36 @@ count_nodes <- function(density, debug = FALSE) {
     }
   }
 
-  # --- 5. TOPOLOGICAL COMPLEXITY (Normalized Total Variation) ---
+  # --- 5. TOPOLOGICAL COMPLEXITY (Horizontal & Vertical Integration) ---
   y_vals <- active_data[["y"]]
-  y_range <- max(y_vals, na.rm = TRUE) - min(y_vals, na.rm = TRUE)
+  y_max  <- max(y_vals, na.rm = TRUE)
+  y_range <- y_max - min(y_vals, na.rm = TRUE)
 
   if (y_range > 0) {
-    # Sum of absolute vertical displacements
-    total_variation <- sum(abs(diff(y_vals)), na.rm = TRUE)
-    # Dimensionless complexity: how many "full heights" were traveled
-    ntv_score <- total_variation / y_range
-  } else {
-    ntv_score <- 0
-  }
+    # 1. Vertical Component (NTV)
+    # Still use a basic filter to ignore micro-jitter
+    y_filtered <- round(y_vals / (0.01 * y_max)) * (0.01 * y_max)
+    total_variation <- sum(abs(diff(y_filtered)), na.rm = TRUE)
+    v_complexity <- total_variation / y_range
 
+    # 2. Horizontal Component (Step Counting)
+    # We count how many times the filtered density actually changes value.
+    # The 'box' will have 2 changes. Your 'pyramid' will have ~6 changes.
+    h_steps <- sum(diff(y_filtered) != 0, na.rm = TRUE)
+
+    # 3. Final Multiplier
+    # We combine them. This heavily rewards 'multi-stepped' states (Eigenstates)
+    # over 'single-block' states (Noise/Transition).
+    final_complexity <- v_complexity * (h_steps)
+
+  } else {
+    final_complexity <- 0
+  }
   if (nrow(dot_df) > 0) dot_df <- dot_df[order(dot_df[["x"]]), ]
 
   return(list(
     node_count = final_count,
     nodes = dot_df,
-    normalized_total_variation = ntv_score
+    normalized_total_variation = final_complexity # Correct: Use the calculated value
   ))
 }
