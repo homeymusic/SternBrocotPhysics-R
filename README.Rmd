@@ -13,6 +13,7 @@ output:
 ```{r ideal-state-selector, echo=FALSE, results='asis', fig.width=12, fig.height=8}
 library(data.table)
 library(ggplot2)
+library(ggforce)
 
 base_dir    <- "/Volumes/SanDisk4TB/SternBrocot-data"
 density_dir <- file.path(base_dir, "02_erasure_distance_densities")
@@ -129,4 +130,67 @@ render_profiles <- function(matches_dt, dot_color = "black") {
   }
 }
 render_profiles(dt_max_variation, "black")
+# --- PLOT 3: CONJUGATE ELLIPSES (Orthogonal & Contained) ---
+render_ellipses <- function(matches_dt, dot_color = "black") {
+  for (i in seq_len(nrow(matches_dt))) {
+    row <- matches_dt[i]
+    q_val <- row$normalized_momentum
+    
+    # We define the semi-axes such that at q = 0.5, a = b (Circle)
+    # As q increases, one axis grows while the other shrinks proportionally
+    # Scale factor 0.5 ensures that at q=0.5, radius is 1.0
+    a_base <- q_val / 0.5
+    b_base <- 0.5 / q_val
+    
+    # Q-ellipse: Long on X if q > 0.5
+    # P-ellipse: Long on Y if q > 0.5 (Identical but Orthogonal)
+    
+    # Find the maximum dimension to scale everything into the 100% view
+    max_dim <- max(a_base, b_base)
+    scaling_factor <- 90 / max_dim # 90 for a slight margin
+    
+    ellipse_df <- data.frame(
+      type = c("Q-Conjugate", "P-Conjugate"),
+      major = c(a_base, b_base) * scaling_factor,
+      minor = c(b_base, a_base) * scaling_factor,
+      fill = c("black", "gray60"),
+      color = c("black", "gray40")
+    )
+
+    plot_title <- sprintf("Nodes: %02d | Momentum: %3.3f", row$node_count, q_val)
+
+    p <- ggplot(ellipse_df) +
+      # Reference Grid
+      geom_vline(xintercept = seq(-100, 100, 50), color = "grey95") +
+      geom_hline(yintercept = seq(-100, 100, 50), color = "grey95") +
+      # Ellipses
+      geom_ellipse(aes(x0 = 0, y0 = 0, a = major, b = minor, angle = 0, 
+                       color = type, fill = type), 
+                   alpha = 0.25, linewidth = 0.8) +
+      scale_fill_manual(values = c("Q-Conjugate" = "black", "P-Conjugate" = "gray60")) +
+      scale_color_manual(values = c("Q-Conjugate" = "black", "P-Conjugate" = "gray40")) +
+      labs(
+        title = plot_title,
+        subtitle = "Orthogonal Conjugate Pair (A = Constant)",
+        x = "q Dimension",
+        y = "p Dimension"
+      ) +
+      coord_fixed(xlim = c(-100, 100), ylim = c(-100, 100)) +
+      theme_minimal() +
+      theme(
+        plot.title = element_text(family = "mono", face = "bold", size = 11),
+        legend.position = "none", # Cleaner for animation
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        aspect.ratio = 1,
+        axis.text = element_blank(), # Keeps focus on the geometry
+        axis.ticks = element_blank()
+      )
+
+    print(p)
+    cat("\n\n---\n\n")
+  }
+}
+
+render_ellipses(dt_max_variation, "black")
 ```
