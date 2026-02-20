@@ -46,25 +46,39 @@ max_n <- max(dt_summary$node_count, na.rm = TRUE)
 max_q <- max(dt_summary$normalized_momentum, na.rm = TRUE)
 
 # --- PLOT 1: OVERVIEW ---
+
+# Based on your observations: n = P^2
+qho_backbone <- function(P) { P^2 }
+
 p_ov_action <- ggplot() +
+  # 1. Add the Theoretical Backbone: n = P^2
+  stat_function(fun = qho_backbone, 
+                color = "black", 
+                linetype = "dashed", 
+                alpha = 0.5, 
+                linewidth = 0.8) +
+  
+  # 2. Existing Data Points
   geom_point(data = dt_summary[order(complexity_ntv)], 
              aes(x = normalized_momentum, y = node_count, color = complexity_ntv), 
-             size = 1.5, alpha = 0.6) +
+             size = 1.5, 
+             alpha = 0.6) +
   scale_color_viridis_c(option = "magma", name = "Variation") +
   
-  # Selection Markers with white halo for visibility on white background
+  # Selection Markers (Max Variation)
   geom_point(data = dt_max_variation, aes(x = normalized_momentum, y = node_count), 
-             color = "gray", size = 5, shape = 21, fill = NA, stroke = 1.2) +
+             color = "black", size = 5, shape = 21, fill = NA, stroke = 1.2) +
              
   geom_text(data = dt_max_variation, aes(x = normalized_momentum, y = node_count, 
-            label = sprintf("n=%d\nQ=%.3f", node_count, normalized_momentum)),
-            nudge_y = 0.8, size = 2.5, fontface = "bold", lineheight = 0.9) +
+            label = sprintf("n=%d\nP=%.3f", node_count, normalized_momentum)),
+            nudge_y = 1.2, size = 2.5, fontface = "bold", lineheight = 0.9) +
             
   labs(title = "Node Count and Momentum",
-       subtitle = "Maximum Variation Density Distributions are Highlighted", 
-       x = "Coordinate (Q)", y = "Nodes (n)") +
-  scale_x_continuous(limits = c(0, max_q)) + 
-  scale_y_continuous(breaks = seq(0, max_n, by = 1), 
+       subtitle = expression(paste("Dashed line represents the ideal backbone: ", n == P^2)), 
+       x = "Normalized Momentum (P)", 
+       y = "Nodes (n)") +
+  scale_x_continuous(limits = c(0.45, max(dt_summary$normalized_momentum, na.rm=TRUE))) + 
+  scale_y_continuous(breaks = seq(0, max_n, by = 2), 
                      minor_breaks = NULL, 
                      expand = expansion(mult = c(0.05, 0.1))) +
   theme_minimal() +
