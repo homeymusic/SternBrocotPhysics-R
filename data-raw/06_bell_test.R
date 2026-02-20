@@ -1,120 +1,142 @@
-here::i_am("data-raw/06_bell_test.R")
 library(data.table)
 library(ggplot2)
 library(SternBrocotPhysics)
 
 # --- CONFIGURATION ---
-data_dir <- "/Volumes/SanDisk4TB/SternBrocot/06_bell_test"
-rows_to_sweep <- 1e6
-plot_subsample <- 5000
+output_dir <- "man/figures"
+if (!dir.exists(output_dir)) dir.create(output_dir, recursive = TRUE)
 
-# 1. CLEAN SLATE
+# TEMP DATA DIR
+data_dir <- "/Volumes/SanDisk4TB/SternBrocot-data/06_bell_test"
 if (!dir.exists(data_dir)) dir.create(data_dir, recursive = TRUE)
-unlink(list.files(data_dir, full.names = TRUE))
 
-# 2. THE EXPLICIT PAIRINGS (Alice Angle, Bob Angle)
-# We add 1e-5 to avoid exact boundary floating point issues if necessary
-angle_pairs <- list(
-  c(0.0, 0.0),
-  c(22.5, 22.5),
-  c(45.0, 45.0),
-  c(67.5, 67.5),
-  c(90.0, 90.0)
-)
-
-# Flatten pairs to get unique angles for the generation step
-unique_angles <- unique(unlist(angle_pairs)) + 1e-5
+ANGULAR_MOMENTUM <- sqrt(pi)/2
 
 # --- SIMULATION PARAMETERS ---
-# Full 360 degree sweep
 alice_fixed <- 0.0 + 1e-5
-bob_sweep   <- seq(0, 360, by = 2) + 1e-5 # Step by 2 for speed, still smooth
+detector_aperture = 0.1
+bob_sweep   <- seq(0, 360, by = detector_aperture) + 1e-5
 all_angles  <- sort(unique(c(alice_fixed, bob_sweep)))
-sim_count   <- 5e4  # Sufficient for visual comparison
+sim_count   <- 1e3
 
-cat("--- GENERATING PHI vs PI COMPARISON ---\n")
+cat("--- GENERATING HERO SHOT ---\n")
+cat(sprintf("Angular Momentum: (%.6f)\n", ANGULAR_MOMENTUM))
 
-all_results <- list()
-
+# 1. RUN SIMULATION
 micro_macro_bell_erasure_sweep(
-  angles = unique_angles,
+  detector_angles = all_angles,
   dir = normalizePath(data_dir, mustWork = TRUE),
-  count = rows_to_sweep,
-  kappa = 4/ pi,
-  delta_particle = 2/ pi,
-  mu_start = -pi,
-  mu_end = pi,
-  n_threads = 4
+  count = sim_count,
+  angular_momentum = ANGULAR_MOMENTUM,
+  microstate_particle_angle_start = -pi,
+  microstate_particle_angle_end = pi,
+  n_threads = 6
 )
 
-# 4. LOAD, AGGREGATE, AND ORDERING
-all_data_list <- list()
-population_stats <- list()
-facet_order <- c() # This will store the labels in the exact order for the plot
+# 2. PROCESS DATA (Load extra columns)
+f_a <- sprintf("erasure_alice_%013.6f.csv.gz", alice_fixed)
+cols_to_load <- c("spin", "found", "uncertainty", "program_length")
 
-cat("\n--- CALCULATING SPIN POPULATIONS ---\n")
+# Read Alice once
+if (!file.exists(file.path(data_dir, f_a))) stop("Alice file missing!")
+dt_a <- fread(file.path(data_dir, f_a), select = cols_to_load)
 
-for(pair in angle_pairs) {
-  # For each pair, we process Alice then Bob to lock them side-by-side
-  for(i in 1:2) {
-    obs <- if(i == 1) "Alice" else "Bob"
-    ang <- pair[i] + 1e-5
+plot_data <- list()
 
-    f_name <- sprintf("erasure_%s_%013.6f.csv.gz", tolower(obs), ang)
-    dt <- fread(file.path(data_dir, f_name), select = c("microstate", "spin", "found"))
+# Loop Bob
+for (b_ang in bob_sweep) {
+  f_b <- sprintf("erasure_bob_%013.6f.csv.gz", b_ang)
+  if (file.exists(file.path(data_dir, f_b))) {
+    dt_b <- fread(file.path(data_dir, f_b), select = cols_to_load)
 
-    total_found <- sum(dt$found)
-    p_up   <- (sum(dt$spin == 1 & dt$found) / total_found) * 100
-    p_down <- (sum(dt$spin == -1 & dt$found) / total_found) * 100
+    # Valid coincidences
+    valid <- dt_a$found & dt_b$found
 
-    # Create the label
-    label <- sprintf("%s (%.1f°)\n↑: %.1f%% | ↓: %.1f%%", obs, ang, p_up, p_down)
+    if (any(valid)) {
+      # Physics Correlation
+      corr <- -mean(as.numeric(dt_a$spin[valid]) * as.numeric(dt_b$spin[valid]))
 
-    # Store label for factor ordering
-    facet_order <- c(facet_order, label)
+      # Average Metrics for this angle
+      avg_unc <- (mean(dt_a$uncertainty[valid]) + mean(dt_b$uncertainty[valid])) / 2
+      avg_inf <- (mean(dt_a$program_length[valid]) + mean(dt_b$program_length[valid])) / 2
 
-    # Store stats for the table
-    population_stats[[paste0(obs, ang)]] <- data.table(
-      Observer = obs,
-      Angle = round(ang, 1),
-      `Spin_Up_%` = sprintf("%.2f%%", p_up),
-      `Spin_Down_%` = sprintf("%.2f%%", p_down)
-    )
-
-    # Subsample for plotting
-    sub_dt <- dt[seq(1, .N, length.out = plot_subsample)]
-    sub_dt[, `:=`(Observer = obs, Angle = ang, FacetLabel = label)]
-    all_data_list[[paste0(obs, ang)]] <- sub_dt
+      plot_data[[length(plot_data) + 1]] <- data.table(
+        phi = b_ang - alice_fixed,
+        E = corr,
+        avg_uncertainty = avg_unc,
+        avg_info = avg_inf
+      )
+    }
   }
 }
+dt_plot <- rbindlist(plot_data)
 
-plot_dt <- rbindlist(all_data_list)
-pop_table <- rbindlist(population_stats)
+# 3. TRANSITION ANALYSIS (Sorted by Magnitude of Change)
+# We look specifically at the 60-120 degree window where the lobes occur.
+critical_zone <- dt_plot
 
-# CRITICAL: Force the FacetLabel into the specific order defined by our loop
-plot_dt[, FacetLabel := factor(FacetLabel, levels = facet_order)]
+# Calculate the jump from the previous point
+critical_zone[, Prev_E := shift(E, fill = 0)]
+critical_zone[, Jump := E - Prev_E]
+critical_zone[, Abs_Jump := abs(Jump)]
 
-# 5. RENDER THE POPULATION TABLE
-print("--- OBSERVER SPIN POPULATION TABLE ---")
-print(pop_table)
+# Calculate the change in uncertainty across the jump
+critical_zone[, Prev_Unc := shift(avg_uncertainty, fill = 0)]
+critical_zone[, Delta_Unc := avg_uncertainty - Prev_Unc]
 
-# 6. RENDER THE PLOT
-gp <- ggplot(plot_dt, aes(x = microstate, y = factor(spin), color = factor(spin))) +
-  geom_jitter(height = 0.2, alpha = 0.4, size = 0.8) +
-  # ncol = 2 uses the factor levels to put A on left, B on right
-  facet_wrap(~FacetLabel, ncol = 2) +
-  scale_color_manual(values = c("-1" = "#e74c3c", "1" = "#3498db"), guide = "none") +
-  scale_x_continuous(breaks = c(-pi, 0, pi), labels = c("-π", "0", "π")) +
-  labs(
-    title = "Macrostate Outcomes vs. Microstate (microstate)",
-    subtitle = "Paired Angles: Alice (Left) vs. Bob (Right)",
-    x = "Action Quanta (Microstate microstate)",
-    y = "Observable Spin Outcome"
+# Sort by the LARGEST jumps first
+transitions <- critical_zone[order(-Abs_Jump)]
+
+# Select useful columns to print
+print_table <- transitions[, .(phi, E, Jump, avg_uncertainty, Delta_Unc)]
+
+cat("\n--- TOP 10 LARGEST TRANSITIONS (60°-120°) ---\n")
+print(head(print_table, 10))
+
+# 4. PLOT & METRICS
+dt_plot[, Quantum := -cos(phi * pi / 180)]
+E_45  <- approx(dt_plot$phi, dt_plot$E, xout = 45)$y
+E_135 <- approx(dt_plot$phi, dt_plot$E, xout = 135)$y
+S_val <- abs(3 * E_45 - E_135)
+rmse_val <- sqrt(mean((dt_plot$E - dt_plot$Quantum)^2))
+
+subtitle_str <- sprintf("S: %.5f (Quantum Limit: 2.828)",
+                        S_val)
+
+classical_sawtooth <- function(x) {
+  ifelse(x <= 180, -1 + (2*x/180), 3 - (2*x/180))
+}
+
+gp <- ggplot(dt_plot, aes(x = phi)) +
+  stat_function(fun = classical_sawtooth,
+                color = "darkgray", linewidth = 1.0, alpha = 0.6) +
+  stat_function(fun = function(x) -cos(x * pi / 180),
+                color = "gray", linewidth = .3) +
+  geom_point(aes(y = E), color = "black", alpha = 0.5, size = 0.01) +
+  scale_x_continuous(
+    breaks = seq(0, 360, by = 45),
+    labels = paste0(seq(0, 360, by = 45), "°")
   ) +
-  theme_minimal() +
+  ylim(-1.1, 1.1) +
+  labs(
+    title = "Bell Test",
+    subtitle = subtitle_str,
+    x = "Alice-Bob Phase",
+    y = "Correlation"
+  ) +
+  theme_minimal(base_size = 14) +
   theme(
-    strip.text = element_text(face = "bold"),
-    panel.spacing = unit(1, "lines")
+    plot.title = element_text(face = "bold", hjust = 0.5),
+    plot.subtitle = element_text(face = "italic", hjust = 0.5, color="grey30"),
+    panel.grid.minor = element_blank()
   )
 
 print(gp)
+
+# 5. SAVE
+save_path <- file.path(output_dir, "hero_bell.png")
+ggsave(save_path, plot = gp, width = 10, height = 6, dpi = 300)
+
+cat(sprintf("\nImage saved to: %s\n", save_path))
+# Cleanup temp data
+unlink(data_dir, recursive = TRUE)
