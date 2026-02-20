@@ -16,6 +16,7 @@ library(ggplot2)
 library(ggforce)
 
 base_dir     <- "/Volumes/SanDisk4TB/SternBrocot-data"
+erasures_dir <- file.path(base_dir, "01_erasures")
 density_dir  <- file.path(base_dir, "02_erasure_distance_densities")
 nodes_dir    <- file.path(base_dir, "03_erasure_distance_density_nodes")
 summary_path <- file.path(base_dir, "04_erasure_distance_summary.csv.gz")
@@ -153,6 +154,101 @@ render_profiles <- function(matches_dt, dot_color = "black") {
 
 render_profiles(dt_selected, "black")
 
+# --- PLOT 4: SCATTER DISTRIBUTIONS ---
+render_scatters <- function(matches_dt) {
+  # Pathing remains consistent with your erasures_dir
+  erasures_dir <- file.path(base_dir, "01_erasures")
+  
+  for (i in seq_len(nrow(matches_dt))) {
+    row <- matches_dt[i]
+    q_val <- row$normalized_momentum
+    
+    # Consistent filename formatting
+    q_str <- sprintf("%013.6f", q_val)
+    f_path <- file.path(erasures_dir, sprintf("erasures_P_%s.csv.gz", q_str))
+    
+    if (file.exists(f_path)) {
+      dt_raw <- fread(f_path)
+      
+      # Filter for successful Stern-Brocot searches
+      dt_found <- dt_raw[found == 1]
+      if (nrow(dt_found) == 0) next
+      
+      # Mapping the physical search space: Microstates range from -P to +P
+      p <- ggplot(dt_found, aes(x = microstate, y = macrostate)) +
+        geom_point(alpha = 0.4, size = 0.5, color = "steelblue4") +
+        # Reference lines for the origin and search bounds
+        labs(
+          title = sprintf("Phase Space Erasure: P = %.6f", q_val),
+          subtitle = sprintf("Nodes: %d | Microstate Range: [%.3f, %.3f]", 
+                             row$node_count, min(dt_found$microstate), max(dt_found$microstate)),
+          x = "Microstate",
+          y = "Macrostate"
+        ) +
+        theme_minimal() +
+        theme(
+          plot.title = element_text(family = "mono", face = "bold"),
+          panel.grid.minor = element_blank()
+        )
+      
+      print(p)
+      cat("\n\n---\n\n")
+    } else {
+      message(sprintf("Skipping: %s not found", f_path))
+    }
+  }
+}
+
+render_scatters(dt_selected)
+
+
+# --- PLOT 4: SCATTER DISTRIBUTIONS ---
+render_erasure_scatters <- function(matches_dt) {
+  # Pathing remains consistent with your erasures_dir
+  erasures_dir <- file.path(base_dir, "01_erasures")
+  
+  for (i in seq_len(nrow(matches_dt))) {
+    row <- matches_dt[i]
+    q_val <- row$normalized_momentum
+    
+    # Consistent filename formatting
+    q_str <- sprintf("%013.6f", q_val)
+    f_path <- file.path(erasures_dir, sprintf("erasures_P_%s.csv.gz", q_str))
+    
+    if (file.exists(f_path)) {
+      dt_raw <- fread(f_path)
+      
+      # Filter for successful Stern-Brocot searches
+      dt_found <- dt_raw[found == 1]
+      if (nrow(dt_found) == 0) next
+      
+      # Mapping the physical search space: Microstates range from -P to +P
+      p <- ggplot(dt_found, aes(x = microstate, y = erasure_distance)) +
+        geom_point(alpha = 0.4, size = 0.5, color = "steelblue4") +
+        # Reference lines for the origin and search bounds
+        labs(
+          title = sprintf("Phase Space Erasure: P = %.6f", q_val),
+          subtitle = sprintf("Nodes: %d | Microstate Range: [%.3f, %.3f]", 
+                             row$node_count, min(dt_found$microstate), max(dt_found$microstate)),
+          x = "Microstate",
+          y = "Erasure Distance"
+        ) +
+        theme_minimal() +
+        theme(
+          plot.title = element_text(family = "mono", face = "bold"),
+          panel.grid.minor = element_blank()
+        )
+      
+      print(p)
+      cat("\n\n---\n\n")
+    } else {
+      message(sprintf("Skipping: %s not found", f_path))
+    }
+  }
+}
+
+render_erasure_scatters(dt_selected)
+
 # --- PLOT 3: CONJUGATE ELLIPSES ---
 render_ellipses <- function(matches_dt) {
   for (i in seq_len(nrow(matches_dt))) {
@@ -186,4 +282,95 @@ render_ellipses <- function(matches_dt) {
 }
 
 render_ellipses(dt_selected)
+```
+
+
+```{r setup, echo=FALSE, message=FALSE, warning=FALSE}
+
+# --- 1. Configuration ---
+base_dir     <- "/Volumes/SanDisk4TB/SternBrocot-data"
+summary_file <- file.path(base_dir, "04_program_length_summary.csv.gz")
+density_dir  <- file.path(base_dir, "02_program_length_densities")
+
+# --- 2. Load Aggregated Data ---
+if (!file.exists(summary_file)) {
+  stop("Summary file not found. Please run Script 04 first.")
+}
+
+summary_dt <- fread(summary_file)
+```
+
+## Global Complexity Scaling
+
+The red dashed line shows the plateaus we are sampling from.
+
+```{r plot-evolution, echo=FALSE, fig.width=12, fig.height=6}
+ggplot(summary_dt, aes(x = normalized_momentum)) +
+  geom_ribbon(aes(ymin = lower, ymax = upper), fill = "steelblue", alpha = 0.2) +
+  geom_line(aes(y = mean_len, color = "Mean Complexity"), linewidth = 1.2) +
+  geom_line(aes(y = median_len, color = "Median Complexity"), linewidth = 1, linetype = "dashed") +
+  scale_color_manual(values = c("Mean Complexity" = "steelblue4", "Median Complexity" = "firebrick3")) +
+  theme_minimal(base_size = 14) +
+  labs(
+    title = "Algorithmic Complexity Evolution",
+    subtitle = "Sampling points located at the center of each median plateau",
+    x = "Normalized Momentum (P)",
+    y = "Program Length (Bits)",
+    color = "Metric"
+  ) +
+  theme(legend.position = "bottom", plot.title = element_text(face = "bold", family = "mono"))
+```
+
+---
+
+## Steady-State Density Profiles (Fixed X: 0-10)
+
+We have identified the middle index for the first four plateaus to show how the "Skyline" stabilizes before the next transition.
+
+```{r density-plateaus, echo=FALSE, results='asis', fig.width=12, fig.height=5}
+# --- 1. Detect Plateau Midpoints ---
+# Identify groups of identical median values
+summary_dt[, plateau_id := rleid(median_len)]
+
+# Calculate the middle index for each of the first 4 plateaus
+plateau_middles <- summary_dt[, .(
+  mid_idx = as.integer(median(.I)),
+  median_val = median_len[1]
+), by = plateau_id][1:4]
+
+render_single_p <- function(p_val, median_val) {
+  p_str <- sprintf("%013.6f", p_val)
+  f_path <- file.path(density_dir, sprintf("program_length_density_P_%s.csv.gz", p_str))
+  
+  if (!file.exists(f_path)) return(NULL)
+  dt_dens <- fread(f_path)
+  
+  p <- ggplot(dt_dens[coordinate_q >= 0 & coordinate_q <= 10], aes(x = coordinate_q, y = density_count)) +
+    geom_col(fill = "steelblue", color = "white", alpha = 0.8) +
+    # Red line to indicate the Median
+    geom_vline(xintercept = median_val, linetype = "dashed", color = "firebrick3", linewidth = 1) +
+    scale_x_continuous(breaks = 0:10, limits = c(-0.5, 10.5)) +
+    theme_minimal() +
+    labs(
+      title = sprintf("Plateau Center: P = %.4f (Median = %.0f Bits)", p_val, median_val),
+      subtitle = sprintf("Mean Complexity: %.2f Bits | Standard Deviation: %.2f", 
+                         summary_dt[normalized_momentum == p_val, mean_len],
+                         summary_dt[normalized_momentum == p_val, sd_len]),
+      x = "Program Length (Bits)", y = "Microstate Count"
+    ) +
+    theme(plot.title = element_text(size = 14, family = "mono"))
+  
+  print(p)
+  cat("\n\n---\n\n")
+}
+
+# --- 2. Execute ---
+for (i in 1:nrow(plateau_middles)) {
+  target_idx <- plateau_middles$mid_idx[i]
+  p_val      <- summary_dt$normalized_momentum[target_idx]
+  m_val      <- plateau_middles$median_val[i]
+  
+  cat(sprintf("### Plateau %d: %s-Bit Complexity Level\n", i, m_val))
+  render_single_p(p_val, m_val)
+}
 ```

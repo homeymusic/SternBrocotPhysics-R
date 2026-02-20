@@ -152,3 +152,176 @@ Stern-Brocot Physics: Constrained Harmonic Selection
 ![](README_files/figure-gfm/ideal-state-selector-35.png)<!-- -->
 
 ------------------------------------------------------------------------
+
+![](README_files/figure-gfm/ideal-state-selector-36.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/ideal-state-selector-37.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/ideal-state-selector-38.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/ideal-state-selector-39.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/ideal-state-selector-40.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/ideal-state-selector-41.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/ideal-state-selector-42.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/ideal-state-selector-43.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/ideal-state-selector-44.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/ideal-state-selector-45.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/ideal-state-selector-46.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/ideal-state-selector-47.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/ideal-state-selector-48.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/ideal-state-selector-49.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/ideal-state-selector-50.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/ideal-state-selector-51.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/ideal-state-selector-52.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/ideal-state-selector-53.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/ideal-state-selector-54.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/ideal-state-selector-55.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/ideal-state-selector-56.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/ideal-state-selector-57.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/ideal-state-selector-58.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/ideal-state-selector-59.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/ideal-state-selector-60.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/ideal-state-selector-61.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/ideal-state-selector-62.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/ideal-state-selector-63.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/ideal-state-selector-64.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/ideal-state-selector-65.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/ideal-state-selector-66.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/ideal-state-selector-67.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/ideal-state-selector-68.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/ideal-state-selector-69.png)<!-- -->
+
+------------------------------------------------------------------------
+
+## Global Complexity Scaling
+
+The red dashed line shows the plateaus we are sampling from.
+
+![](README_files/figure-gfm/plot-evolution-1.png)<!-- -->
+
+------------------------------------------------------------------------
+
+## Steady-State Density Profiles (Fixed X: 0-10)
+
+We have identified the middle index for the first four plateaus to show
+how the “Skyline” stabilizes before the next transition.
+
+### Plateau 1: 1-Bit Complexity Level
+
+![](README_files/figure-gfm/density-plateaus-1.png)<!-- -->
+
+------------------------------------------------------------------------
+
+### Plateau 2: 2-Bit Complexity Level
+
+![](README_files/figure-gfm/density-plateaus-2.png)<!-- -->
+
+------------------------------------------------------------------------
+
+### Plateau 3: 3-Bit Complexity Level
+
+![](README_files/figure-gfm/density-plateaus-3.png)<!-- -->
+
+------------------------------------------------------------------------
+
+### Plateau 4: 4-Bit Complexity Level
+
+![](README_files/figure-gfm/density-plateaus-4.png)<!-- -->
+
+------------------------------------------------------------------------
