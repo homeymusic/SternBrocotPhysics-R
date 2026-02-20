@@ -1,5 +1,5 @@
 ---
-title: "Stern-Brocot Physics"
+title: "Stern-Brocot Physics: Constrained Harmonic Selection"
 output:
   github_document: default
 ---
@@ -15,29 +15,42 @@ library(data.table)
 library(ggplot2)
 library(ggforce)
 
-base_dir    <- "/Volumes/SanDisk4TB/SternBrocot-data"
-density_dir <- file.path(base_dir, "02_erasure_distance_densities")
-nodes_dir   <- file.path(base_dir, "03_erasure_distance_density_nodes")
+base_dir     <- "/Volumes/SanDisk4TB/SternBrocot-data"
+density_dir  <- file.path(base_dir, "02_erasure_distance_densities")
+nodes_dir    <- file.path(base_dir, "03_erasure_distance_density_nodes")
 summary_path <- file.path(base_dir, "04_erasure_distance_summary.csv.gz")
 
 dt_summary <- fread(summary_path)
 
-# --- DYNAMIC SELECTION LOGIC ---
+# --- DYNAMIC SELECTION LOGIC (Constrained Max Complexity) ---
+# Goal: Select the most intricate state that remains within the classical momentum limit.
 available_nodes <- sort(unique(dt_summary$node_count[!is.na(dt_summary$node_count)]))
-dt_max_variation <- data.table()
+dt_selected <- data.table()
 
 for (val_n in available_nodes) {
   if (val_n == 0) {
-    # FORCE GROUND STATE TO P=0.5
+    # ASSERT GROUND STATE: Momentum fixed at 0.5
     ground_state <- dt_summary[abs(normalized_momentum - 0.5) < 1e-6]
-    if (nrow(ground_state) > 0) {
-      dt_max_variation <- rbind(dt_max_variation, ground_state[1])
-    }
+    if (nrow(ground_state) > 0) dt_selected <- rbind(dt_selected, ground_state[1])
   } else {
-    candidates <- dt_summary[node_count == val_n]
+    # 1. Theoretical Boundary: P = sqrt(n)
+# 1. Theoretical Goal & Percentage Boundary
+    p_goal     <- sqrt(val_n)
+    tolerance  <- 1/exp(1)
+    p_min      <- p_goal * (1 - tolerance)
+    p_max      <- p_goal * (1 + tolerance)
+    
+    # 2. Filter: Find candidates within the % boundary of the backbone
+    candidates <- dt_summary[node_count == val_n & 
+                             normalized_momentum >= p_min & 
+                             normalized_momentum <= p_max]    
     if (nrow(candidates) > 0) {
-      max_variation <- candidates[which.max(complexity_ntv)]
-      dt_max_variation <- rbind(dt_max_variation, max_variation)
+      # 3. Select the "Sharpest" (Max NTV) state within this valid range
+      best_state <- candidates[which.max(complexity_ntv)]
+      dt_selected <- rbind(dt_selected, best_state)
+    } else {
+      # FAIL FAST: Log the exclusion of node counts that only exist in the "over-driven" regime
+      message(sprintf("EXCLUSION: no match for n=%d.", val_n))
     }
   }
 }
@@ -46,48 +59,46 @@ max_n <- max(dt_summary$node_count, na.rm = TRUE)
 max_q <- max(dt_summary$normalized_momentum, na.rm = TRUE)
 
 # --- PLOT 1: OVERVIEW ---
-
-# Based on your observations: n = P^2
 qho_backbone <- function(P) { P^2 }
 
 p_ov_action <- ggplot() +
-  # 1. Add the Theoretical Backbone: n = P^2
+  # 1. Theoretical Backbone (n = P^2)
   stat_function(fun = qho_backbone, 
                 color = "black", 
                 linetype = "dashed", 
                 alpha = 0.5, 
                 linewidth = 0.8) +
   
-  # 2. Existing Data Points
+  # 2. All Experimental States
   geom_point(data = dt_summary[order(complexity_ntv)], 
              aes(x = normalized_momentum, y = node_count, color = complexity_ntv), 
              size = 1.5, 
              alpha = 0.6) +
   scale_color_viridis_c(option = "magma", name = "Variation") +
   
-  # Selection Markers (Max Variation)
-  geom_point(data = dt_max_variation, aes(x = normalized_momentum, y = node_count), 
+  # 3. Selected Representatives (Max NTV | P <= Backbone)
+  geom_point(data = dt_selected, aes(x = normalized_momentum, y = node_count), 
              color = "black", size = 5, shape = 21, fill = NA, stroke = 1.2) +
              
-  geom_text(data = dt_max_variation, aes(x = normalized_momentum, y = node_count, 
-            label = sprintf("n=%d\nP=%.3f", node_count, normalized_momentum)),
-            nudge_y = 1.2, size = 2.5, fontface = "bold", lineheight = 0.9) +
+  geom_text(data = dt_selected, aes(x = normalized_momentum, y = node_count, 
+            label = sprintf("n=%d P=%.3f v=%.2f", node_count, normalized_momentum, complexity_ntv)),
+            nudge_y = 0.4, size = 2.5, fontface = "bold", lineheight = 0.9) +
             
-  labs(title = "Node Count and Momentum",
-       subtitle = expression(paste("Dashed line represents the ideal backbone: ", n == P^2)), 
+  labs(title = "Node Count and Momentum: Harmonic Limit Selection",
        x = "Normalized Momentum (P)", 
        y = "Nodes (n)") +
-  scale_x_continuous(limits = c(0.45, max(dt_summary$normalized_momentum, na.rm=TRUE))) + 
-  scale_y_continuous(breaks = seq(0, max_n, by = 2), 
+  scale_x_continuous(limits = c(0.45, max_q)) + 
+  scale_y_continuous(breaks = seq(0, max_n, by = 1), 
                      minor_breaks = NULL, 
                      expand = expansion(mult = c(0.05, 0.1))) +
+  coord_cartesian(xlim = c(0, 4), ylim = c(-0.5, 16)) +
   theme_minimal() +
   theme(panel.grid.minor.y = element_blank())
 
 print(p_ov_action)
 cat("\n\n---\n\n")
 
-# --- PLOT 2: PROFILES (Synchronized with Animation Labels) ---
+# --- PLOT 2: PROFILES ---
 render_profiles <- function(matches_dt, dot_color = "black") {
   for (i in seq_len(nrow(matches_dt))) {
     row <- matches_dt[i]
@@ -101,18 +112,15 @@ render_profiles <- function(matches_dt, dot_color = "black") {
 
     if (file.exists(d_path)) {
       h_pts <- fread(d_path)
-      first_nz <- which(h_pts$density_count > 0)[1]
-      last_nz  <- rev(which(h_pts$density_count > 0))[1]
-      if (is.na(first_nz)) next
-      dt_active <- h_pts[first_nz:last_nz]
+      dt_active <- h_pts[density_count > 0]
+      if (nrow(dt_active) == 0) next
 
       max_h <- max(dt_active$density_count, na.rm = TRUE)
       q_diff_raw <- if(nrow(dt_active) > 1) median(diff(dt_active$coordinate_q), na.rm=TRUE) else 1.0
       max_q_edge <- max(abs(dt_active$coordinate_q), na.rm = TRUE) + (q_diff_raw / 2)
       
-      # SYNCED LABEL LOGIC FROM YOUR ANIMATION CODE
-      plot_title <- sprintf("Nodes: %02d  |  Momentum: %3.3f  | Max Amplitude: %4.1f  |  Max Density: %6s",
-                            row$node_count, q_val, max_q_edge, format(max_h, big.mark=","))
+      plot_title <- sprintf("Nodes: %02d | P: %3.3f (Goal: %3.3f) | NTV: %2.2f",
+                            row$node_count, q_val, sqrt(row$node_count), row$complexity_ntv)
 
       dt_active[, `:=`(pct_density = (density_count/max_h)*100, pct_q = (coordinate_q/max_q_edge)*100)]
       pct_width <- (q_diff_raw / max_q_edge) * 100
@@ -123,7 +131,6 @@ render_profiles <- function(matches_dt, dot_color = "black") {
 
       n_pts <- if(file.exists(n_path)) fread(n_path) else data.table()
       if (nrow(n_pts) > 0 && "coordinate_q" %in% names(n_pts)) {
-        n_pts <- n_pts[!is.na(coordinate_q)]
         n_pts[, `:=`(pct_density = (density_count/max_h)*100, pct_q = (coordinate_q/max_q_edge)*100)]
       }
       
@@ -143,68 +150,40 @@ render_profiles <- function(matches_dt, dot_color = "black") {
     }
   }
 }
-render_profiles(dt_max_variation, "black")
-# --- PLOT 3: CONJUGATE ELLIPSES (Orthogonal & Contained) ---
-render_ellipses <- function(matches_dt, dot_color = "black") {
+
+render_profiles(dt_selected, "black")
+
+# --- PLOT 3: CONJUGATE ELLIPSES ---
+render_ellipses <- function(matches_dt) {
   for (i in seq_len(nrow(matches_dt))) {
     row <- matches_dt[i]
     q_val <- row$normalized_momentum
     
-    # We define the semi-axes such that at q = 0.5, a = b (Circle)
-    # As q increases, one axis grows while the other shrinks proportionally
-    # Scale factor 0.5 ensures that at q=0.5, radius is 1.0
     a_base <- q_val / 0.5
     b_base <- 0.5 / q_val
-    
-    # Q-ellipse: Long on X if q > 0.5
-    # P-ellipse: Long on Y if q > 0.5 (Identical but Orthogonal)
-    
-    # Find the maximum dimension to scale everything into the 100% view
-    max_dim <- max(a_base, b_base)
-    scaling_factor <- 90 / max_dim # 90 for a slight margin
+    scaling_factor <- 90 / max(a_base, b_base) 
     
     ellipse_df <- data.frame(
       type = c("Q-Conjugate", "P-Conjugate"),
       major = c(a_base, b_base) * scaling_factor,
-      minor = c(b_base, a_base) * scaling_factor,
-      fill = c("black", "gray60"),
-      color = c("black", "gray40")
+      minor = c(b_base, a_base) * scaling_factor
     )
 
-    plot_title <- sprintf("Nodes: %02d | Momentum: %3.3f", row$node_count, q_val)
-
     p <- ggplot(ellipse_df) +
-      # Reference Grid
-      geom_vline(xintercept = seq(-100, 100, 50), color = "grey95") +
-      geom_hline(yintercept = seq(-100, 100, 50), color = "grey95") +
-      # Ellipses
       geom_ellipse(aes(x0 = 0, y0 = 0, a = major, b = minor, angle = 0, 
                        color = type, fill = type), 
                    alpha = 0.25, linewidth = 0.8) +
       scale_fill_manual(values = c("Q-Conjugate" = "black", "P-Conjugate" = "gray60")) +
       scale_color_manual(values = c("Q-Conjugate" = "black", "P-Conjugate" = "gray40")) +
-      labs(
-        title = plot_title,
-        subtitle = "Orthogonal Conjugate Pair (A = Constant)",
-        x = "q Dimension",
-        y = "p Dimension"
-      ) +
+      labs(title = sprintf("Nodes: %02d | Momentum: %3.3f", row$node_count, q_val),
+           subtitle = "Phase Space Ellipse Pair", x = "q", y = "p") +
       coord_fixed(xlim = c(-100, 100), ylim = c(-100, 100)) +
-      theme_minimal() +
-      theme(
-        plot.title = element_text(family = "mono", face = "bold", size = 11),
-        legend.position = "none", # Cleaner for animation
-        panel.grid.major = element_blank(),
-        panel.grid.minor = element_blank(),
-        aspect.ratio = 1,
-        axis.text = element_blank(), # Keeps focus on the geometry
-        axis.ticks = element_blank()
-      )
+      theme_minimal() + theme(legend.position = "none", aspect.ratio = 1)
 
     print(p)
     cat("\n\n---\n\n")
   }
 }
 
-render_ellipses(dt_max_variation, "black")
+render_ellipses(dt_selected)
 ```

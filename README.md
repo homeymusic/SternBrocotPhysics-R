@@ -1,4 +1,4 @@
-Stern-Brocot Physics
+Stern-Brocot Physics: Constrained Harmonic Selection
 ================
 
 # Stern-Brocot Physics
@@ -13,6 +13,9 @@ Stern-Brocot Physics
 ![](README_files/figure-gfm/ideal-state-selector-1.png)<!-- -->
 
 ------------------------------------------------------------------------
+
+    ## Warning: Removed 1 row containing missing values or values outside the scale range
+    ## (`geom_point()`).
 
 ![](README_files/figure-gfm/ideal-state-selector-2.png)<!-- -->
 
