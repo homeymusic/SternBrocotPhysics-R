@@ -1,0 +1,69 @@
+---
+title: "Stern-Brocot Physics: Program Length Complexity"
+output:
+  github_document: default
+---
+
+# Stern-Brocot Physics: Complexity Metric
+
+This report visualizes the density distribution of algorithmic complexity (Program Length). Instead of applying continuous momentum scaling, we are mapping the raw integer bit-counts to identify the discrete "harmonic" bands where the Stern-Brocot tree search identifies microstates of equivalent complexity.
+
+---
+
+```{r density-profiles, echo=FALSE, results='asis', fig.width=12, fig.height=6}
+library(data.table)
+library(ggplot2)
+
+# --- 1. Configuration ---
+base_dir    <- "/Volumes/SanDisk4TB/SternBrocot-data"
+density_dir <- file.path(base_dir, "02_program_length_densities")
+target_ps   <- c(0.5, 1.0, 2.0, 3.0, 4.0)
+
+# --- 2. Plotting Function ---
+render_single_p <- function(p_val) {
+  # Match the 000000.000000 padded filename format
+  p_str <- sprintf("%013.6f", p_val)
+  f_path <- file.path(density_dir, sprintf("program_length_density_P_%s.csv.gz", p_str))
+  
+  if (!file.exists(f_path)) {
+    cat(sprintf("\n\n**Data Missing for P = %.1f** (Searched for: %s)\n\n", p_val, basename(f_path)))
+    return(NULL)
+  }
+  
+  dt <- fread(f_path)
+  
+  # Ensure the data has the expected columns from the manual aggregation script
+  if (!"coordinate_q" %in% names(dt)) {
+     cat(sprintf("\n\n**Schema Mismatch for P = %.1f**. Ensure Script 02 was updated.\n\n", p_val))
+     return(NULL)
+  }
+
+  # --- RENDER PROFILE ---
+  # We use the raw integers (0-15) for the X-axis.
+  # This matches the horizontal bands seen in your P=3.5 scatter plot.
+  p <- ggplot(dt[coordinate_q >= 0 & coordinate_q <= 15], aes(x = coordinate_q, y = density_count)) +
+    # Use geom_col for discrete bars
+    geom_col(fill = "steelblue", color = "white", alpha = 0.8) +
+    scale_x_continuous(breaks = seq(0, 15, 1)) +
+    theme_minimal() +
+    labs(
+      title = sprintf("Program Length Density Profile (P = %.1f)", p_val),
+      subtitle = sprintf("Bands: %d | Absolute Bit-Complexity Mapping", nrow(dt[density_count > 0])),
+      x = "Program Length (Bits / Integer Complexity)",
+      y = "Microstate Count"
+    ) +
+    theme(
+      plot.title = element_text(face = "bold", family = "mono"),
+      panel.grid.minor = element_blank(),
+      panel.grid.major.x = element_blank()
+    )
+  
+  print(p)
+  cat("\n\n---\n\n")
+}
+
+# --- 3. Execution ---
+for (p in target_ps) {
+  render_single_p(p)
+}
+```
