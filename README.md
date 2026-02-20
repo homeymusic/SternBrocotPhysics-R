@@ -57,3 +57,27 @@ Stern-Brocot Physics
 ![](README_files/figure-gfm/ideal-state-selector-12.png)<!-- -->
 
 ------------------------------------------------------------------------
+
+![](README_files/figure-gfm/ideal-state-selector-13.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/ideal-state-selector-14.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/ideal-state-selector-15.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/ideal-state-selector-16.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/ideal-state-selector-17.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/ideal-state-selector-18.png)<!-- -->
+
+------------------------------------------------------------------------
