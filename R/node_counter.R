@@ -136,17 +136,56 @@ count_nodes <- function(density, debug = FALSE) {
     }
   }
 
-  # --- 5. TOPOLOGICAL COMPLEXITY (Simple NTV) ---
+  # --- 5. TOPOLOGICAL COMPLEXITY (Weighted & Powered NTV) ---
   y_vals  <- active_data[["y"]]
   y_max   <- max(y_vals, na.rm = TRUE)
   y_min   <- min(y_vals, na.rm = TRUE)
   y_range <- y_max - y_min
 
-  if (y_range > 0) {
-    # Simple Normalized Total Variation:
-    # The sum of all absolute changes divided by the height of the signal.
-    total_variation <- sum(abs(diff(y_vals)), na.rm = TRUE)
-    final_complexity <- total_variation / y_range
+  # --- 5. TOPOLOGICAL COMPLEXITY (Feature-Based NTV) ---
+  y_vals  <- active_data[["y"]]
+  x_vals  <- active_data[["x"]]
+  y_max   <- max(y_vals, na.rm = TRUE)
+  y_min   <- min(y_vals, na.rm = TRUE)
+  y_range <- y_max - y_min
+
+  if (y_range > 1e-9 && nrow(dot_df) > 0) {
+    # 1. Identify critical x-points: start, detected nodes, and end
+    # This creates the 'segments' of the signal
+    critical_x <- sort(unique(c(min(x_vals), dot_df$x, max(x_vals))))
+
+    # 2. Build the Topological Skeleton
+    # We find the highest peak in every segment between nodes
+    skeleton_y <- c()
+    for (i in 1:(length(critical_x) - 1)) {
+      # Data within this segment
+      seg_idx <- which(x_vals >= critical_x[i] & x_vals <= critical_x[i+1])
+
+      if (length(seg_idx) > 0) {
+        # Add the segment's starting y (usually a node or boundary)
+        if (i == 1) skeleton_y <- c(skeleton_y, y_vals[seg_idx[1]])
+
+        # Add the maximum value in this segment (the Peak)
+        skeleton_y <- c(skeleton_y, max(y_vals[seg_idx]))
+
+        # Add the segment's ending y (the next node or boundary)
+        skeleton_y <- c(skeleton_y, y_vals[seg_idx[length(seg_idx)]])
+      }
+    }
+
+    # 3. Calculate Normalized Total Variation of the Skeleton
+    # We can also add your 'Magnitude Weighting' here to favor larger peaks
+    dy      <- abs(diff(skeleton_y))
+    weights <- ((skeleton_y[-1] + skeleton_y[-length(skeleton_y)]) / 2) / y_max
+
+    # p=1.5 or 2.0 makes balanced 'high' peaks win over one 'big' + many 'tiny'
+    p <- 1.5
+    final_complexity <- sum(dy * (weights^p)) / y_range
+
+  } else if (y_range > 1e-9) {
+    # If no nodes detected, it's a single hump: variation is just Up + Down
+    # We calculate the variation from start -> max -> end
+    final_complexity <- ((y_max - y_vals[1]) + (y_max - y_vals[length(y_vals)])) / y_range
   } else {
     final_complexity <- 0
   }
