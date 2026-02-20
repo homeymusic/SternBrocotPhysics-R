@@ -19,11 +19,10 @@ density_dir   <-     file.path(base_dir, "02_erasure_distance_densities")
 nodes_dir <-     file.path(base_dir, "03_erasure_distance_density_nodes")
 summary_path <- file.path(base_dir, "04_erasure_distance_summary.csv.gz")
 
-# Load summary which now contains complexity_ntv
 dt_summary <- fread(summary_path)
 
 target_nodes <- 0:10
-dt_eigenstate_matches <- data.table()
+dt_max_variation <- data.table()
 
 # --- THE SELECTION LOGIC ---
 for (val_n in target_nodes) {
@@ -31,14 +30,13 @@ for (val_n in target_nodes) {
     # FORCE GROUND STATE TO P=0.5
     ground_state <- dt_summary[abs(normalized_momentum - 0.5) < 1e-6]
     if (nrow(ground_state) > 0) {
-      dt_eigenstate_matches <- rbind(dt_eigenstate_matches, ground_state[1])
+      dt_max_variation <- rbind(dt_max_variation, ground_state[1])
     }
   } else {
-    # SELECT BY COMPLEXITY FOR ALL OTHER NODES
     candidates <- dt_summary[node_count == val_n]
     if (nrow(candidates) > 0) {
-      best_eigen <- candidates[which.max(complexity_ntv)]
-      dt_eigenstate_matches <- rbind(dt_eigenstate_matches, best_eigen)
+      max_variation <- candidates[which.max(complexity_ntv)]
+      dt_max_variation <- rbind(dt_max_variation, max_variation)
     }
   }
 }
@@ -46,24 +44,22 @@ for (val_n in target_nodes) {
 max_n <- max(dt_summary$node_count, na.rm = TRUE)
 max_q <- max(dt_summary$normalized_momentum, na.rm = TRUE)
 
-# Overview Plot: Mapping complexity across momentum
 p_ov_action <- ggplot() +
-  geom_point(data = dt_summary, aes(x = normalized_momentum, y = node_count, color = complexity_ntv), 
+  geom_point(data = dt_summary[order(complexity_ntv)], 
+             aes(x = normalized_momentum, y = node_count, color = complexity_ntv), 
              size = 1.5, alpha = 0.6) +
-  scale_color_viridis_c(option = "magma", name = "Complexity (NTV)") +
-  geom_point(data = dt_eigenstate_matches, aes(x = normalized_momentum, y = node_count), 
+  scale_color_viridis_c(option = "magma", name = "Variation") +
+  geom_point(data = dt_max_variation, aes(x = normalized_momentum, y = node_count), 
              color = "gray",
              size = 5,      
              shape = 21, 
              fill = NA,     
              stroke = 1.2) +
-  # geom_point(data = dt_eigenstate_matches, aes(x = normalized_momentum, y = node_count), 
-  #            color = "black", size = 4, shape = 21, fill = "white", stroke = 1.5) +
-  geom_text(data = dt_eigenstate_matches, aes(x = normalized_momentum, y = node_count, 
+  geom_text(data = dt_max_variation, aes(x = normalized_momentum, y = node_count, 
             label = sprintf("n=%d\nNTV=%.2f", node_count, complexity_ntv)),
             nudge_y = 0.8, size = 2.5, fontface = "bold", lineheight = 0.9) +
-  labs(title = "Eigenstate Discovery via Topological Complexity",
-       subtitle = "Selection based on Maximum Normalized Total Variation (NTV)", 
+  labs(title = "Node Count and Momentum",
+       subtitle = "Selection based on Variation", 
        x = "Coordinate (Q)", y = "Nodes (n)") +
   scale_x_continuous(limits = c(0, max_q)) + 
   scale_y_continuous(breaks = seq(0, max_n, by = 1), expand = expansion(mult = c(0.05, 0.1))) +
@@ -130,7 +126,7 @@ render_profiles <- function(matches_dt, dot_color = "black") {
       }
       
       # 5. Plot Title
-      plot_title <- sprintf("Nodes: %02d  |  Q: %3.3f  |  Complexity (NTV): %2.3f  |  Max Density: %s", 
+      plot_title <- sprintf("Nodes: %02d  |  Q: %3.3f  |  Variation: %2.3f  |  Max Density: %s", 
                             row$node_count, row$normalized_momentum, row$complexity_ntv, format(max_h, big.mark=","))
 
       # 6. Final Plot Generation
@@ -154,6 +150,6 @@ render_profiles <- function(matches_dt, dot_color = "black") {
     }
   }
 }
-render_profiles(dt_eigenstate_matches, "black")
+render_profiles(dt_max_variation, "black")
 
 ```
