@@ -37,7 +37,9 @@ count_nodes <- function(density, debug = FALSE) {
   local_baseline <- trend_fit$y
 
   # Threshold logic: 0.2 coefficient catches deep features; floor 5.0 suppresses noise.
-  thresh_vec <- pmax(0.2 * sqrt(local_baseline), 5.0)
+  # thresh_vec <- pmax(0.2 * sqrt(local_baseline), 5.0)
+  # Slightly more sensitive to shallow dips
+  thresh_vec <- pmax(0.12 * sqrt(local_baseline), 3.0)
   data.table::set(active_data, j = "threshold", value = thresh_vec)
 
   if (debug) {

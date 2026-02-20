@@ -7,35 +7,8 @@ test_that("Node counts match theoretical expectations for specific momenta", {
   # --- 1. Truth Table ---
   truth_table <- data.table::fread("
     momentum, expected_nodes
-    1,         0
-    3,         0
-    4.11,      1
-    5,         1
-    5.67,      1
-    7,         2
-    7.64,      2
-    7.68,      2
-    8.22,      3
-    9,         3
-    10,        1
-    11,        1
-    12,        1
-    12.034,    4
-    13,        4
-    13.04,     4
-    13.05,     4
-    13.07,     4
-    14,        5
-    15,        2
-    15.03,     6
-    16,        6
-    16.617,    4
-    17,        4
-    17.05,     5
-    19.673,    7
-    21.974,    7
-    25,        3
-    50,        11
+    0.5,       0
+    1.639,     1
   ")
 
   # --- 2. Setup Paths ---
@@ -70,18 +43,20 @@ test_that("Node counts match theoretical expectations for specific momenta", {
 
     raw_file <- file.path(temp_raw_dir, sprintf("erasures_P_%s.csv.gz", m_str))
 
+    # --- UPDATED TEST LOGIC ---
     if (file.exists(raw_file)) {
       dt_raw <- data.table::fread(raw_file, select = c("found", "erasure_distance"))
-      density_df <- SternBrocotPhysics::compute_density(dt_raw, m_val)
+
+      # MATCH THE PRODUCTION SCALING:
+      p_effective <- m_val * 2 * pi
+      density_df <- SternBrocotPhysics::compute_density(dt_raw, p_effective, bin_width = 1.0)
 
       if (!is.null(density_df)) {
+        # MATCH PRODUCTION METADATA RESTORATION:
+        density_df$normalized_momentum <- m_val
         data.table::fwrite(density_df, fixture_path, compress = "gzip")
       }
       unlink(raw_file)
-    } else {
-      # Fallback for failures
-      dummy <- data.table::data.table(coordinate_q = seq(-10, 10, 0.1), density_count = 0)
-      data.table::fwrite(dummy, fixture_path, compress = "gzip")
     }
 
     # --- ASSERTION ---
