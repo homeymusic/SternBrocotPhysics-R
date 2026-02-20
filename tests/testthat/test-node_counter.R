@@ -44,7 +44,7 @@ test_that("Node counts match theoretical expectations for specific momenta", {
     # the fixtures match the current package version logic.
     message(sprintf("Generating fresh fixture for P = %s...", m_val))
 
-    SternBrocotPhysics::erasures(
+    erasures(
       momenta   = m_val,
       dir       = normalizePath(temp_raw_dir, mustWork = TRUE),
       n_threads = 1
@@ -58,7 +58,7 @@ test_that("Node counts match theoretical expectations for specific momenta", {
 
       # MATCH THE PRODUCTION SCALING:
       p_effective <- m_val * 2 * pi
-      density_df <- SternBrocotPhysics::compute_density(dt_raw, p_effective, bin_width = 1.0)
+      density_df <- compute_density(dt_raw, p_effective, bin_width = 1.0)
 
       if (!is.null(density_df)) {
         # MATCH PRODUCTION METADATA RESTORATION:

@@ -53,7 +53,7 @@ for (i in seq_along(kappa_values)) {
   cat(sprintf("\n--- PROCESSING KAPPA = %.3f (Coefficient: %.4f) ---\n", k, k_coef))
 
   # A. RE-GENERATE DATA (Required as files are overwritten)
-  SternBrocotPhysics::micro_macro_bell_erasure_sweep(
+  micro_macro_bell_erasure_sweep(
     angles    = all_angles,
     dir       = normalizePath(data_dir, mustWork = TRUE),
     count     = rows_to_sweep,

@@ -36,7 +36,7 @@ results <- foreach(d_p = delta_p_values, .combine = rbind, .packages = c("data.t
   if (!dir.exists(run_dir)) dir.create(run_dir)
 
   # A. Run Simulation (Using target_angles)
-  SternBrocotPhysics::micro_macro_bell_erasure_sweep(
+  micro_macro_bell_erasure_sweep(
     angles = target_angles,
     dir = normalizePath(run_dir, mustWork = TRUE),
     count = sim_count,

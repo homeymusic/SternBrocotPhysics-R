@@ -36,10 +36,7 @@ count_nodes <- function(density, debug = FALSE) {
   trend_fit <- stats::lowess(active_data[["x"]], active_data[["y"]], f = 0.2)
   local_baseline <- trend_fit$y
 
-  # Threshold logic: 0.2 coefficient catches deep features; floor 5.0 suppresses noise.
-  # thresh_vec <- pmax(0.2 * sqrt(local_baseline), 5.0)
-  # Slightly more sensitive to shallow dips
-  # thresh_vec <- pmax(0.12 * sqrt(local_baseline), 3.0)
+  # Threshold logic: 0.05 coefficient catches deep features
   thresh_vec <- 0.05 * sqrt(local_baseline)
   data.table::set(active_data, j = "threshold", value = thresh_vec)
 
@@ -91,7 +88,6 @@ count_nodes <- function(density, debug = FALSE) {
       gap_data <- density[density[["x"]] > closest_neg[["x"]] & density[["x"]] < closest_pos[["x"]], ]
 
       should_merge <- FALSE
-
       center_idx <- which.min(abs(active_data[["x"]]))
       center_thresh <- active_data[["threshold"]][center_idx]
       if (length(center_thresh) == 0) center_thresh <- 10.0
@@ -103,18 +99,12 @@ count_nodes <- function(density, debug = FALSE) {
         valley_floor <- max(closest_neg[["y"]], closest_pos[["y"]])
         prominence <- gap_peak - valley_floor
 
-        if (debug) {
-          message(sprintf("DEBUG: Checking Center Merge. Neg: %s, Pos: %s. Prominence: %s vs Thresh: %s",
-                          closest_neg$x, closest_pos$x, prominence, center_thresh))
-        }
-
         if (prominence < center_thresh) {
           should_merge <- TRUE
         }
       }
 
       if (should_merge) {
-        if(debug) message("DEBUG: Merging central nodes.")
         dot_df <- dot_df[!(dot_df[["x"]] == closest_neg[["x"]] | dot_df[["x"]] == closest_pos[["x"]]), ]
         min_val <- if(nrow(gap_data)>0) min(gap_data[["y"]], na.rm=TRUE) else (closest_neg[["y"]]+closest_pos[["y"]])/2
         dot_df <- rbind(dot_df, data.table::data.table(x=0, y=min_val))
@@ -136,56 +126,17 @@ count_nodes <- function(density, debug = FALSE) {
     }
   }
 
-  # --- 5. TOPOLOGICAL COMPLEXITY (Weighted & Powered NTV) ---
+  # --- 5. TOPOLOGICAL COMPLEXITY (Simple NTV) ---
   y_vals  <- active_data[["y"]]
   y_max   <- max(y_vals, na.rm = TRUE)
   y_min   <- min(y_vals, na.rm = TRUE)
   y_range <- y_max - y_min
 
-  # --- 5. TOPOLOGICAL COMPLEXITY (Feature-Based NTV) ---
-  y_vals  <- active_data[["y"]]
-  x_vals  <- active_data[["x"]]
-  y_max   <- max(y_vals, na.rm = TRUE)
-  y_min   <- min(y_vals, na.rm = TRUE)
-  y_range <- y_max - y_min
-
-  if (y_range > 1e-9 && nrow(dot_df) > 0) {
-    # 1. Identify critical x-points: start, detected nodes, and end
-    # This creates the 'segments' of the signal
-    critical_x <- sort(unique(c(min(x_vals), dot_df$x, max(x_vals))))
-
-    # 2. Build the Topological Skeleton
-    # We find the highest peak in every segment between nodes
-    skeleton_y <- c()
-    for (i in 1:(length(critical_x) - 1)) {
-      # Data within this segment
-      seg_idx <- which(x_vals >= critical_x[i] & x_vals <= critical_x[i+1])
-
-      if (length(seg_idx) > 0) {
-        # Add the segment's starting y (usually a node or boundary)
-        if (i == 1) skeleton_y <- c(skeleton_y, y_vals[seg_idx[1]])
-
-        # Add the maximum value in this segment (the Peak)
-        skeleton_y <- c(skeleton_y, max(y_vals[seg_idx]))
-
-        # Add the segment's ending y (the next node or boundary)
-        skeleton_y <- c(skeleton_y, y_vals[seg_idx[length(seg_idx)]])
-      }
-    }
-
-    # 3. Calculate Normalized Total Variation of the Skeleton
-    # We can also add your 'Magnitude Weighting' here to favor larger peaks
-    dy      <- abs(diff(skeleton_y))
-    weights <- ((skeleton_y[-1] + skeleton_y[-length(skeleton_y)]) / 2) / y_max
-
-    # p=1.5 or 2.0 makes balanced 'high' peaks win over one 'big' + many 'tiny'
-    p <- 1.5
-    final_complexity <- sum(dy * (weights^p)) / y_range
-
-  } else if (y_range > 1e-9) {
-    # If no nodes detected, it's a single hump: variation is just Up + Down
-    # We calculate the variation from start -> max -> end
-    final_complexity <- ((y_max - y_vals[1]) + (y_max - y_vals[length(y_vals)])) / y_range
+  if (y_range > 0) {
+    # Simple Normalized Total Variation:
+    # The sum of all absolute changes divided by the height of the signal.
+    total_variation <- sum(abs(diff(y_vals)), na.rm = TRUE)
+    final_complexity <- total_variation / y_max
   } else {
     final_complexity <- 0
   }

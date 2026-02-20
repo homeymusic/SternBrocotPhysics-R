@@ -40,7 +40,7 @@ process_erasure_nodes <- function(f, out_path) {
     input_dt <- density_data[, .(x = coordinate_q, y = density_count)]
 
     # Call updated node counter (returns node_count, nodes, and normalized_total_variation)
-    analysis <- SternBrocotPhysics::count_nodes(input_dt)
+    analysis <- count_nodes(input_dt)
 
     # Prepare node coordinate table
     if (!is.null(analysis$nodes) && nrow(analysis$nodes) > 0) {

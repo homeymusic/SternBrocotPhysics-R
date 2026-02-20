@@ -36,7 +36,7 @@ for (i in seq_along(candidates)) {
   cat(sprintf("Testing %s: Delta = %.6f...\n", name, val))
 
   # Run
-  SternBrocotPhysics::micro_macro_bell_erasure_sweep(
+  micro_macro_bell_erasure_sweep(
     angles = all_angles,
     dir = normalizePath(raw_directory, mustWork = TRUE),
     count = sim_count,

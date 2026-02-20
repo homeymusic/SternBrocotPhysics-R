@@ -30,7 +30,7 @@ for (d_p in delta_p_values) {
   cat(sprintf("\nRunning Delta = %.6f...", d_p))
 
   # Run
-  SternBrocotPhysics::micro_macro_bell_erasure_sweep(
+  micro_macro_bell_erasure_sweep(
     angles = target_angles,
     dir = normalizePath(raw_directory, mustWork = TRUE),
     count = sim_count,

@@ -23,7 +23,7 @@ cat("--- GENERATING HERO SHOT ---\n")
 cat(sprintf("Angular Momentum: (%.6f)\n", ANGULAR_MOMENTUM))
 
 # 1. RUN SIMULATION
-SternBrocotPhysics::micro_macro_bell_erasure_sweep(
+micro_macro_bell_erasure_sweep(
   detector_angles = all_angles,
   dir = normalizePath(data_dir, mustWork = TRUE),
   count = sim_count,

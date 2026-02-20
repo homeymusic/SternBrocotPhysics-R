@@ -23,7 +23,7 @@ cat(sprintf("--- GENERATING HERO SHOT: THE GOLDEN UNIVERSE ---\n"))
 cat(sprintf("Delta: 1/φ (%.6f) | Kappa: 4/π (%.4f)\n", INV_PHI, FIXED_KAPPA))
 
 # 1. RUN SIMULATION
-SternBrocotPhysics::micro_macro_bell_erasure_sweep(
+micro_macro_bell_erasure_sweep(
   angles = all_angles,
   dir = normalizePath(data_dir, mustWork = TRUE),
   count = sim_count,

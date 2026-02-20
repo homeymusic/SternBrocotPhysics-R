@@ -40,7 +40,7 @@ final_dt <- foreach(d_p = delta_p_values, .combine = rbind, .packages = c("data.
 
   # B. Run Simulation
   # Note: n_threads=1 because we are parallelizing at the R level
-  SternBrocotPhysics::micro_macro_bell_erasure_sweep(
+  micro_macro_bell_erasure_sweep(
     angles = all_angles,
     dir = normalizePath(run_dir, mustWork = TRUE),
     count = sim_count,

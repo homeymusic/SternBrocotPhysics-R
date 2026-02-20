@@ -57,7 +57,7 @@ process_erasure_distance_density <- function(f, out_path) {
     # To see the nodes, the Action canvas must scale by the same factor.
     P_effective <- P_val * 2 * pi
 
-    density_df <- SternBrocotPhysics::compute_density(dt, P_effective, bin_width = 1.0)
+    density_df <- compute_density(dt, P_effective, bin_width = 1.0)
 
     if (is.null(density_df)) return(NULL)
 

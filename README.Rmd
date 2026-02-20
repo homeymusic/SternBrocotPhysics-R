@@ -53,8 +53,6 @@ p_ov_action <- ggplot() +
   
   # Selection Markers with white halo for visibility on white background
   geom_point(data = dt_max_variation, aes(x = normalized_momentum, y = node_count), 
-             color = "white", size = 5.5, shape = 21, stroke = 1.5) +
-  geom_point(data = dt_max_variation, aes(x = normalized_momentum, y = node_count), 
              color = "gray", size = 5, shape = 21, fill = NA, stroke = 1.2) +
              
   geom_text(data = dt_max_variation, aes(x = normalized_momentum, y = node_count, 

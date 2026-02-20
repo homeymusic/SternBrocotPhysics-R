@@ -36,7 +36,7 @@ cat("--- GENERATING PHI vs PI COMPARISON ---\n")
 
 all_results <- list()
 
-SternBrocotPhysics::micro_macro_bell_erasure_sweep(
+micro_macro_bell_erasure_sweep(
   angles = unique_angles,
   dir = normalizePath(data_dir, mustWork = TRUE),
   count = rows_to_sweep,

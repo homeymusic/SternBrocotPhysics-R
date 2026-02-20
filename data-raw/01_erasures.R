@@ -15,7 +15,7 @@ message(sprintf("Launching Dynamic Simulation."))
 message(sprintf("Total Files: %d", length(normalized_momenta)))
 
 # Call the Updated C++ API
-SternBrocotPhysics::erasures(
+erasures(
   momenta   = normalized_momenta,
   dir       = normalizePath(raw_directory, mustWork = TRUE),
   n_threads = 6

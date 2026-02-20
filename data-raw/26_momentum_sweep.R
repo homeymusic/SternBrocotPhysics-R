@@ -20,7 +20,7 @@ run_sweep <- function(m_vals, label) {
     iter_dir <- file.path(data_base_dir, sprintf("%s_L_%.6f", label, L))
     if (!dir.exists(iter_dir)) dir.create(iter_dir)
 
-    SternBrocotPhysics::micro_macro_bell_erasure_sweep(
+    micro_macro_bell_erasure_sweep(
       detector_angles = all_angles,
       dir = normalizePath(iter_dir, mustWork = TRUE),
       count = sim_count,

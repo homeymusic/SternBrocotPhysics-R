@@ -34,7 +34,7 @@ for (cand in candidates) {
   run_dir <- file.path(data_dir, paste0("run_", gsub("[^a-zA-Z0-9]", "", cand$name)))
   if (!dir.exists(run_dir)) dir.create(run_dir)
 
-  SternBrocotPhysics::micro_macro_bell_erasure_sweep(
+  micro_macro_bell_erasure_sweep(
     angles = all_angles,
     dir = normalizePath(run_dir, mustWork = TRUE),
     count = sim_count,

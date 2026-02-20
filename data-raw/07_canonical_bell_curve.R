@@ -17,7 +17,7 @@ unlink(list.files(data_dir, full.names = TRUE))
 
 # 2. GENERATE DATA
 
-SternBrocotPhysics::micro_macro_bell_erasure_sweep(
+micro_macro_bell_erasure_sweep(
   angles = all_angles,
   detector_aperture = detector_aperture,
   dir = normalizePath(data_dir, mustWork = TRUE),

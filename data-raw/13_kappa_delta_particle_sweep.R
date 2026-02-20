@@ -39,7 +39,7 @@ for (d_p in delta_p_values) {
     cat(sprintf("\nRunning: Delta_P = %.1f | Kappa = %.0f π\n", d_p, k_coef))
 
     # A. Run Simulation
-    SternBrocotPhysics::micro_macro_bell_erasure_sweep(
+    micro_macro_bell_erasure_sweep(
       angles = all_angles,
       dir = normalizePath(data_dir, mustWork = TRUE),
       count = sim_count,

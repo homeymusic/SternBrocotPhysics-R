@@ -53,7 +53,7 @@ final_dt <- foreach(d_prime = conjugate_delta_values, .combine = rbind, .package
     if (!dir.exists(run_dir)) dir.create(run_dir)
 
     # A. Run Simulation
-    SternBrocotPhysics::micro_macro_bell_erasure_sweep(
+    micro_macro_bell_erasure_sweep(
       angles = all_angles,
       dir = normalizePath(run_dir, mustWork = TRUE),
       count = sim_count,
