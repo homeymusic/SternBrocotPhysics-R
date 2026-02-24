@@ -34,8 +34,7 @@ for (val_n in available_nodes) {
     ground_state <- dt_summary[abs(normalized_momentum - 0.5) < 1e-6]
     if (nrow(ground_state) > 0) dt_selected <- rbind(dt_selected, ground_state[1])
   } else {
-    # 1. Theoretical Boundary: P = sqrt(n)
-# 1. Theoretical Goal & Percentage Boundary
+    # 1. Theoretical Goal & Percentage Boundary
     p_goal     <- sqrt(val_n)
     tolerance  <- 1/exp(1)
     p_min      <- p_goal * (1 - tolerance)
@@ -75,7 +74,8 @@ p_ov_action <- ggplot() +
              aes(x = normalized_momentum, y = node_count, color = complexity_ntv), 
              size = 1.5, 
              alpha = 0.6) +
-  scale_color_viridis_c(option = "magma", name = "Variation") +
+  
+  scale_color_gradient(low = "black", high = "grey80", name = "Variation") +  
   
   # 3. Selected Representatives (Max NTV | P <= Backbone)
   geom_point(data = dt_selected, aes(x = normalized_momentum, y = node_count), 
