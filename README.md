@@ -145,3 +145,15 @@ Stern-Brocot Physics: Constrained Harmonic Selection
 ![](README_files/figure-gfm/main-analysis-34.png)<!-- -->
 
 ------------------------------------------------------------------------
+
+![](README_files/figure-gfm/main-analysis-35.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/main-analysis-36.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/main-analysis-37.png)<!-- -->
+
+------------------------------------------------------------------------

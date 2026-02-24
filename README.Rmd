@@ -30,8 +30,8 @@ dt_summary <- fread(summary_path)
 
 # --- 2. Manual Selection Logic (Hand-Picked Momenta) ---
 dt_handpicked <- data.table(
-  normalized_momentum = c(0.5, 0.876, 1.065, 1.354, 1.991, 2.308, 2.467, 2.640, 2.829, 2.98, 3.268),
-  expected_nodes = 0:10
+  normalized_momentum = c(0.5, 0.876, 1.065, 1.354, 1.991, 2.308, 2.467, 2.640, 2.829, 2.98, 3.268, 3.849),
+  expected_nodes = c(0:10, 15)
 )
 
 # Rolling join to find the closest actual experimental data points
