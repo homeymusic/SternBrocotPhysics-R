@@ -10,102 +10,80 @@ output:
 
 ---
 
-```{r ideal-state-selector, echo=FALSE, results='asis', fig.width=12, fig.height=8}
+```{r main-analysis, echo=FALSE, results='asis', message=FALSE, warning=FALSE, fig.width=12, fig.height=8}
 library(data.table)
 library(ggplot2)
 library(ggforce)
 
+# --- 1. Configuration ---
 base_dir     <- "/Volumes/SanDisk4TB/SternBrocot-data"
 erasures_dir <- file.path(base_dir, "01_erasures")
 density_dir  <- file.path(base_dir, "02_erasure_distance_densities")
 nodes_dir    <- file.path(base_dir, "03_erasure_distance_density_nodes")
 summary_path <- file.path(base_dir, "04_erasure_distance_summary.csv.gz")
 
-dt_summary <- fread(summary_path)
-
-# --- DYNAMIC SELECTION LOGIC (Constrained Max Complexity) ---
-# Goal: Select the most intricate state that remains within the classical momentum limit.
-available_nodes <- sort(unique(dt_summary$node_count[!is.na(dt_summary$node_count)]))
-dt_selected <- data.table()
-
-for (val_n in available_nodes) {
-  if (val_n == 0) {
-    # ASSERT GROUND STATE: Momentum fixed at 0.5
-    ground_state <- dt_summary[abs(normalized_momentum - 0.5) < 1e-6]
-    if (nrow(ground_state) > 0) dt_selected <- rbind(dt_selected, ground_state[1])
-  } else {
-    # 1. Theoretical Goal & Percentage Boundary
-    p_goal     <- sqrt(val_n)
-    tolerance  <- 1/exp(1)
-    p_min      <- p_goal * (1 - tolerance)
-    p_max      <- p_goal * (1 + tolerance)
-    
-    # 2. Filter: Find candidates within the % boundary of the backbone
-    candidates <- dt_summary[node_count == val_n & 
-                             normalized_momentum >= p_min & 
-                             normalized_momentum <= p_max]    
-    if (nrow(candidates) > 0) {
-      # 3. Select the "Sharpest" (Max NTV) state within this valid range
-      best_state <- candidates[which.max(complexity_ntv)]
-      dt_selected <- rbind(dt_selected, best_state)
-    } else {
-      # FAIL FAST: Log the exclusion of node counts that only exist in the "over-driven" regime
-      message(sprintf("EXCLUSION: no match for n=%d.", val_n))
-    }
-  }
+if (!file.exists(summary_path)) {
+  stop("Summary file not found at: ", summary_path)
 }
 
-max_n <- max(dt_summary$node_count, na.rm = TRUE)
-max_q <- max(dt_summary$normalized_momentum, na.rm = TRUE)
+dt_summary <- fread(summary_path)
 
-# --- PLOT 1: OVERVIEW ---
+# --- 2. Manual Selection Logic (Hand-Picked Momenta) ---
+dt_handpicked <- data.table(
+  normalized_momentum = c(0.5, 0.876, 1.065, 1.354, 1.991, 2.308, 2.467, 2.640, 2.829, 2.98, 3.268),
+  expected_nodes = 0:10
+)
+
+# Rolling join to find the closest actual experimental data points
+dt_selected <- dt_summary[dt_handpicked, on = .(normalized_momentum), roll = "nearest"]
+
+# --- 3. Plot 1: Overview (Filtered to Nodes 0-10) ---
 qho_backbone <- function(P) { P^2 }
 
+# Filter the background points to only show nodes 0-10
+dt_plot_bg <- dt_summary[node_count >= 0 & node_count <= 10]
+
 p_ov_action <- ggplot() +
-  # 1. Theoretical Backbone (n = P^2)
+  # Theoretical Backbone (n = P^2)
   stat_function(fun = qho_backbone, 
                 color = "black", 
                 linetype = "dashed", 
                 alpha = 0.5, 
                 linewidth = 0.8) +
-  
-  # 2. All Experimental States
-  geom_point(data = dt_summary[order(complexity_ntv)], 
+  # Background experimental states
+  geom_point(data = dt_plot_bg[order(complexity_ntv)], 
              aes(x = normalized_momentum, y = node_count, color = complexity_ntv), 
              size = 1.5, 
              alpha = 0.6) +
-  
+  # Grayscale: High variation values are LIGHT, low variation are BLACK
   scale_color_gradient(low = "black", high = "grey80", name = "Variation") +  
-  
-  # 3. Selected Representatives (Max NTV | P <= Backbone)
+  # Hand-picked points
   geom_point(data = dt_selected, aes(x = normalized_momentum, y = node_count), 
              color = "black", size = 5, shape = 21, fill = NA, stroke = 1.2) +
-             
   geom_text(data = dt_selected, aes(x = normalized_momentum, y = node_count, 
             label = sprintf("n=%d P=%.3f v=%.2f", node_count, normalized_momentum, complexity_ntv)),
-            nudge_y = 0.4, size = 2.5, fontface = "bold", lineheight = 0.9) +
-            
-  labs(title = "Node Count and Momentum: Harmonic Limit Selection",
+            nudge_y = 0.35, size = 3, fontface = "bold", family = "mono") +
+  labs(title = "Node Count and Momentum: Hand-Picked States (0-10)",
+       subtitle = "Selection constrained to the first 10 harmonic nodes",
        x = "Normalized Momentum (P)", 
        y = "Nodes (n)") +
-  scale_x_continuous(limits = c(0.45, max_q)) + 
-  scale_y_continuous(breaks = seq(0, max_n, by = 1), 
-                     minor_breaks = NULL, 
-                     expand = expansion(mult = c(0.05, 0.1))) +
-  coord_cartesian(xlim = c(0, 4), ylim = c(-0.5, 16)) +
+  # Dynamic X-scale based on selected momentum, fixed Y-scale 0-10
+  scale_y_continuous(breaks = 0:10) +
+  coord_cartesian(xlim = c(0.4, 3.5), ylim = c(-0.5, 11)) +
   theme_minimal() +
-  theme(panel.grid.minor.y = element_blank())
+  theme(panel.grid.minor = element_blank(),
+        plot.title = element_text(face = "bold", size = 14))
 
 print(p_ov_action)
 cat("\n\n---\n\n")
 
-# --- PLOT 2: PROFILES ---
+# --- 4. Plot 2: Profiles ---
 render_profiles <- function(matches_dt, dot_color = "black") {
   for (i in seq_len(nrow(matches_dt))) {
     row <- matches_dt[i]
     q_val <- row$normalized_momentum
-    
     q_str <- sprintf("%0.6f", q_val)
+    
     d_path <- file.path(density_dir, sprintf("erasure_distance_density_P_%s.csv.gz", q_str))
     if (!file.exists(d_path)) d_path <- file.path(density_dir, sprintf("erasure_distance_density_P_%013.6f.csv.gz", q_val))
     n_path <- file.path(nodes_dir, sprintf("erasure_distance_nodes_P_%s.csv.gz", q_str))
@@ -120,15 +98,14 @@ render_profiles <- function(matches_dt, dot_color = "black") {
       q_diff_raw <- if(nrow(dt_active) > 1) median(diff(dt_active$coordinate_q), na.rm=TRUE) else 1.0
       max_q_edge <- max(abs(dt_active$coordinate_q), na.rm = TRUE) + (q_diff_raw / 2)
       
-      plot_title <- sprintf("Nodes: %02d | P: %3.3f (Goal: %3.3f) | NTV: %2.2f",
-                            row$node_count, q_val, sqrt(row$node_count), row$complexity_ntv)
-
       dt_active[, `:=`(pct_density = (density_count/max_h)*100, pct_q = (coordinate_q/max_q_edge)*100)]
       pct_width <- (q_diff_raw / max_q_edge) * 100
       
-      pad_l <- data.table(pct_q = min(dt_active$pct_q) - pct_width, pct_density = 0)
-      pad_r <- data.table(pct_q = max(dt_active$pct_q) + pct_width, pct_density = 0)
-      h_plot_data <- rbind(pad_l, dt_active[, .(pct_q, pct_density)], pad_r)
+      h_plot_data <- rbind(
+        data.table(pct_q = min(dt_active$pct_q) - pct_width, pct_density = 0),
+        dt_active[, .(pct_q, pct_density)],
+        data.table(pct_q = max(dt_active$pct_q) + pct_width, pct_density = 0)
+      )
 
       n_pts <- if(file.exists(n_path)) fread(n_path) else data.table()
       if (nrow(n_pts) > 0 && "coordinate_q" %in% names(n_pts)) {
@@ -139,12 +116,13 @@ render_profiles <- function(matches_dt, dot_color = "black") {
         geom_col(data = dt_active, aes(x = pct_q, y = pct_density), width = pct_width, fill = "grey85") +
         geom_step(data = h_plot_data, aes(x = pct_q, y = pct_density), color = "black", linewidth = 0.7, direction = "mid") + 
         geom_point(data = n_pts, aes(x = pct_q, y = pct_density), color = dot_color, size = 3) +
-        labs(title = plot_title, x = "Amplitude (%)", y = "Density %") +
+        labs(title = sprintf("Nodes: %02d | P: %3.3f | NTV: %2.2f", row$node_count, q_val, row$complexity_ntv),
+             x = "Amplitude (%)", y = "Density %") +
         coord_cartesian(xlim = c(-100, 100), ylim = c(0, 105)) +
         scale_x_continuous(breaks = seq(-100, 100, 50)) +
         scale_y_continuous(expand = c(0, 0)) +
         theme_minimal() +
-        theme(plot.title = element_text(family = "mono", face = "bold", size = 11), panel.grid.minor = element_blank())
+        theme(plot.title = element_text(family = "mono", face = "bold", size = 11))
       
       print(p)
       cat("\n\n---\n\n")
@@ -154,107 +132,40 @@ render_profiles <- function(matches_dt, dot_color = "black") {
 
 render_profiles(dt_selected, "black")
 
-# --- PLOT 4: SCATTER DISTRIBUTIONS ---
-render_scatters <- function(matches_dt) {
-  # Pathing remains consistent with your erasures_dir
-  erasures_dir <- file.path(base_dir, "01_erasures")
-  
+# --- 5. Plot 3: Micro Macro ---
+render_micro_macro_scatters <- function(matches_dt) {
   for (i in seq_len(nrow(matches_dt))) {
     row <- matches_dt[i]
     q_val <- row$normalized_momentum
-    
-    # Consistent filename formatting
     q_str <- sprintf("%013.6f", q_val)
     f_path <- file.path(erasures_dir, sprintf("erasures_P_%s.csv.gz", q_str))
     
     if (file.exists(f_path)) {
-      dt_raw <- fread(f_path)
-      
-      # Filter for successful Stern-Brocot searches
-      dt_found <- dt_raw[found == 1]
+      dt_found <- fread(f_path)[found == 1]
       if (nrow(dt_found) == 0) next
       
-      # Mapping the physical search space: Microstates range from -P to +P
       p <- ggplot(dt_found, aes(x = microstate, y = macrostate)) +
-        geom_point(alpha = 0.4, size = 0.5, color = "steelblue4") +
-        # Reference lines for the origin and search bounds
-        labs(
-          title = sprintf("Phase Space Erasure: P = %.6f", q_val),
-          subtitle = sprintf("Nodes: %d | Microstate Range: [%.3f, %.3f]", 
-                             row$node_count, min(dt_found$microstate), max(dt_found$microstate)),
-          x = "Microstate",
-          y = "Macrostate"
-        ) +
+        geom_point(alpha = 0.4, size = 0.5, color = "black") +
+        labs(title = sprintf("Phase Space Erasure: P = %.6f", q_val),
+             subtitle = sprintf("Nodes: %d | Range: [%.3f, %.3f]", 
+                               row$node_count, min(dt_found$microstate), max(dt_found$microstate)),
+             x = "Microstate", y = "Macrostate") +
         theme_minimal() +
-        theme(
-          plot.title = element_text(family = "mono", face = "bold"),
-          panel.grid.minor = element_blank()
-        )
+        theme(plot.title = element_text(family = "mono", face = "bold"))
       
       print(p)
       cat("\n\n---\n\n")
-    } else {
-      message(sprintf("Skipping: %s not found", f_path))
     }
   }
 }
 
-render_scatters(dt_selected)
+render_micro_macro_scatters(dt_selected)
 
-
-# --- PLOT 4: SCATTER DISTRIBUTIONS ---
-render_erasure_scatters <- function(matches_dt) {
-  # Pathing remains consistent with your erasures_dir
-  erasures_dir <- file.path(base_dir, "01_erasures")
-  
-  for (i in seq_len(nrow(matches_dt))) {
-    row <- matches_dt[i]
-    q_val <- row$normalized_momentum
-    
-    # Consistent filename formatting
-    q_str <- sprintf("%013.6f", q_val)
-    f_path <- file.path(erasures_dir, sprintf("erasures_P_%s.csv.gz", q_str))
-    
-    if (file.exists(f_path)) {
-      dt_raw <- fread(f_path)
-      
-      # Filter for successful Stern-Brocot searches
-      dt_found <- dt_raw[found == 1]
-      if (nrow(dt_found) == 0) next
-      
-      # Mapping the physical search space: Microstates range from -P to +P
-      p <- ggplot(dt_found, aes(x = microstate, y = erasure_distance)) +
-        geom_point(alpha = 0.4, size = 0.5, color = "steelblue4") +
-        # Reference lines for the origin and search bounds
-        labs(
-          title = sprintf("Phase Space Erasure: P = %.6f", q_val),
-          subtitle = sprintf("Nodes: %d | Microstate Range: [%.3f, %.3f]", 
-                             row$node_count, min(dt_found$microstate), max(dt_found$microstate)),
-          x = "Microstate",
-          y = "Erasure Distance"
-        ) +
-        theme_minimal() +
-        theme(
-          plot.title = element_text(family = "mono", face = "bold"),
-          panel.grid.minor = element_blank()
-        )
-      
-      print(p)
-      cat("\n\n---\n\n")
-    } else {
-      message(sprintf("Skipping: %s not found", f_path))
-    }
-  }
-}
-
-render_erasure_scatters(dt_selected)
-
-# --- PLOT 3: CONJUGATE ELLIPSES ---
+# --- 6. Plot 4: Conjugate Ellipses ---
 render_ellipses <- function(matches_dt) {
   for (i in seq_len(nrow(matches_dt))) {
     row <- matches_dt[i]
     q_val <- row$normalized_momentum
-    
     a_base <- q_val / 0.5
     b_base <- 0.5 / q_val
     scaling_factor <- 90 / max(a_base, b_base) 
@@ -266,8 +177,7 @@ render_ellipses <- function(matches_dt) {
     )
 
     p <- ggplot(ellipse_df) +
-      geom_ellipse(aes(x0 = 0, y0 = 0, a = major, b = minor, angle = 0, 
-                       color = type, fill = type), 
+      geom_ellipse(aes(x0 = 0, y0 = 0, a = major, b = minor, angle = 0, color = type, fill = type), 
                    alpha = 0.25, linewidth = 0.8) +
       scale_fill_manual(values = c("Q-Conjugate" = "black", "P-Conjugate" = "gray60")) +
       scale_color_manual(values = c("Q-Conjugate" = "black", "P-Conjugate" = "gray40")) +
@@ -282,95 +192,4 @@ render_ellipses <- function(matches_dt) {
 }
 
 render_ellipses(dt_selected)
-```
-
-
-```{r setup, echo=FALSE, message=FALSE, warning=FALSE}
-
-# --- 1. Configuration ---
-base_dir     <- "/Volumes/SanDisk4TB/SternBrocot-data"
-summary_file <- file.path(base_dir, "04_program_length_summary.csv.gz")
-density_dir  <- file.path(base_dir, "02_program_length_densities")
-
-# --- 2. Load Aggregated Data ---
-if (!file.exists(summary_file)) {
-  stop("Summary file not found. Please run Script 04 first.")
-}
-
-summary_dt <- fread(summary_file)
-```
-
-## Global Complexity Scaling
-
-The red dashed line shows the plateaus we are sampling from.
-
-```{r plot-evolution, echo=FALSE, fig.width=12, fig.height=6}
-ggplot(summary_dt, aes(x = normalized_momentum)) +
-  geom_ribbon(aes(ymin = lower, ymax = upper), fill = "steelblue", alpha = 0.2) +
-  geom_line(aes(y = mean_len, color = "Mean Complexity"), linewidth = 1.2) +
-  geom_line(aes(y = median_len, color = "Median Complexity"), linewidth = 1, linetype = "dashed") +
-  scale_color_manual(values = c("Mean Complexity" = "steelblue4", "Median Complexity" = "firebrick3")) +
-  theme_minimal(base_size = 14) +
-  labs(
-    title = "Algorithmic Complexity Evolution",
-    subtitle = "Sampling points located at the center of each median plateau",
-    x = "Normalized Momentum (P)",
-    y = "Program Length (Bits)",
-    color = "Metric"
-  ) +
-  theme(legend.position = "bottom", plot.title = element_text(face = "bold", family = "mono"))
-```
-
----
-
-## Steady-State Density Profiles (Fixed X: 0-10)
-
-We have identified the middle index for the first four plateaus to show how the "Skyline" stabilizes before the next transition.
-
-```{r density-plateaus, echo=FALSE, results='asis', fig.width=12, fig.height=5}
-# --- 1. Detect Plateau Midpoints ---
-# Identify groups of identical median values
-summary_dt[, plateau_id := rleid(median_len)]
-
-# Calculate the middle index for each of the first 4 plateaus
-plateau_middles <- summary_dt[, .(
-  mid_idx = as.integer(median(.I)),
-  median_val = median_len[1]
-), by = plateau_id][1:4]
-
-render_single_p <- function(p_val, median_val) {
-  p_str <- sprintf("%013.6f", p_val)
-  f_path <- file.path(density_dir, sprintf("program_length_density_P_%s.csv.gz", p_str))
-  
-  if (!file.exists(f_path)) return(NULL)
-  dt_dens <- fread(f_path)
-  
-  p <- ggplot(dt_dens[coordinate_q >= 0 & coordinate_q <= 10], aes(x = coordinate_q, y = density_count)) +
-    geom_col(fill = "steelblue", color = "white", alpha = 0.8) +
-    # Red line to indicate the Median
-    geom_vline(xintercept = median_val, linetype = "dashed", color = "firebrick3", linewidth = 1) +
-    scale_x_continuous(breaks = 0:10, limits = c(-0.5, 10.5)) +
-    theme_minimal() +
-    labs(
-      title = sprintf("Plateau Center: P = %.4f (Median = %.0f Bits)", p_val, median_val),
-      subtitle = sprintf("Mean Complexity: %.2f Bits | Standard Deviation: %.2f", 
-                         summary_dt[normalized_momentum == p_val, mean_len],
-                         summary_dt[normalized_momentum == p_val, sd_len]),
-      x = "Program Length (Bits)", y = "Microstate Count"
-    ) +
-    theme(plot.title = element_text(size = 14, family = "mono"))
-  
-  print(p)
-  cat("\n\n---\n\n")
-}
-
-# --- 2. Execute ---
-for (i in 1:nrow(plateau_middles)) {
-  target_idx <- plateau_middles$mid_idx[i]
-  p_val      <- summary_dt$normalized_momentum[target_idx]
-  m_val      <- plateau_middles$median_val[i]
-  
-  cat(sprintf("### Plateau %d: %s-Bit Complexity Level\n", i, m_val))
-  render_single_p(p_val, m_val)
-}
 ```
