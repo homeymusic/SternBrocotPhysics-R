@@ -36,8 +36,7 @@ count_nodes <- function(density, debug = FALSE) {
   trend_fit <- stats::lowess(active_data[["x"]], active_data[["y"]], f = 0.2)
   local_baseline <- trend_fit$y
 
-  # Threshold logic: 0.05 coefficient catches deep features
-  thresh_vec <- 0.05 * sqrt(local_baseline)
+  thresh_vec <- (1/(4 * pi)) * sqrt(local_baseline)
   data.table::set(active_data, j = "threshold", value = thresh_vec)
 
   if (debug) {
