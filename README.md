@@ -1,7 +1,5 @@
-Stern-Brocot Physics: Constrained Harmonic Selection
+Stern-Brocot Physics
 ================
-
-# Stern-Brocot Physics
 
 <figure>
 <img src="man/figures/hero_bell.png" alt="Violating Bell’s Theorem" />
@@ -143,17 +141,5 @@ Stern-Brocot Physics: Constrained Harmonic Selection
 ------------------------------------------------------------------------
 
 ![](README_files/figure-gfm/main-analysis-34.png)<!-- -->
-
-------------------------------------------------------------------------
-
-![](README_files/figure-gfm/main-analysis-35.png)<!-- -->
-
-------------------------------------------------------------------------
-
-![](README_files/figure-gfm/main-analysis-36.png)<!-- -->
-
-------------------------------------------------------------------------
-
-![](README_files/figure-gfm/main-analysis-37.png)<!-- -->
 
 ------------------------------------------------------------------------
