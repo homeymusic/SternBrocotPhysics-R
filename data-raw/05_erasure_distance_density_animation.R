@@ -15,7 +15,7 @@ file_keys     <- gsub("erasure_distance_density_P_|.csv.gz", "", density_files)
 
 files_to_process <- data.table(key_str = file_keys)
 files_to_process[, momentum := as.numeric(key_str)]
-files_to_process <- files_to_process[momentum >= 0.5 & momentum <= 4.0]
+files_to_process <- files_to_process[momentum >= 0.5 & momentum <= 6.0]
 
 setorder(files_to_process, momentum)
 
