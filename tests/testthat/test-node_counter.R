@@ -44,7 +44,6 @@ test_that("Node counts match theoretical expectations for specific momenta", {
     # --- FORCED GENERATION ---
     # We no longer check if the file exists. We always regenerate to ensure
     # the fixtures match the current package version logic.
-    message(sprintf("Generating fresh fixture for P = %s...", m_val))
 
     erasures(
       momenta   = m_val,

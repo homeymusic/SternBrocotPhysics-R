@@ -90,10 +90,4 @@ void erasures(NumericVector momenta, std::string dir, int n_threads = 0) {
   });
 
   pool.wait();
-
-  // Print summary to R Console
-  Rcout << "Simulation Summary:" << std::endl;
-  Rcout << "  - Total requested: " << n << std::endl;
-  Rcout << "  - Files skipped (already exist): " << skip_count.load() << std::endl;
-  Rcout << "  - New files computed: " << compute_count.load() << std::endl;
 }
