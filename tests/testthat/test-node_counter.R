@@ -16,10 +16,11 @@ test_that("Node counts match theoretical expectations for specific momenta", {
     2.467,     6
     2.640,     7
     2.829,     8
-    2.98,      9
+    2.980,     9
     3.268,     10
     3.849,     15
     6.000,     11
+    100.0,     29
   ")
 
   # --- 2. Setup Paths ---
@@ -39,7 +40,8 @@ test_that("Node counts match theoretical expectations for specific momenta", {
     m_str <- sprintf("%013.6f", m_val)
     expected_n <- truth_table$expected_nodes[i]
 
-    fixture_path <- file.path(fixtures_dir, sprintf("density_P_%s.csv.gz", m_str))
+    # CHANGED: Updated expected output file name to match what the production function generates
+    fixture_path <- file.path(fixtures_dir, sprintf("erasure_distance_density_P_%s.csv.gz", m_str))
 
     erasures(
       momenta   = m_val,
@@ -49,20 +51,17 @@ test_that("Node counts match theoretical expectations for specific momenta", {
 
     raw_file <- file.path(temp_raw_dir, sprintf("erasures_P_%s.csv.gz", m_str))
 
-    # --- UPDATED TEST LOGIC ---
+    # --- REFACTORED TEST LOGIC ---
+    # Call the production function directly instead of recreating its logic
     if (file.exists(raw_file)) {
-      dt_raw <- data.table::fread(raw_file, select = c("found", "erasure_distance"))
-
-      # MATCH THE PRODUCTION SCALING:
-      p_effective <- m_val * 2 * pi
-      density_df <- compute_density(dt_raw, p_effective, bin_width = 1.0)
-
-      if (!is.null(density_df)) {
-        # MATCH PRODUCTION METADATA RESTORATION:
-        density_df$normalized_momentum <- m_val
-        data.table::fwrite(density_df, fixture_path, compress = "gzip")
-      }
+      process_erasure_distance_density(f = raw_file, out_path = fixtures_dir)
       unlink(raw_file)
+    }
+
+    # Added a safety check in case the production function fails/returns NULL
+    if (!file.exists(fixture_path)) {
+      fail(sprintf("Fixture file was not created by process_erasure_distance_density for P=%s", m_val))
+      next
     }
 
     # --- ASSERTION ---

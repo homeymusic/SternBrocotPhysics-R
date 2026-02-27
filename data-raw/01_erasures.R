@@ -9,7 +9,7 @@ if (!dir.exists(raw_directory)) dir.create(raw_directory, recursive = TRUE)
 
 # --- CONFIGURATION: SCALING FROM FIRST PRINCIPLES ---
 granularity_p <- 0.001
-normalized_momenta <- seq(0.5, 6.0, by = granularity_p)
+normalized_momenta <- c(seq(0.5, 6.0, by = granularity_p), 100)
 
 message(sprintf("Launching Dynamic Simulation."))
 message(sprintf("Total Files: %d", length(normalized_momenta)))
