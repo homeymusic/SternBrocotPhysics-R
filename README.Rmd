@@ -302,8 +302,8 @@ render_ellipses <- function(matches_dt) {
                    alpha = 0.25, linewidth = 0.8) +
       scale_fill_manual(values = c("Q-Conjugate" = "black", "P-Conjugate" = "gray60")) +
       scale_color_manual(values = c("Q-Conjugate" = "black", "P-Conjugate" = "gray40")) +
-      labs(title = sprintf("Nodes: %02d | Momentum: %3.3f", row$node_count, q_val),
-           subtitle = "Phase Space Ellipse Pair", x = "q", y = "p") +
+      labs(title = sprintf("Momentum: %3.3f", q_val),
+           subtitle = "Action Quanta", x = "q", y = "p") +
       coord_fixed(xlim = c(-100, 100), ylim = c(-100, 100)) +
       theme_minimal() + theme(legend.position = "none", aspect.ratio = 1)
 

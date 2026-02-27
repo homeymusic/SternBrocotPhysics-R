@@ -1,0 +1,83 @@
+---
+title: "Particle in a Box: Continuous Symplectic Evolution"
+output:
+  github_document: default
+---
+
+```{r setup-and-data, echo=FALSE, message=FALSE, warning=FALSE}
+library(data.table)
+library(ggplot2)
+library(ggforce)
+library(patchwork)
+
+# --- 1. Configuration & Data Load ---
+granularity_p <- 0.1
+
+dt_selected <- data.table(
+  normalized_momentum = seq(0.5, 6.0, by = granularity_p)
+)
+```
+
+```{r individual-detail-plots, echo=FALSE, results='asis', message=FALSE, warning=FALSE, fig.width=6, fig.height=6}
+render_ellipses <- function(matches_dt) {
+  for (i in seq_len(nrow(matches_dt))) {
+    row <- matches_dt[i]
+    q_val <- row$normalized_momentum
+    
+    # The "Pop" logic: n = ceil(P)
+    n <- ceiling(q_val)
+    
+    # --- NORMALIZED Y-AXIS SCALING ---
+    # --- P-Conjugate (Momentum Blob) ---
+    # Width is eternally 100% of the plot width (a = 100).
+    # Height smoothly shrinks relative to the growing macrostate (b = 100 / 4P).
+    p_b <- 100 / (4 * q_val)
+    
+    p_df <- data.frame(
+      x0 = 0, y0 = 0,
+      a = 100, 
+      b = p_b, 
+      type = "P-Conjugate"
+    )
+    
+    # --- Q-Conjugates (Coordinate Blobs) ---
+    # Height always fills 100% of the normalized momentum state (b = 100).
+    # Width discretely partitions based on the ceiling of P (n).
+    q_a <- 100 / n
+    centers <- seq(from = -100 + q_a, to = 100 - q_a, length.out = n)
+    
+    q_df <- data.frame(
+      x0 = centers,
+      y0 = 0,
+      a = q_a,
+      b = 100, 
+      type = "Q-Conjugate"
+    )
+    
+    # Combine layers
+    ellipse_df <- rbind(q_df, p_df)
+    ellipse_df$type <- factor(ellipse_df$type, levels = c("P-Conjugate", "Q-Conjugate"))
+
+    # --- Plotting ---
+    p <- ggplot(ellipse_df) +
+      geom_ellipse(aes(x0 = x0, y0 = y0, a = a, b = b, angle = 0, color = type, fill = type), 
+                   alpha = 0.25, linewidth = 0.8) +
+      scale_fill_manual(values = c("Q-Conjugate" = "black", "P-Conjugate" = "gray60")) +
+      scale_color_manual(values = c("Q-Conjugate" = "black", "P-Conjugate" = "gray40")) +
+      labs(title = sprintf("Momentum (P): %3.1f", q_val),
+           x = "Coordinate (%)", y = "Momentum (%)") +
+      coord_fixed(xlim = c(-100, 100), ylim = c(-100, 100)) +
+      theme_minimal() + 
+      theme(legend.position = "none", 
+            plot.title = element_text(family = "mono", face = "bold", size = 14),
+            plot.subtitle = element_text(family = "mono", size = 10, color = "gray30"),
+            panel.grid.major = element_line(color = "gray90"),
+            panel.grid.minor = element_blank())
+
+    print(p)
+    cat("\n\n---\n\n")
+  }
+}
+
+render_ellipses(dt_selected)
+```
