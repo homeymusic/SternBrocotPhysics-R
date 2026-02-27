@@ -1,4 +1,4 @@
-Particle in a Box: Continuous Symplectic Evolution
+Particle in a Box: Continuous Symplectic Evolution (Anti-Wave)
 ================
 
 ![](particle_in_a_box_files/figure-gfm/individual-detail-plots-1.png)<!-- -->

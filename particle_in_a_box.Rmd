@@ -1,5 +1,5 @@
 ---
-title: "Particle in a Box: Continuous Symplectic Evolution"
+title: "Particle in a Box: Continuous Symplectic Evolution (Anti-Wave)"
 output:
   github_document: default
 ---
@@ -11,73 +11,151 @@ library(ggforce)
 library(patchwork)
 
 # --- 1. Configuration & Data Load ---
+base_dir     <- "/Volumes/SanDisk4TB/SternBrocot-data"
+density_dir  <- file.path(base_dir, "02_erasure_distance_densities")
+summary_path <- file.path(base_dir, "04_erasure_distance_summary.csv.gz")
+
+if (!file.exists(summary_path)) stop("Summary file not found at: ", summary_path)
+
+dt_summary <- fread(summary_path)
+
 granularity_p <- 0.1
 
-dt_selected <- data.table(
+dt_handpicked <- data.table(
   normalized_momentum = seq(0.5, 6.0, by = granularity_p)
 )
+
+# Rolling join to find the closest actual experimental data points
+dt_selected <- dt_summary[dt_handpicked, on = .(normalized_momentum), roll = "nearest"]
 ```
 
-```{r individual-detail-plots, echo=FALSE, results='asis', message=FALSE, warning=FALSE, fig.width=6, fig.height=6}
-render_ellipses <- function(matches_dt) {
+```{r individual-detail-plots, echo=FALSE, results='asis', message=FALSE, warning=FALSE, fig.width=12, fig.height=6}
+render_phase_and_density <- function(matches_dt) {
   for (i in seq_len(nrow(matches_dt))) {
     row <- matches_dt[i]
     q_val <- row$normalized_momentum
+    q_str <- sprintf("%013.6f", q_val) 
     
     # The "Pop" logic: n = ceil(P)
     n <- ceiling(q_val)
     
-    # --- NORMALIZED Y-AXIS SCALING ---
-    # --- P-Conjugate (Momentum Blob) ---
-    # Width is eternally 100% of the plot width (a = 100).
-    # Height smoothly shrinks relative to the growing macrostate (b = 100 / 4P).
-    p_b <- 100 / (4 * q_val)
+    # ==========================================
+    # 1. PHASE SPACE ELLIPSE PLOT
+    # ==========================================
     
-    p_df <- data.frame(
-      x0 = 0, y0 = 0,
-      a = 100, 
-      b = p_b, 
-      type = "P-Conjugate"
-    )
+    # --- P-Conjugate (Momentum Blob) ---
+    p_b <- 100 / (4 * q_val)
+    p_df <- data.frame(x0 = 0, y0 = 0, a = 100, b = p_b, type = "P-Conjugate")
     
     # --- Q-Conjugates (Coordinate Blobs) ---
-    # Height always fills 100% of the normalized momentum state (b = 100).
-    # Width discretely partitions based on the ceiling of P (n).
     q_a <- 100 / n
     centers <- seq(from = -100 + q_a, to = 100 - q_a, length.out = n)
+    q_df <- data.frame(x0 = centers, y0 = 0, a = q_a, b = 100, type = "Q-Conjugate")
     
-    q_df <- data.frame(
-      x0 = centers,
-      y0 = 0,
-      a = q_a,
-      b = 100, 
-      type = "Q-Conjugate"
-    )
-    
-    # Combine layers
     ellipse_df <- rbind(q_df, p_df)
     ellipse_df$type <- factor(ellipse_df$type, levels = c("P-Conjugate", "Q-Conjugate"))
 
-    # --- Plotting ---
-    p <- ggplot(ellipse_df) +
+    p_ellipses <- ggplot(ellipse_df) +
       geom_ellipse(aes(x0 = x0, y0 = y0, a = a, b = b, angle = 0, color = type, fill = type), 
                    alpha = 0.25, linewidth = 0.8) +
       scale_fill_manual(values = c("Q-Conjugate" = "black", "P-Conjugate" = "gray60")) +
       scale_color_manual(values = c("Q-Conjugate" = "black", "P-Conjugate" = "gray40")) +
-      labs(title = sprintf("Momentum (P): %3.1f", q_val),
+      labs(title = sprintf("Momentum (P): %3.1f | Nodes: %d", q_val, n),
            x = "Coordinate (%)", y = "Momentum (%)") +
+      # coord_fixed guarantees the 1:1 aspect ratio so P=1 is a perfect circle
       coord_fixed(xlim = c(-100, 100), ylim = c(-100, 100)) +
       theme_minimal() + 
       theme(legend.position = "none", 
             plot.title = element_text(family = "mono", face = "bold", size = 14),
-            plot.subtitle = element_text(family = "mono", size = 10, color = "gray30"),
             panel.grid.major = element_line(color = "gray90"),
-            panel.grid.minor = element_blank())
+            panel.grid.minor = element_blank(),
+            axis.title = element_text(family = "mono"),
+            axis.text = element_text(family = "mono"))
 
-    print(p)
+    # ==========================================
+    # 2. DENSITY TILING PLOT
+    # ==========================================
+    d_path <- file.path(density_dir, sprintf("erasure_distance_density_P_%s.csv.gz", q_str))
+    
+    p_density <- ggplot() + theme_void() 
+    
+    if (file.exists(d_path)) {
+      h_pts <- fread(d_path)
+      dt_active <- h_pts[density_count > 0]
+      
+      # TRIM ALIASING: Delete leftmost and rightmost boundary bins
+      if (nrow(dt_active) > 2) {
+        dt_active <- dt_active[2:(.N - 1)]
+      }
+      
+      if (nrow(dt_active) > 0) {
+        max_h <- max(dt_active$density_count, na.rm = TRUE)
+        q_diff_raw <- if(nrow(dt_active) > 1) median(diff(dt_active$coordinate_q), na.rm=TRUE) else 1.0
+        
+        # Normalize the trimmed data
+        min_q <- min(dt_active$coordinate_q, na.rm = TRUE)
+        max_q <- max(dt_active$coordinate_q, na.rm = TRUE)
+        min_q_edge <- min_q - (q_diff_raw / 2)
+        max_q_edge <- max_q + (q_diff_raw / 2)
+        total_q_width <- max_q_edge - min_q_edge
+        
+        dt_active[, base_q := 2 * (coordinate_q - min_q_edge) / total_q_width - 1]
+        dt_active[, pct_density := (density_count / max_h) * 100]
+        
+        base_pct_width <- 2 * q_diff_raw / total_q_width
+        scaled_pct_width <- base_pct_width * q_a    
+        
+        # Tile the data
+        tiled_list <- list()
+        for (c_val in centers) {
+          temp_dt <- copy(dt_active)
+          temp_dt[, pct_q := (base_q * q_a) + c_val]
+          tiled_list[[length(tiled_list) + 1]] <- temp_dt
+        }
+        tiled_dt <- rbindlist(tiled_list)
+        
+        # Explicitly order the dataset left-to-right to draw one unified line
+        setorder(tiled_dt, pct_q)
+        
+        # FIX ALIGNMENT: Set dummy zeros exactly 1 bin-width away from the outer data points
+        # This forces geom_step(direction="mid") to perfectly align with the edges of the columns
+        min_pct_q <- min(tiled_dt$pct_q)
+        max_pct_q <- max(tiled_dt$pct_q)
+        
+        h_plot_data <- rbind(
+          data.table(pct_q = min_pct_q - scaled_pct_width, pct_density = 0),
+          tiled_dt[, .(pct_q, pct_density)],
+          data.table(pct_q = max_pct_q + scaled_pct_width, pct_density = 0)
+        )
+
+        p_density <- ggplot() +
+          geom_col(data = tiled_dt, aes(x = pct_q, y = pct_density), width = scaled_pct_width, fill = "grey85") +
+          # Draw a single continuous step line cleanly outlining the bars
+          geom_step(data = h_plot_data, aes(x = pct_q, y = pct_density), color = "black", linewidth = 0.7, direction = "mid") + 
+          labs(title = "Empirical Erasure Density",
+               x = "Coordinate (%)", y = "Density %") +
+          coord_cartesian(xlim = c(-100, 100), ylim = c(0, 105)) +
+          scale_x_continuous(breaks = seq(-100, 100, 50)) +
+          scale_y_continuous(expand = c(0, 0)) +
+          theme_minimal() +
+          theme(aspect.ratio = 1, # Forces the density plot to render as a visual square
+                plot.title = element_text(family = "mono", face = "bold", size = 14),
+                panel.grid.major = element_line(color = "gray90"),
+                panel.grid.minor = element_blank(),
+                axis.title = element_text(family = "mono"),
+                axis.text = element_text(family = "mono"))
+      }
+    }
+
+    # ==========================================
+    # 3. COMBINE & PRINT (Side-by-Side)
+    # ==========================================
+    # Using '+' places them side-by-side. 
+    combined_plot <- p_ellipses + p_density + plot_layout(ncol = 2)
+    print(combined_plot)
     cat("\n\n---\n\n")
   }
 }
 
-render_ellipses(dt_selected)
+render_phase_and_density(dt_selected)
 ```
