@@ -287,7 +287,91 @@ render_micro_macro_scatters <- function(matches_dt) {
 }
 render_micro_macro_scatters(dt_selected)
 
-# --- Plot 5: Conjugate Ellipses ---
+# --- Plot 5: Micro Erasure ---
+render_micro_erasure_scatters <- function(matches_dt) {
+  for (i in seq_len(nrow(matches_dt))) {
+    row <- matches_dt[i]
+    q_val <- row$normalized_momentum
+    q_str <- sprintf("%013.6f", q_val)
+    f_path <- file.path(erasures_dir, sprintf("erasures_P_%s.csv.gz", q_str))
+    
+    if (file.exists(f_path)) {
+      dt_found <- fread(f_path)[found == 1]
+      if (nrow(dt_found) == 0) next
+      
+      p <- ggplot(dt_found, aes(x = microstate, y = erasure_distance)) +
+        geom_point(alpha = 0.4, size = 0.5, color = "black") +
+        labs(title = sprintf("Phase Space Erasure: P = %.6f", q_val),
+             subtitle = sprintf("Nodes: %d | Range: [%.3f, %.3f]", 
+                               row$node_count, min(dt_found$microstate), max(dt_found$microstate)),
+             x = "Microstate", y = "Erasure Distance") +
+        theme_minimal() +
+        theme(plot.title = element_text(family = "mono", face = "bold"))
+      
+      print(p)
+      cat("\n\n---\n\n")
+    }
+  }
+}
+render_micro_erasure_scatters(dt_selected)
+
+# --- Plot 6: Macro Erasure ---
+render_macro_erasure_scatters <- function(matches_dt) {
+  for (i in seq_len(nrow(matches_dt))) {
+    row <- matches_dt[i]
+    q_val <- row$normalized_momentum
+    q_str <- sprintf("%013.6f", q_val)
+    f_path <- file.path(erasures_dir, sprintf("erasures_P_%s.csv.gz", q_str))
+    
+    if (file.exists(f_path)) {
+      dt_found <- fread(f_path)[found == 1]
+      if (nrow(dt_found) == 0) next
+      
+      p <- ggplot(dt_found, aes(x = macrostate, y = erasure_distance)) +
+        geom_point(alpha = 0.4, size = 0.5, color = "black") +
+        labs(title = sprintf("Phase Space Erasure: P = %.6f", q_val),
+             subtitle = sprintf("Nodes: %d | Range: [%.3f, %.3f]", 
+                               row$node_count, min(dt_found$microstate), max(dt_found$microstate)),
+             x = "Macrostate", y = "Erasure Distance") +
+        theme_minimal() +
+        theme(plot.title = element_text(family = "mono", face = "bold"))
+      
+      print(p)
+      cat("\n\n---\n\n")
+    }
+  }
+}
+render_macro_erasure_scatters(dt_selected)
+
+# --- Plot 7: Erasure Macro ---
+render_erasure_macro_scatters <- function(matches_dt) {
+  for (i in seq_len(nrow(matches_dt))) {
+    row <- matches_dt[i]
+    q_val <- row$normalized_momentum
+    q_str <- sprintf("%013.6f", q_val)
+    f_path <- file.path(erasures_dir, sprintf("erasures_P_%s.csv.gz", q_str))
+    
+    if (file.exists(f_path)) {
+      dt_found <- fread(f_path)[found == 1]
+      if (nrow(dt_found) == 0) next
+      
+      p <- ggplot(dt_found, aes(x = erasure_distance, y = macrostate)) +
+        geom_point(alpha = 0.4, size = 0.5, color = "black") +
+        labs(title = sprintf("Phase Space Erasure: P = %.6f", q_val),
+             subtitle = sprintf("Nodes: %d | Range: [%.3f, %.3f]", 
+                               row$node_count, min(dt_found$microstate), max(dt_found$microstate)),
+             x = "Erasure Distance", y = "Macrostate") +
+        theme_minimal() +
+        theme(plot.title = element_text(family = "mono", face = "bold"))
+      
+      print(p)
+      cat("\n\n---\n\n")
+    }
+  }
+}
+render_erasure_macro_scatters(dt_selected)
+
+# --- Plot 8: Conjugate Ellipses ---
 render_ellipses <- function(matches_dt) {
   for (i in seq_len(nrow(matches_dt))) {
     row <- matches_dt[i]

@@ -159,3 +159,147 @@ Stern-Brocot Physics
 ![](README_files/figure-gfm/individual-detail-plots-36.png)<!-- -->
 
 ------------------------------------------------------------------------
+
+![](README_files/figure-gfm/individual-detail-plots-37.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/individual-detail-plots-38.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/individual-detail-plots-39.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/individual-detail-plots-40.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/individual-detail-plots-41.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/individual-detail-plots-42.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/individual-detail-plots-43.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/individual-detail-plots-44.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/individual-detail-plots-45.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/individual-detail-plots-46.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/individual-detail-plots-47.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/individual-detail-plots-48.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/individual-detail-plots-49.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/individual-detail-plots-50.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/individual-detail-plots-51.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/individual-detail-plots-52.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/individual-detail-plots-53.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/individual-detail-plots-54.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/individual-detail-plots-55.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/individual-detail-plots-56.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/individual-detail-plots-57.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/individual-detail-plots-58.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/individual-detail-plots-59.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/individual-detail-plots-60.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/individual-detail-plots-61.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/individual-detail-plots-62.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/individual-detail-plots-63.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/individual-detail-plots-64.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/individual-detail-plots-65.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/individual-detail-plots-66.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/individual-detail-plots-67.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/individual-detail-plots-68.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/individual-detail-plots-69.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/individual-detail-plots-70.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/individual-detail-plots-71.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/individual-detail-plots-72.png)<!-- -->
+
+------------------------------------------------------------------------
