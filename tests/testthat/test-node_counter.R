@@ -41,11 +41,6 @@ test_that("Node counts match theoretical expectations for specific momenta", {
 
     fixture_path <- file.path(fixtures_dir, sprintf("density_P_%s.csv.gz", m_str))
 
-    # --- FORCED GENERATION ---
-    # We no longer check if the file exists. We always regenerate to ensure
-    # the fixtures match the current package version logic.
-    message(sprintf("Generating fresh fixture for P = %s...", m_val))
-
     erasures(
       momenta   = m_val,
       dir       = normalizePath(temp_raw_dir, mustWork = TRUE),
