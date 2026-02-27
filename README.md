@@ -147,3 +147,15 @@ Stern-Brocot Physics
 ![](README_files/figure-gfm/individual-detail-plots-33.png)<!-- -->
 
 ------------------------------------------------------------------------
+
+![](README_files/figure-gfm/individual-detail-plots-34.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/individual-detail-plots-35.png)<!-- -->
+
+------------------------------------------------------------------------
+
+![](README_files/figure-gfm/individual-detail-plots-36.png)<!-- -->
+
+------------------------------------------------------------------------

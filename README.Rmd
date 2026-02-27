@@ -178,7 +178,12 @@ qho_backbone <- function(P) { P^2 }
 dt_plot_bg <- dt_summary[node_count >= 0 & node_count <= 10]
 
 p_ov_action <- ggplot() +
-  stat_function(fun = qho_backbone, color = "black", linetype = "dashed", alpha = 0.5, linewidth = 0.8) +
+  stat_function(fun = qho_backbone, 
+                n = 1001, 
+                color = "black", 
+                linetype = "dashed", 
+                alpha = 0.5, 
+                linewidth = 0.8) +
   geom_point(data = dt_plot_bg[order(complexity_ntv)], 
              aes(x = normalized_momentum, y = node_count, color = complexity_ntv), 
              size = 1.5, alpha = 0.6) +

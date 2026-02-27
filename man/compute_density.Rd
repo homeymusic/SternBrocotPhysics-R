@@ -2,21 +2,22 @@
 % Please edit documentation in R/density_computer.R
 \name{compute_density}
 \alias{compute_density}
-\title{Compute Density from Raw Erasures}
+\title{Compute Action Density from Raw Erasures}
 \usage{
 compute_density(dt, p, bin_width = 1)
 }
 \arguments{
 \item{dt}{A data.table containing a 'found' and 'erasure_distance' column.}
 
-\item{p}{The momentum value (numeric) - kept only for metadata tracking.}
+\item{p}{The momentum value (numeric).}
 
-\item{bin_width}{The resolution of the histogram (default = 1).}
+\item{bin_width}{The minimum resolution of the histogram (default 1).}
 }
 \value{
 A data.table with columns: normalized_momentum, coordinate_q, density_count.
 }
 \description{
-Converts raw erasure distances into a symmetric density histogram.
-Data is kept in raw dimensionless units to prevent aliasing.
+Converts raw erasure distances into a normalized Action density histogram.
+Handles the P^2 scaling and ensures odd-bin symmetry centered at zero.
+Uses Rice's Rule to adaptively prevent Poisson noise at extreme momenta.
 }

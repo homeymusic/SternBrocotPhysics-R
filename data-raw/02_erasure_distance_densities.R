@@ -25,10 +25,13 @@ if (length(files_to_process) > 0) {
   with_progress({
     p <- progressor(steps = length(files_to_process))
     future_lapply(files_to_process, function(f) {
-      res <- process_erasure_distance_density(f, out_path = agg_dir)
+      # The worker needs to know these functions come from the package
+      res <- SternBrocotPhysics::process_erasure_distance_density(f, out_path = agg_dir)
       p()
       res
-    }, future.seed = TRUE)
+    },
+    future.seed = TRUE,
+    future.packages = c("SternBrocotPhysics", "data.table"))
   })
 } else {
   message("All erasure_distance density files are up to date.")
