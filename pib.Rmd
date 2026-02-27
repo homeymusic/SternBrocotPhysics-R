@@ -1,0 +1,185 @@
+---
+title: "Structural Evolution: Particle in a Box"
+output:
+  github_document: default
+---
+
+```{r setup-and-data, echo=FALSE, message=FALSE, warning=FALSE}
+library(data.table)
+library(ggplot2)
+library(ggforce)
+library(patchwork)
+
+# --- 1. Configuration & Data Load (Pointing to PIB Folders) ---
+base_dir     <- "/Volumes/SanDisk4TB/SternBrocot-data"
+erasures_dir <- file.path(base_dir, "08_pib_erasures")
+density_dir  <- file.path(base_dir, "09_pib_erasure_distance_densities")
+nodes_dir    <- file.path(base_dir, "10_pib_erasure_distance_density_nodes")
+summary_path <- file.path(base_dir, "11_pib_erasure_distance_summary.csv.gz")
+
+if (!file.exists(summary_path)) stop("Summary file not found at: ", summary_path)
+
+dt_summary <- fread(summary_path)
+
+# --- 2. Manual Selection Logic (Identical to QHO Hand-Picked States) ---
+dt_handpicked <- data.table(
+  normalized_momentum = c(0.5, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0)
+)
+
+# Rolling join to find the closest actual experimental data points
+dt_selected <- dt_summary[dt_handpicked, on = .(normalized_momentum), roll = "nearest"]
+```
+
+```{r combined-grid-plot, echo=FALSE, fig.width=14, fig.height=25, warning=FALSE, message=FALSE}
+# --- Plot 1: Combined Grayscale Small Multiples ---
+render_combined_grid <- function(matches_dt) {
+  plot_list <- list()
+  
+  for (i in seq_len(nrow(matches_dt))) {
+    row <- matches_dt[i]
+    q_val <- row$normalized_momentum
+    q_str <- sprintf("%013.6f", q_val)
+    
+    # ---------------------------------------------------------
+    # 1. Conjugate Quanta (Left Column)
+    # ---------------------------------------------------------
+    a_base <- q_val / 0.5
+    b_base <- 0.5 / q_val
+    scaling_factor <- 90 / max(a_base, b_base) 
+    
+    ellipse_df <- data.frame(
+      type = factor(c("Q-Conjugate", "P-Conjugate"), levels = c("Q-Conjugate", "P-Conjugate")),
+      major = c(a_base, b_base) * scaling_factor,
+      minor = c(b_base, a_base) * scaling_factor
+    )
+    
+    p_ell <- ggplot(ellipse_df) +
+      geom_ellipse(aes(x0 = 0, y0 = 0, a = major, b = minor, angle = 0, color = type, fill = type), 
+                   alpha = 0.2, linewidth = 0.5) +
+      scale_fill_manual(values = c("Q-Conjugate" = "black", "P-Conjugate" = "gray60")) +
+      scale_color_manual(values = c("Q-Conjugate" = "black", "P-Conjugate" = "gray30")) +
+      coord_fixed(xlim = c(-100, 100), ylim = c(-100, 100)) +
+      theme_minimal() + 
+      theme(legend.position = "none",
+            axis.title = element_blank(), 
+            axis.text = element_blank(),
+            panel.grid = element_line(color = "gray90"),
+            aspect.ratio = 1,
+            plot.margin = margin(5, 5, 5, 5))
+    
+    if (i == 1) p_ell <- p_ell + labs(title = "Conjugate Quanta") + 
+        theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14))
+    
+    # ---------------------------------------------------------
+    # 2. Macrostates vs. Microstates (Middle Column)
+    # ---------------------------------------------------------
+    f_path <- file.path(erasures_dir, sprintf("pib_erasures_P_%s.csv.gz", q_str))
+    p_scat <- ggplot() + theme_void() + theme(aspect.ratio = 1, plot.margin = margin(5, 5, 5, 5)) 
+    
+    if (file.exists(f_path)) {
+      dt_found <- fread(f_path)[found == 1]
+      if (nrow(dt_found) > 0) {
+        p_scat <- ggplot(dt_found, aes(x = microstate, y = macrostate)) +
+          geom_point(alpha = 0.25, size = 0.1, color = "black") + 
+          theme_minimal() +
+          theme(axis.title = element_blank(), 
+                axis.text = element_blank(),
+                panel.grid = element_line(color = "gray90"),
+                aspect.ratio = 1,
+                plot.margin = margin(5, 5, 5, 5))
+      }
+    }
+    if (i == 1) p_scat <- p_scat + labs(title = "Macrostates vs. Microstates") + 
+        theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14))
+    
+    # ---------------------------------------------------------
+    # 3. Coordinate Density (Right Column) - IDENTICAL QHO LOGIC
+    # ---------------------------------------------------------
+    d_path <- file.path(density_dir, sprintf("pib_erasure_distance_density_P_%s.csv.gz", q_str))
+    n_path <- file.path(nodes_dir, sprintf("pib_erasure_distance_nodes_P_%s.csv.gz", q_str))
+    
+    p_den <- ggplot() + theme_void() + theme(aspect.ratio = 1, plot.margin = margin(5, 5, 5, 5))
+    
+    if (file.exists(d_path)) {
+      h_pts <- fread(d_path)
+      dt_active <- h_pts[density_count > 0]
+      if (nrow(dt_active) > 0) {
+        max_h <- max(dt_active$density_count, na.rm = TRUE)
+        q_diff_raw <- if(nrow(dt_active) > 1) median(diff(dt_active$coordinate_q), na.rm=TRUE) else 1.0
+        
+        # Scaling based on observed edge to ensure expansion/fill
+        max_q_edge <- max(abs(dt_active$coordinate_q), na.rm = TRUE) + (q_diff_raw / 2)
+        
+        dt_active[, c("pct_density", "pct_q") := list((density_count/max_h)*100, (coordinate_q/max_q_edge)*100)]
+        pct_width <- (q_diff_raw / max_q_edge) * 100
+        
+        # Step plot data construction to ensure return to zero
+        h_plot_data <- rbind(
+          data.table(pct_q = min(dt_active$pct_q) - pct_width, pct_density = 0),
+          dt_active[, .(pct_q, pct_density)],
+          data.table(pct_q = max(dt_active$pct_q) + pct_width, pct_density = 0)
+        )
+        
+        n_pts <- if(file.exists(n_path)) fread(n_path) else data.table()
+        if (nrow(n_pts) > 0 && "coordinate_q" %in% names(n_pts)) {
+          n_pts[, c("pct_density", "pct_q") := list((density_count/max_h)*100, (coordinate_q/max_q_edge)*100)]
+        }
+        
+        p_den <- ggplot() +
+          geom_col(data = dt_active, aes(x = pct_q, y = pct_density), width = pct_width, fill = "gray85") +
+          geom_step(data = h_plot_data, aes(x = pct_q, y = pct_density), color = "black", linewidth = 0.5, direction = "mid") + 
+          geom_point(data = n_pts, aes(x = pct_q, y = pct_density), color = "black", size = 1.5) +
+          coord_cartesian(xlim = c(-100, 100), ylim = c(0, 105)) +
+          theme_minimal() +
+          theme(axis.title = element_blank(), 
+                axis.text = element_blank(),
+                panel.grid = element_line(color = "gray90"),
+                aspect.ratio = 1,
+                plot.margin = margin(5, 5, 5, 5))
+      }
+    }
+    if (i == 1) p_den <- p_den + labs(title = "Coordinate Density") + 
+        theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14))
+    
+    plot_list[[length(plot_list) + 1]] <- p_ell
+    plot_list[[length(plot_list) + 1]] <- p_scat
+    plot_list[[length(plot_list) + 1]] <- p_den
+  }
+  
+  final_grid <- wrap_plots(plot_list, ncol = 3) +
+    plot_annotation(
+      title = "Structural Evolution: Particle in a Box",
+      subtitle = "Momentum range 0.5 to 6.0 rendered in strict grayscale phase space",
+      theme = theme(plot.title = element_text(size = 20, face = "bold", hjust = 0.5, family = "mono"),
+                    plot.subtitle = element_text(size = 14, hjust = 0.5, color = "gray30"))
+    )
+  
+  print(final_grid)
+}
+
+# Execute the plot
+render_combined_grid(dt_selected)
+```
+
+---
+
+
+
+---
+
+```{r overview-scatter-plot, echo=FALSE, results='asis', message=FALSE, warning=FALSE, fig.width=12, fig.height=8}
+# --- Plot 2: Overview Complexity Map ---
+dt_plot_bg <- dt_summary[node_count >= 0]
+
+ggplot() +
+  geom_point(data = dt_plot_bg, aes(x = normalized_momentum, y = node_count, color = complexity_ntv), 
+             size = 1.5, alpha = 0.6) +
+  scale_color_gradient(low = "black", high = "grey80", name = "Variation") +  
+  geom_point(data = dt_selected, aes(x = normalized_momentum, y = node_count), 
+             color = "black", size = 5, shape = 21, fill = NA, stroke = 1.2) +
+  labs(title = "Node Count and Momentum (PIB Model)",
+       x = "Normalized Momentum (P)", y = "Nodes (n)") +
+  scale_y_continuous(breaks = seq(0, max(dt_summary$node_count), 1)) +
+  theme_minimal() +
+  theme(panel.grid.minor = element_blank(), plot.title = element_text(face = "bold", size = 14))
+```

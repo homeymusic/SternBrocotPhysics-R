@@ -7,15 +7,19 @@ micro_macro_bell_erasure_sweep <- function(detector_angles, dir, count, angular_
 }
 
 erase_by_uncertainty <- function(x, uncertainty) {
-    .Call(`_SternBrocotPhysics_erase_uncertainty`, x, uncertainty)
+    .Call(`_SternBrocotPhysics_erase_by_uncertainty`, x, uncertainty)
+}
+
+erase_uncertainty_bounded <- function(x, uncertainty, lower_bound, upper_bound, lower_action = 1.0/0.0, upper_action = 1.0/0.0) {
+    .Call(`_SternBrocotPhysics_erase_uncertainty_bounded`, x, uncertainty, lower_bound, upper_bound, lower_action, upper_action)
 }
 
 erase_by_depth <- function(x, depth) {
-    .Call(`_SternBrocotPhysics_erase_depth`, x, depth)
+    .Call(`_SternBrocotPhysics_erase_by_depth`, x, depth)
 }
 
 erase_by_uncertainty_and_depth <- function(x, uncertainty, depth) {
-    .Call(`_SternBrocotPhysics_erase_uncertainty_and_depth`, x, uncertainty, depth)
+    .Call(`_SternBrocotPhysics_erase_by_uncertainty_and_depth`, x, uncertainty, depth)
 }
 
 #' Run Stern-Brocot Erasure Simulation
@@ -38,5 +42,15 @@ erasures <- function(momenta, dir, n_threads = 0L) {
 #' @export
 count_nodes_cpp <- function(sub_df, thresh_vec) {
     .Call(`_SternBrocotPhysics_count_nodes_cpp`, sub_df, thresh_vec)
+}
+
+#' Run Stern-Brocot Particle in a Box Simulation
+#'
+#' @param momenta Vector of momentum values (P) to simulate.
+#' @param dir Output directory.
+#' @param n_threads Number of threads (0 = auto).
+#' @export
+pib_erasures <- function(momenta, dir, n_threads = 0L) {
+    invisible(.Call(`_SternBrocotPhysics_pib_erasures`, momenta, dir, n_threads))
 }
 

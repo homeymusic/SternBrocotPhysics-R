@@ -27,40 +27,56 @@ BEGIN_RCPP
     return R_NilValue;
 END_RCPP
 }
-// erase_uncertainty
-DataFrame erase_uncertainty(NumericVector x, double uncertainty);
-RcppExport SEXP _SternBrocotPhysics_erase_uncertainty(SEXP xSEXP, SEXP uncertaintySEXP) {
+// erase_by_uncertainty
+DataFrame erase_by_uncertainty(NumericVector x, double uncertainty);
+RcppExport SEXP _SternBrocotPhysics_erase_by_uncertainty(SEXP xSEXP, SEXP uncertaintySEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< NumericVector >::type x(xSEXP);
     Rcpp::traits::input_parameter< double >::type uncertainty(uncertaintySEXP);
-    rcpp_result_gen = Rcpp::wrap(erase_uncertainty(x, uncertainty));
+    rcpp_result_gen = Rcpp::wrap(erase_by_uncertainty(x, uncertainty));
     return rcpp_result_gen;
 END_RCPP
 }
-// erase_depth
-DataFrame erase_depth(NumericVector x, int depth);
-RcppExport SEXP _SternBrocotPhysics_erase_depth(SEXP xSEXP, SEXP depthSEXP) {
+// erase_uncertainty_bounded
+DataFrame erase_uncertainty_bounded(NumericVector x, double uncertainty, double lower_bound, double upper_bound, double lower_action, double upper_action);
+RcppExport SEXP _SternBrocotPhysics_erase_uncertainty_bounded(SEXP xSEXP, SEXP uncertaintySEXP, SEXP lower_boundSEXP, SEXP upper_boundSEXP, SEXP lower_actionSEXP, SEXP upper_actionSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< NumericVector >::type x(xSEXP);
+    Rcpp::traits::input_parameter< double >::type uncertainty(uncertaintySEXP);
+    Rcpp::traits::input_parameter< double >::type lower_bound(lower_boundSEXP);
+    Rcpp::traits::input_parameter< double >::type upper_bound(upper_boundSEXP);
+    Rcpp::traits::input_parameter< double >::type lower_action(lower_actionSEXP);
+    Rcpp::traits::input_parameter< double >::type upper_action(upper_actionSEXP);
+    rcpp_result_gen = Rcpp::wrap(erase_uncertainty_bounded(x, uncertainty, lower_bound, upper_bound, lower_action, upper_action));
+    return rcpp_result_gen;
+END_RCPP
+}
+// erase_by_depth
+DataFrame erase_by_depth(NumericVector x, int depth);
+RcppExport SEXP _SternBrocotPhysics_erase_by_depth(SEXP xSEXP, SEXP depthSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< NumericVector >::type x(xSEXP);
     Rcpp::traits::input_parameter< int >::type depth(depthSEXP);
-    rcpp_result_gen = Rcpp::wrap(erase_depth(x, depth));
+    rcpp_result_gen = Rcpp::wrap(erase_by_depth(x, depth));
     return rcpp_result_gen;
 END_RCPP
 }
-// erase_uncertainty_and_depth
-DataFrame erase_uncertainty_and_depth(NumericVector x, double uncertainty, int depth);
-RcppExport SEXP _SternBrocotPhysics_erase_uncertainty_and_depth(SEXP xSEXP, SEXP uncertaintySEXP, SEXP depthSEXP) {
+// erase_by_uncertainty_and_depth
+DataFrame erase_by_uncertainty_and_depth(NumericVector x, double uncertainty, int depth);
+RcppExport SEXP _SternBrocotPhysics_erase_by_uncertainty_and_depth(SEXP xSEXP, SEXP uncertaintySEXP, SEXP depthSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< NumericVector >::type x(xSEXP);
     Rcpp::traits::input_parameter< double >::type uncertainty(uncertaintySEXP);
     Rcpp::traits::input_parameter< int >::type depth(depthSEXP);
-    rcpp_result_gen = Rcpp::wrap(erase_uncertainty_and_depth(x, uncertainty, depth));
+    rcpp_result_gen = Rcpp::wrap(erase_by_uncertainty_and_depth(x, uncertainty, depth));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -88,14 +104,28 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// pib_erasures
+void pib_erasures(NumericVector momenta, std::string dir, int n_threads);
+RcppExport SEXP _SternBrocotPhysics_pib_erasures(SEXP momentaSEXP, SEXP dirSEXP, SEXP n_threadsSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< NumericVector >::type momenta(momentaSEXP);
+    Rcpp::traits::input_parameter< std::string >::type dir(dirSEXP);
+    Rcpp::traits::input_parameter< int >::type n_threads(n_threadsSEXP);
+    pib_erasures(momenta, dir, n_threads);
+    return R_NilValue;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_SternBrocotPhysics_micro_macro_bell_erasure_sweep", (DL_FUNC) &_SternBrocotPhysics_micro_macro_bell_erasure_sweep, 7},
-    {"_SternBrocotPhysics_erase_uncertainty", (DL_FUNC) &_SternBrocotPhysics_erase_uncertainty, 2},
-    {"_SternBrocotPhysics_erase_depth", (DL_FUNC) &_SternBrocotPhysics_erase_depth, 2},
-    {"_SternBrocotPhysics_erase_uncertainty_and_depth", (DL_FUNC) &_SternBrocotPhysics_erase_uncertainty_and_depth, 3},
+    {"_SternBrocotPhysics_erase_by_uncertainty", (DL_FUNC) &_SternBrocotPhysics_erase_by_uncertainty, 2},
+    {"_SternBrocotPhysics_erase_uncertainty_bounded", (DL_FUNC) &_SternBrocotPhysics_erase_uncertainty_bounded, 6},
+    {"_SternBrocotPhysics_erase_by_depth", (DL_FUNC) &_SternBrocotPhysics_erase_by_depth, 2},
+    {"_SternBrocotPhysics_erase_by_uncertainty_and_depth", (DL_FUNC) &_SternBrocotPhysics_erase_by_uncertainty_and_depth, 3},
     {"_SternBrocotPhysics_erasures", (DL_FUNC) &_SternBrocotPhysics_erasures, 3},
     {"_SternBrocotPhysics_count_nodes_cpp", (DL_FUNC) &_SternBrocotPhysics_count_nodes_cpp, 2},
+    {"_SternBrocotPhysics_pib_erasures", (DL_FUNC) &_SternBrocotPhysics_pib_erasures, 3},
     {NULL, NULL, 0}
 };
 
