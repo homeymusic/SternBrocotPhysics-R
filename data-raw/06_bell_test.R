@@ -10,8 +10,6 @@ if (!dir.exists(output_dir)) dir.create(output_dir, recursive = TRUE)
 data_dir <- "/Volumes/SanDisk4TB/SternBrocot-data/06_bell_test"
 if (!dir.exists(data_dir)) dir.create(data_dir, recursive = TRUE)
 
-ANGULAR_MOMENTUM <- sqrt(pi)/2
-
 # --- SIMULATION PARAMETERS ---
 alice_fixed <- 0.0 + 1e-5
 detector_aperture = 0.1
@@ -20,30 +18,28 @@ all_angles  <- sort(unique(c(alice_fixed, bob_sweep)))
 sim_count   <- 1e3
 
 cat("--- GENERATING HERO SHOT ---\n")
-cat(sprintf("Angular Momentum: (%.6f)\n", ANGULAR_MOMENTUM))
+cat("Symplectic Erasure Window: delta_phi = (pi/4) * (sec(alpha) - 1)\n")
 
 # 1. RUN SIMULATION
 micro_macro_bell_erasure_sweep(
   detector_angles = all_angles,
   dir = normalizePath(data_dir, mustWork = TRUE),
   count = sim_count,
-  angular_momentum = ANGULAR_MOMENTUM,
   microstate_particle_angle_start = -pi,
   microstate_particle_angle_end = pi,
   n_threads = 6
 )
 
-# 2. PROCESS DATA (Load extra columns)
+# 2. PROCESS DATA
 f_a <- sprintf("erasure_alice_%013.6f.csv.gz", alice_fixed)
 cols_to_load <- c("spin", "found", "uncertainty", "program_length")
 
-# Read Alice once
 if (!file.exists(file.path(data_dir, f_a))) stop("Alice file missing!")
 dt_a <- fread(file.path(data_dir, f_a), select = cols_to_load)
 
 plot_data <- list()
 
-# Loop Bob
+# Loop over Bob's angles
 for (b_ang in bob_sweep) {
   f_b <- sprintf("erasure_bob_%013.6f.csv.gz", b_ang)
   if (file.exists(file.path(data_dir, f_b))) {
@@ -53,7 +49,7 @@ for (b_ang in bob_sweep) {
     valid <- dt_a$found & dt_b$found
 
     if (any(valid)) {
-      # Physics Correlation
+      # Physics Correlation (E = -mean(A * B))
       corr <- -mean(as.numeric(dt_a$spin[valid]) * as.numeric(dt_b$spin[valid]))
 
       # Average Metrics for this angle
@@ -72,25 +68,17 @@ for (b_ang in bob_sweep) {
 dt_plot <- rbindlist(plot_data)
 
 # 3. TRANSITION ANALYSIS (Sorted by Magnitude of Change)
-# We look specifically at the 60-120 degree window where the lobes occur.
 critical_zone <- dt_plot
-
-# Calculate the jump from the previous point
 critical_zone[, Prev_E := shift(E, fill = 0)]
 critical_zone[, Jump := E - Prev_E]
 critical_zone[, Abs_Jump := abs(Jump)]
-
-# Calculate the change in uncertainty across the jump
 critical_zone[, Prev_Unc := shift(avg_uncertainty, fill = 0)]
 critical_zone[, Delta_Unc := avg_uncertainty - Prev_Unc]
 
-# Sort by the LARGEST jumps first
 transitions <- critical_zone[order(-Abs_Jump)]
-
-# Select useful columns to print
 print_table <- transitions[, .(phi, E, Jump, avg_uncertainty, Delta_Unc)]
 
-cat("\n--- TOP 10 LARGEST TRANSITIONS (60°-120°) ---\n")
+cat("\n--- TOP 10 LARGEST TRANSITIONS ---\n")
 print(head(print_table, 10))
 
 # 4. PLOT & METRICS
@@ -100,8 +88,7 @@ E_135 <- approx(dt_plot$phi, dt_plot$E, xout = 135)$y
 S_val <- abs(3 * E_45 - E_135)
 rmse_val <- sqrt(mean((dt_plot$E - dt_plot$Quantum)^2))
 
-subtitle_str <- sprintf("S: %.5f (Quantum Limit: 2.828)",
-                        S_val)
+subtitle_str <- sprintf("S: %.5f (Quantum Limit: 2.828)", S_val)
 
 classical_sawtooth <- function(x) {
   ifelse(x <= 180, -1 + (2*x/180), 3 - (2*x/180))
@@ -119,7 +106,7 @@ gp <- ggplot(dt_plot, aes(x = phi)) +
   ) +
   ylim(-1.1, 1.1) +
   labs(
-    title = "Bell Test",
+    title = "Bell Test: Symplectic Contextual Erasure",
     subtitle = subtitle_str,
     x = "Alice-Bob Phase",
     y = "Correlation"
@@ -134,7 +121,7 @@ gp <- ggplot(dt_plot, aes(x = phi)) +
 print(gp)
 
 # 5. SAVE
-save_path <- file.path(output_dir, "hero_bell.png")
+save_path <- file.path(output_dir, "hero_bell_secant.png")
 ggsave(save_path, plot = gp, width = 10, height = 6, dpi = 300)
 
 cat(sprintf("\nImage saved to: %s\n", save_path))

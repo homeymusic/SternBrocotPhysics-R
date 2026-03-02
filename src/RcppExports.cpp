@@ -12,18 +12,17 @@ Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
 // micro_macro_bell_erasure_sweep
-void micro_macro_bell_erasure_sweep(NumericVector detector_angles, std::string dir, int count, double angular_momentum, double microstate_particle_angle_start, double microstate_particle_angle_end, int n_threads);
-RcppExport SEXP _SternBrocotPhysics_micro_macro_bell_erasure_sweep(SEXP detector_anglesSEXP, SEXP dirSEXP, SEXP countSEXP, SEXP angular_momentumSEXP, SEXP microstate_particle_angle_startSEXP, SEXP microstate_particle_angle_endSEXP, SEXP n_threadsSEXP) {
+void micro_macro_bell_erasure_sweep(NumericVector detector_angles, std::string dir, int count, double microstate_particle_angle_start, double microstate_particle_angle_end, int n_threads);
+RcppExport SEXP _SternBrocotPhysics_micro_macro_bell_erasure_sweep(SEXP detector_anglesSEXP, SEXP dirSEXP, SEXP countSEXP, SEXP microstate_particle_angle_startSEXP, SEXP microstate_particle_angle_endSEXP, SEXP n_threadsSEXP) {
 BEGIN_RCPP
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< NumericVector >::type detector_angles(detector_anglesSEXP);
     Rcpp::traits::input_parameter< std::string >::type dir(dirSEXP);
     Rcpp::traits::input_parameter< int >::type count(countSEXP);
-    Rcpp::traits::input_parameter< double >::type angular_momentum(angular_momentumSEXP);
     Rcpp::traits::input_parameter< double >::type microstate_particle_angle_start(microstate_particle_angle_startSEXP);
     Rcpp::traits::input_parameter< double >::type microstate_particle_angle_end(microstate_particle_angle_endSEXP);
     Rcpp::traits::input_parameter< int >::type n_threads(n_threadsSEXP);
-    micro_macro_bell_erasure_sweep(detector_angles, dir, count, angular_momentum, microstate_particle_angle_start, microstate_particle_angle_end, n_threads);
+    micro_macro_bell_erasure_sweep(detector_angles, dir, count, microstate_particle_angle_start, microstate_particle_angle_end, n_threads);
     return R_NilValue;
 END_RCPP
 }
@@ -90,7 +89,7 @@ END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_SternBrocotPhysics_micro_macro_bell_erasure_sweep", (DL_FUNC) &_SternBrocotPhysics_micro_macro_bell_erasure_sweep, 7},
+    {"_SternBrocotPhysics_micro_macro_bell_erasure_sweep", (DL_FUNC) &_SternBrocotPhysics_micro_macro_bell_erasure_sweep, 6},
     {"_SternBrocotPhysics_erase_uncertainty", (DL_FUNC) &_SternBrocotPhysics_erase_uncertainty, 2},
     {"_SternBrocotPhysics_erase_depth", (DL_FUNC) &_SternBrocotPhysics_erase_depth, 2},
     {"_SternBrocotPhysics_erase_uncertainty_and_depth", (DL_FUNC) &_SternBrocotPhysics_erase_uncertainty_and_depth, 3},
