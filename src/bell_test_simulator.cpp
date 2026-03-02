@@ -50,12 +50,8 @@ void micro_macro_bell_erasure_sweep(
       // --- 1. CONTEXTUAL ALIGNMENT ---
       // The relative angle between the detector's axis and the particle's microstate
       double alpha = detector_angle_rad - microstate;
-      double cos_alpha = std::abs(std::cos(alpha));
 
-      // --- 2. DYNAMIC ERASURE WINDOW (SECANT EQUATION) ---
-      // IEEE 754 natively evaluates 1.0 / 0.0 to Inf.
-      // Your erase_single_native handles Inf gracefully, so no manual clamps are needed.
-      double delta_phi = (M_PI / 4.0) * ((1.0 / cos_alpha) - 1.0);
+      double delta_phi = 1.0 / std::abs(std::cos(alpha));
 
       // --- 3. EXECUTE NATIVE ERASURE ---
       EraseResult erasure = erase_single_native(microstate, delta_phi, max_depth);
