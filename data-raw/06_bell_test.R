@@ -121,7 +121,7 @@ gp <- ggplot(dt_plot, aes(x = phi)) +
 print(gp)
 
 # 5. SAVE
-save_path <- file.path(output_dir, "hero_bell_secant.png")
+save_path <- file.path(output_dir, "hero_bell.png")
 ggsave(save_path, plot = gp, width = 10, height = 6, dpi = 300)
 
 cat(sprintf("\nImage saved to: %s\n", save_path))
