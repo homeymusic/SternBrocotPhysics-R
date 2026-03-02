@@ -57,7 +57,7 @@ void micro_macro_bell_erasure_sweep(
       EraseResult erasure = erase_single_native(microstate, delta_phi, max_depth);
 
       // --- 4. MAP TO MACROSTATES ---
-      double particle_angle_alice = erasure.found ? erasure.macrostate : microstate;
+      double particle_angle_alice = erasure.found ? erasure.erasure_distance : microstate;
       double particle_angle_bob   = -particle_angle_alice;
 
       double phase_alice = detector_angle_rad - particle_angle_alice;
