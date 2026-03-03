@@ -59,7 +59,7 @@ void micro_macro_bell_erasure_sweep(
 
       // 4. Map to Macrostates
       // No phase inversions here; pure raw output.
-      double particle_angle = erasure.found ? erasure.erasure_distance : microstate;
+      double particle_angle = erasure.found ? erasure.erasure_distance : alpha;
       double phase = detector_angle_rad - particle_angle;
       int spin = std::cos(phase) >= 0 ? 1 : -1;
 
