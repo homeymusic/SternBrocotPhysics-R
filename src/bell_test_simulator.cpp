@@ -65,13 +65,21 @@ void micro_macro_bell_erasure_sweep(
 
       // 4. Map to Macrostates
       double erasure_distance = erasure.found ? erasure.erasure_distance : 0.0;
-      double particle_angle = detector_angle_rad + erasure_distance;
-      int spin = std::cos(particle_angle) >= 0 ? 1 : -1;
 
-      // Write Row (using %f for radians instead of degrees)
+      // Ensure erasure_distance is in radians for the geometry math!
+      // (If erasure.erasure_distance is already in radians, remove the * M_PI)
+      double erasure_distance_rad = erasure_distance * M_PI;
+
+      // The absolute angle of the particle in global space (for your CSV logs)
+      double particle_angle = detector_angle_rad + erasure_distance_rad;
+
+      // CRITICAL FIX: Measure spin relative to the detector axis, not global X-axis
+      int spin = std::cos(erasure_distance_rad) >= 0 ? 1 : -1;
+
+      // Write Row
       gzprintf(file, "%.6f,%d,%.6f,%.6f,%.6f,%.6f,%.0f,%.0f,%s,%s,%d,%.6f,%d,%d,%d,%d\n",
                detector_angle_rad, spin,
-               erasure.erasure_distance, particle_angle, erasure.macrostate, erasure.uncertainty,
+               erasure_distance, particle_angle, erasure.macrostate, erasure.uncertainty,
                erasure.numerator, erasure.denominator,
                erasure.stern_brocot_path.c_str(), erasure.minimal_program.c_str(),
                erasure.program_length, erasure.shannon_entropy, erasure.left_count, erasure.right_count,
