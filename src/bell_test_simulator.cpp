@@ -53,8 +53,10 @@ void micro_macro_bell_erasure_sweep(
       // 2. Dynamic Erasure Window
       double delta_phi = (1.0 / 2.0) * ((1.0 / cos_alpha) - 1.0);
 
+      double clamped_microstate = std::remainder(microstate, 2.0 * M_PI);
+
       // 3. Execute Native Erasure
-      EraseResult erasure = erase_single_native(microstate, delta_phi, max_depth);
+      EraseResult erasure = erase_single_native(clamped_microstate, delta_phi, max_depth);
 
       // 4. Map to Macrostates
       // No phase inversions here; pure raw output.

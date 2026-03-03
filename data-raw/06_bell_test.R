@@ -18,8 +18,8 @@ alice_fixed_rad <- c(0.0) + 1e-5
 bob_sweep_rad   <- seq(0, 2 * pi, by = detector_aperture) + 1e-5
 
 # Run C++ Engine
-micro_macro_bell_erasure_sweep('alice', alice_fixed_rad, normalizePath(data_dir), sim_count, -pi, pi, 6)
-micro_macro_bell_erasure_sweep('bob', bob_sweep_rad, normalizePath(data_dir), sim_count, -pi, pi, 6)
+micro_macro_bell_erasure_sweep('alice', alice_fixed_rad, normalizePath(data_dir), sim_count, 0, 2*pi, 6)
+micro_macro_bell_erasure_sweep('bob', bob_sweep_rad, normalizePath(data_dir), sim_count, 0, 2*pi, 6)
 
 # --- PROCESS DATA ---
 cols <- c("spin", "found")
