@@ -43,8 +43,10 @@ void micro_macro_bell_erasure_sweep(
 
     for (int j = 0; j < count; j++) {
       // Linear interpolation of microstate range
-      double microstate = microstate_particle_angle_start +
+      double raw_microstate = microstate_particle_angle_start +
         (microstate_particle_angle_end - microstate_particle_angle_start) * ((double)j / (double)(count - 1));
+
+      double microstate = std::remainder(raw_microstate, 2.0 * M_PI);
 
       // 1. Contextual Alignment
       double alpha = std::remainder(detector_angle_rad - microstate, 2.0 * M_PI);
@@ -55,10 +57,11 @@ void micro_macro_bell_erasure_sweep(
       double delta_phi = (1.0 / 2.0) * ((1.0 / cos_alpha) - 1.0);
 
       // 3. Execute Native Erasure
-      EraseResult erasure = erase_single_native(alpha, delta_phi, max_depth);
+      EraseResult erasure = erase_single_native(microstate, delta_phi, max_depth);
 
       // 4. Map to Macrostates
-      double particle_angle = erasure.found ? erasure.erasure_distance : 0.0;
+      double particle_angle = erasure.found ? erasure.macrostate : microstate;
+
       double phase = detector_angle_rad - particle_angle;
       int spin = std::cos(phase) >= 0 ? 1 : -1;
 
