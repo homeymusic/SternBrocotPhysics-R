@@ -52,29 +52,37 @@ void micro_macro_bell_erasure_sweep(
 
       // Calculate alpha using the already-wrapped detector_angle_rad
       double alpha = std::remainder(microstate - detector_angle_rad, 2.0 * M_PI) / M_PI;
+      // double alpha = std::remainder(microstate, 2.0 * M_PI) / M_PI;
 
-      double delta_phi = 1.0;
+      // double cos_alpha = std::abs(std::cos(alpha));
+      // double delta_phi = 2.0 * ((1.0 / cos_alpha) - 1.0);
+      // double delta_phi = cos_alpha;
+
+      double delta_phi = 0.08;
 
       // Execute Native Erasure
       EraseResult erasure = erase_single_native(alpha, delta_phi, max_depth);
+      // EraseResult erasure = erase_single_native(microstate, delta_phi, max_depth);
 
-      // Map to Macrostates
+      // 4. Map to Macrostates
       double erasure_distance = erasure.found ? erasure.erasure_distance : 0.0;
-      double erasure_distance_rad = erasure_distance * M_PI;
-      double particle_angle = detector_angle_rad + erasure_distance_rad;
+      double erasure_distance_rad = erasure_distance * M_PI * 2.0;
 
-      // Rotationally invariant spin measurement
-      int spin = std::cos(erasure_distance_rad) >= 0 ? 1 : -1;
+      // The global final angle is the detector's angle plus the final relative macrostate
+      double particle_angle = detector_angle_rad + (erasure.macrostate * M_PI);
+
+      int spin = erasure_distance >= 0 ? 1 : -1;
+      // int spin = std::cos(erasure_distance_rad) >= 0 ? 1 : -1;
 
       // Write Row
       gzprintf(file, "%.6f,%d,%.6f,%.6f,%.6f,%.6f,%.0f,%.0f,%s,%s,%d,%.6f,%d,%d,%d,%d\n",
                detector_angle_rad, spin,
-               erasure_distance, particle_angle, erasure.macrostate, erasure.uncertainty,
+               erasure_distance, microstate, erasure.macrostate, erasure.uncertainty,
                erasure.numerator, erasure.denominator,
                erasure.stern_brocot_path.c_str(), erasure.minimal_program.c_str(),
                erasure.program_length, erasure.shannon_entropy, erasure.left_count, erasure.right_count,
                max_depth, (int)erasure.found);
-    }
+      }
     gzclose(file);
   });
   pool.wait();

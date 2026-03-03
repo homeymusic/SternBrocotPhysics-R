@@ -7,8 +7,12 @@ output: github_document
 library(data.table)
 library(ggplot2)
 
-summary_dt <- fread("/Volumes/SanDisk4TB/SternBrocot-data/06_bell_test/summary_stats.csv.gz")
+data_dir <- "/Volumes/SanDisk4TB/SternBrocot-data/06_bell_test"
 
+# Load the primary summary statistics
+summary_dt <- fread(file.path(data_dir, "summary_stats.csv.gz"))
+
+# Reference Functions
 quantum_ref <- function(bob_angle, alice_fixed) {
   -cos(alice_fixed - bob_angle)
 }
@@ -24,7 +28,36 @@ e2 <- approx(summary_dt$bob_angle_rad, summary_dt$correlation_alice_0,  xout = 3
 e3 <- approx(summary_dt$bob_angle_rad, summary_dt$correlation_alice_90, xout = pi/4)$y
 e4 <- approx(summary_dt$bob_angle_rad, summary_dt$correlation_alice_90, xout = 3*pi/4)$y
 s_val <- abs(e1 - e2 + e3 + e4)
+
+# --- Diagnostic Data Prep ---
+all_files <- list.files(data_dir, pattern = "erasure_.*\\.csv\\.gz")
+alice_files <- grep("alice", all_files, value = TRUE)
+bob_files <- grep("bob", all_files, value = TRUE)
+
+parse_angle <- function(file_names) {
+  as.numeric(gsub("erasure_[^_]+_([-0-9.]+)\\.csv\\.gz", "\\1", file_names))
+}
+
+# Load Alice 0 data for internal diagnostic plots
+alice_numeric_angles <- parse_angle(alice_files)
+file_key_0 <- alice_files[order(alice_numeric_angles)[1]]
+alice_0_data <- fread(file.path(data_dir, file_key_0))
+
+# Calculate average algorithmic complexity and found rate across Bob's sweeps
+complexity_dt <- rbindlist(lapply(bob_files, function(f) {
+  dt <- fread(file.path(data_dir, f), select = c("program_length", "found"))
+  data.table(
+    bob_angle_rad = parse_angle(f),
+    avg_length = mean(dt$program_length, na.rm = TRUE),
+    found_rate = mean(dt$found, na.rm = TRUE) * 100
+  )
+}))
+
+# Calculate Alice's baseline found rate for the summary table
+alice_found_rate <- mean(alice_0_data$found, na.rm = TRUE) * 100
 ```
+
+## Statistical Summary
 
 ## Statistical Summary
 
@@ -33,6 +66,7 @@ s_val <- abs(e1 - e2 + e3 + e4)
 | **CHSH S-Value** | **`r round(s_val, 5)`** |
 | **Classical Limit** | 2.0 |
 | **Quantum Limit** | 2.828 |
+| **Algorithm Found Rate** | **`r round(alice_found_rate, 2)`%** |
 
 ---
 
@@ -60,7 +94,6 @@ Correlation plotted against the Phase Difference $(\theta_B - \theta_A)$.
 
 ```{r plot-alice-90, echo=FALSE, fig.width=10, fig.height=5}
 ggplot(summary_dt, aes(x = phase_diff_90)) +
-  # Reference functions anchored at 0 since x is now Δθ
   stat_function(fun = function(x) classical_ref(x, 0), color = "gray85", linewidth = 1.2) +
   stat_function(fun = function(x) quantum_ref(x, 0), color = "gray50", linetype = "dashed", linewidth = 0.6) +
   geom_point(aes(y = correlation_alice_90), color = "black", size = 0.5) +
@@ -81,4 +114,102 @@ E(90, pi/4):  `r sprintf("%7.4f", e3)`
 E(90, 3pi/4): `r sprintf("%7.4f", e4)`
 -----------------------
 S-Value:      `r sprintf("%7.4f", s_val)`
+```
+
+---
+
+## Erasure Transfer Function
+
+This plot visualizes the internal mathematical "warp" of the contextual erasure. It shows how the continuous local hidden variable (microstate) is shifted into its final macroscopic physical distance.
+
+```{r plot-transfer-function, echo=FALSE, fig.width=10, fig.height=5}
+ggplot(alice_0_data, aes(x = microstate, y = erasure_distance)) +
+  geom_point(color = "dodgerblue", size = 0.5, alpha = 0.5) +
+  scale_x_continuous(breaks = seq(0, 2*pi, by = pi/2), 
+                     labels = c("0", "π/2", "π", "3π/2", "2π")) +
+  labs(title = "Microstate vs. Erasure Distance", 
+       x = "Initial Microstate (rad)", 
+       y = "Erasure Distance Shift") +
+  theme_minimal()
+```
+
+---
+
+## Erasure Distance vs. Uncertainty
+
+This plot visualizes the relationship between the physical shift required to snap to a rational macrostate (`erasure_distance`) and the fundamental uncertainty of that resulting state. It reveals the precision trade-offs inherent in the contextual erasure process.
+
+```{r plot-distance-vs-uncertainty, echo=FALSE, fig.width=10, fig.height=5}
+ggplot(alice_0_data, aes(x = uncertainty, y = erasure_distance)) +
+  geom_point(color = "darkorange", size = 0.5, alpha = 0.5) +
+  labs(title = "Erasure Distance vs. Uncertainty", 
+       x = "Uncertainty", 
+       y = "Erasure Distance") +
+  theme_minimal()
+```
+
+---
+
+## Algorithmic Complexity of Measurement
+
+This plot reveals the thermodynamic cost of the measurement context. As the particle's relative angle changes, the computational effort (program length) required to map the microstate to a rational Stern-Brocot macrostate fluctuates in a fractal pattern.
+
+```{r plot-complexity, echo=FALSE, fig.width=10, fig.height=5}
+# Plot the raw integer program lengths against the microstate for a single detector
+ggplot(alice_0_data, aes(x = microstate, y = program_length)) +
+  geom_point(color = "darkred", size = 1, alpha = 0.5) +
+  scale_x_continuous(breaks = seq(0, 2*pi, by = pi/2), 
+                     labels = c("0", "π/2", "π", "3π/2", "2π")) +
+  labs(title = "Stern-Brocot Program Length vs Particle Microstate", 
+       x = "Initial Microstate (rad)", 
+       y = "Program Length (Steps)") +
+  theme_minimal()
+```
+
+---
+
+## Erasure Success Rate
+
+This plot verifies the percentage of microstates successfully resolved to a rational macrostate before hitting the maximum search depth limit (`max_depth = 2000`). For the simulation to be valid, this must remain at 100%.
+
+```{r plot-found-rate, echo=FALSE, fig.width=10, fig.height=3}
+ggplot(complexity_dt, aes(x = bob_angle_rad, y = found_rate)) +
+  geom_line(color = "forestgreen", linewidth = 1.2) +
+  scale_x_continuous(breaks = seq(0, 2*pi, by = pi/2), 
+                     labels = c("0", "π/2", "π", "3π/2", "2π")) +
+  scale_y_continuous(limits = c(0, 105), breaks = c(0, 25, 50, 75, 100)) +
+  labs(title = "Algorithm Found Rate vs Detector Angle", 
+       x = "Bob Angle (rad)", 
+       y = "Found Rate (%)") +
+  theme_minimal()
+```
+
+---
+
+## Quantization into Rational Macrostates
+
+This histogram demonstrates how the contextual erasure acts as a fractal attractor, quantizing the uniform continuous microstates into discrete rational fractions on the Stern-Brocot tree.
+
+```{r plot-attractors, echo=FALSE, fig.width=10, fig.height=5}
+ggplot(alice_0_data, aes(x = macrostate)) +
+  geom_histogram(bins = 200, fill = "purple", color = "black", alpha = 0.7) +
+  labs(title = "Distribution of Resolved Macrostates", 
+       x = "Macrostate Value", 
+       y = "Frequency") +
+  theme_minimal()
+```
+
+## Macrostate vs. Initial Microstate
+
+This plot maps the initial continuous hidden variable (microstate) directly to the resolved Stern-Brocot fraction (macrostate). In a purely classical model, this forms a rigid "Devil's Staircase" along a linear diagonal.
+
+```{r plot-macro-vs-micro, echo=FALSE, fig.width=10, fig.height=5}
+ggplot(alice_0_data, aes(x = microstate, y = macrostate)) +
+  geom_point(color = "darkgreen", size = 0.5, alpha = 0.5) +
+  scale_x_continuous(breaks = seq(0, 2*pi, by = pi/2), 
+                     labels = c("0", "π/2", "π", "3π/2", "2π")) +
+  labs(title = "Resolved Macrostate vs Initial Microstate", 
+       x = "Initial Microstate (rad)", 
+       y = "Quantized Macrostate (Normalized)") +
+  theme_minimal()
 ```
