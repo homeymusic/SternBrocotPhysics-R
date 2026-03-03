@@ -8,8 +8,6 @@ library(data.table)
 library(ggplot2)
 
 summary_dt <- fread("/Volumes/SanDisk4TB/SternBrocot-data/06_bell_test/summary_stats.csv.gz")
-summary_dt[, phase_diff_90 := (bob_angle_rad - pi/2) %% (2 * pi)]
-setorder(summary_dt, phase_diff_90)
 
 quantum_ref <- function(bob_angle, alice_fixed) {
   -cos(alice_fixed - bob_angle)
@@ -43,7 +41,7 @@ s_val <- abs(e1 - e2 + e3 + e4)
 Correlation $E(0, \theta_B)$ compared against the quantum $-\cos(\theta)$ baseline (dashed) and the linear classical baseline (solid).
 
 ```{r plot-alice-0, echo=FALSE, fig.width=10, fig.height=5}
-ggplot(summary_dt, aes(x = bob_angle_rad)) +
+ggplot(summary_dt, aes(x = bob_angle_rad %% (2*pi))) +
   stat_function(fun = function(x) classical_ref(x, 0), color = "gray85", linewidth = 1.2) +
   stat_function(fun = function(x) quantum_ref(x, 0), color = "gray50", linetype = "dashed", linewidth = 0.6) +
   geom_point(aes(y = correlation_alice_0), color = "black", size = 0.5) +

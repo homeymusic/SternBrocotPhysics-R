@@ -30,10 +30,11 @@ void micro_macro_bell_erasure_sweep(
 
   pool.parallelFor(0, n, [&](int i) {
 
-    double detector_angle_rad = detector_angles_cpp[i];
+    // 1. Wrap the detector angle ONCE, before making the filename
+    double detector_angle_rad = std::remainder(detector_angles_cpp[i], 2.0 * M_PI);
 
     char f_name[128];
-
+    // Now the filename perfectly matches the data inside the CSV
     std::snprintf(f_name, sizeof(f_name), "erasure_%s_%013.6f.csv.gz", persona.c_str(), detector_angle_rad);
 
     gzFile file = gzopen((dir + "/" + f_name).c_str(), "wb1");
@@ -46,34 +47,23 @@ void micro_macro_bell_erasure_sweep(
       double microstate = microstate_particle_angle_start +
         (microstate_particle_angle_end - microstate_particle_angle_start) * ((double)j / (double)(count - 1));
 
-      // 1. Contextual Alignment
-      detector_angle_rad = std::remainder(detector_angle_rad, 2.0 * M_PI);
+      // Wrap only the microstate inside the loop
       microstate = std::remainder(microstate, 2.0 * M_PI);
-      double alpha = std::remainder(microstate - detector_angle_rad, 2.0 * M_PI) / M_PI;
 
-      // 2. Dynamic Erasure Window
-      // double delta_phi = ((1.0 / std::abs(std::cos(alpha))) - 1.0);
-      // double delta_phi = 1.0 * std::abs(std::cos(alpha));
+      // Calculate alpha using the already-wrapped detector_angle_rad
+      double alpha = std::remainder(microstate - detector_angle_rad, 2.0 * M_PI) / M_PI;
 
       double delta_phi = 1.0;
 
-      // double delta_phi = (sqrt(5.0) + 1.0) / 2.0;
-      // double delta_phi = 300.0;
-      // double delta_phi = 0.1;
-      // 3. Execute Native Erasure
+      // Execute Native Erasure
       EraseResult erasure = erase_single_native(alpha, delta_phi, max_depth);
 
-      // 4. Map to Macrostates
+      // Map to Macrostates
       double erasure_distance = erasure.found ? erasure.erasure_distance : 0.0;
-
-      // Ensure erasure_distance is in radians for the geometry math!
-      // (If erasure.erasure_distance is already in radians, remove the * M_PI)
       double erasure_distance_rad = erasure_distance * M_PI;
-
-      // The absolute angle of the particle in global space (for your CSV logs)
       double particle_angle = detector_angle_rad + erasure_distance_rad;
 
-      // CRITICAL FIX: Measure spin relative to the detector axis, not global X-axis
+      // Rotationally invariant spin measurement
       int spin = std::cos(erasure_distance_rad) >= 0 ? 1 : -1;
 
       // Write Row
