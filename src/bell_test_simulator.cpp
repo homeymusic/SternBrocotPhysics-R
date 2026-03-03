@@ -43,36 +43,28 @@ void micro_macro_bell_erasure_sweep(
     gzprintf(file, header);
 
     for (int j = 0; j < count; j++) {
-      // Linear interpolation of microstate range
+
       double microstate = microstate_particle_angle_start +
         (microstate_particle_angle_end - microstate_particle_angle_start) * ((double)j / (double)(count - 1));
 
-      // Wrap only the microstate inside the loop
-      microstate = std::remainder(microstate, 2.0 * M_PI);
+      double relative_phase = std::remainder(microstate - detector_angle_rad, 2.0 * M_PI);
 
-      // Calculate alpha using the already-wrapped detector_angle_rad
-      double alpha = std::remainder(microstate - detector_angle_rad, 2.0 * M_PI) / M_PI;
-      // double alpha = std::remainder(microstate, 2.0 * M_PI) / M_PI;
+      double alpha = relative_phase / M_PI;
 
-      // double cos_alpha = std::abs(std::cos(alpha));
-      // double delta_phi = 2.0 * ((1.0 / cos_alpha) - 1.0);
-      // double delta_phi = cos_alpha;
+      // double delta_phi = std::pow(std::cos(detector_angle_rad), 2.0) / abs(std::sin(detector_angle_rad));
 
-      double delta_phi = 0.08;
+      // double delta_phi = std::cos(alpha);
 
-      // Execute Native Erasure
+      double epsilon = 1e-9;
+      double delta_phi = (4.0 * std::pow(std::cos(relative_phase), 2.0)) /
+        (M_PI * (std::abs(std::sin(relative_phase)) + epsilon));
+
       EraseResult erasure = erase_single_native(alpha, delta_phi, max_depth);
-      // EraseResult erasure = erase_single_native(microstate, delta_phi, max_depth);
 
-      // 4. Map to Macrostates
-      double erasure_distance = erasure.found ? erasure.erasure_distance : 0.0;
-      double erasure_distance_rad = erasure_distance * M_PI * 2.0;
-
-      // The global final angle is the detector's angle plus the final relative macrostate
-      double particle_angle = detector_angle_rad + (erasure.macrostate * M_PI);
+      double erasure_distance = erasure.found ? erasure.erasure_distance : alpha;
+      double erased_relative_phase = erasure_distance * M_PI;
 
       int spin = erasure_distance >= 0 ? 1 : -1;
-      // int spin = std::cos(erasure_distance_rad) >= 0 ? 1 : -1;
 
       // Write Row
       gzprintf(file, "%.6f,%d,%.6f,%.6f,%.6f,%.6f,%.0f,%.0f,%s,%s,%d,%.6f,%d,%d,%d,%d\n",
