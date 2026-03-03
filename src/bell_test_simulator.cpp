@@ -49,16 +49,10 @@ void micro_macro_bell_erasure_sweep(
       // 1. Contextual Alignment
       double alpha = std::remainder(detector_angle_rad - microstate, 2.0 * M_PI);
 
-      // double cos_alpha = std::abs(std::cos(alpha));
+      double cos_alpha = std::abs(std::cos(alpha));
 
       // 2. Dynamic Erasure Window
-      // double delta_phi = (1.0 / 2.0) * ((1.0 / cos_alpha) - 1.0);
-      // Option 1: Pure Tangent
-      // double delta_phi = std::abs(std::tan(alpha));
-      // double delta_phi = 1.1;
-
-      // The Versine relation (often maps beautifully to spin-1/2 probabilities)
-      double delta_phi = 1.0 - std::abs(std::cos(alpha));
+      double delta_phi = (1.0 / 2.0) * ((1.0 / cos_alpha) - 1.0);
 
       // 3. Execute Native Erasure
       EraseResult erasure = erase_single_native(alpha, delta_phi, max_depth);
