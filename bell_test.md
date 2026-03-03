@@ -3,11 +3,11 @@ Bell Test: Symplectic Contextual Erasure
 
 ## Statistical Summary
 
-| Metric              | Value      |
-|:--------------------|:-----------|
-| **CHSH S-Value**    | **1.3297** |
-| **Classical Limit** | 2.0        |
-| **Quantum Limit**   | 2.828      |
+| Metric              | Value       |
+|:--------------------|:------------|
+| **CHSH S-Value**    | **1.14159** |
+| **Classical Limit** | 2.0         |
+| **Quantum Limit**   | 2.828       |
 
 ------------------------------------------------------------------------
 
@@ -31,10 +31,10 @@ $(\theta_B - \theta_A)$.
 ### CHSH Breakdown
 
 ``` text
-E(0,  pi/4):  -0.6559
-E(0, 3pi/4):   0.6559
-E(90, pi/4):  -0.0003
-E(90, 3pi/4): -0.0177
+E(0,  pi/4):  -0.7854
+E(0, 3pi/4):   0.7854
+E(90, pi/4):   0.2146
+E(90, 3pi/4):  0.2146
 -----------------------
-S-Value:       1.3297
+S-Value:       1.1416
 ```

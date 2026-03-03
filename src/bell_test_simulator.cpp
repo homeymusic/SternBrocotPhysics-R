@@ -47,20 +47,26 @@ void micro_macro_bell_erasure_sweep(
         (microstate_particle_angle_end - microstate_particle_angle_start) * ((double)j / (double)(count - 1));
 
       // 1. Contextual Alignment
-      double alpha = std::remainder(detector_angle_rad - microstate, 2.0 * M_PI);
-
-      double cos_alpha = std::abs(std::cos(alpha));
+      detector_angle_rad = std::remainder(detector_angle_rad, 2.0 * M_PI);
+      microstate = std::remainder(microstate, 2.0 * M_PI);
+      double alpha = std::remainder(microstate - detector_angle_rad, 2.0 * M_PI) / M_PI;
 
       // 2. Dynamic Erasure Window
-      double delta_phi = (1.0 / 2.0) * ((1.0 / cos_alpha) - 1.0);
+      // double delta_phi = ((1.0 / std::abs(std::cos(alpha))) - 1.0);
+      // double delta_phi = 1.0 * std::abs(std::cos(alpha));
 
+      double delta_phi = 1.0;
+
+      // double delta_phi = (sqrt(5.0) + 1.0) / 2.0;
+      // double delta_phi = 300.0;
+      // double delta_phi = 0.1;
       // 3. Execute Native Erasure
       EraseResult erasure = erase_single_native(alpha, delta_phi, max_depth);
 
       // 4. Map to Macrostates
-      double particle_angle = erasure.found ? erasure.erasure_distance : 0.0;
-      double phase = detector_angle_rad - particle_angle;
-      int spin = std::cos(phase) >= 0 ? 1 : -1;
+      double erasure_distance = erasure.found ? erasure.erasure_distance : 0.0;
+      double particle_angle = detector_angle_rad + erasure_distance;
+      int spin = std::cos(particle_angle) >= 0 ? 1 : -1;
 
       // Write Row (using %f for radians instead of degrees)
       gzprintf(file, "%.6f,%d,%.6f,%.6f,%.6f,%.6f,%.0f,%.0f,%s,%s,%d,%.6f,%d,%d,%d,%d\n",

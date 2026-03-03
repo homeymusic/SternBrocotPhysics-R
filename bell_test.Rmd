@@ -8,10 +8,9 @@ library(data.table)
 library(ggplot2)
 
 summary_dt <- fread("/Volumes/SanDisk4TB/SternBrocot-data/06_bell_test/summary_stats.csv.gz")
+summary_dt[, phase_diff_90 := (bob_angle_rad - pi/2) %% (2 * pi)]
+setorder(summary_dt, phase_diff_90)
 
-# ADJUSTED PHASE LOGIC
-# Based on the uploaded plot, the correlation E is shifted.
-# Standard Singlet: E = -cos(theta_a - theta_b)
 quantum_ref <- function(bob_angle, alice_fixed) {
   -cos(alice_fixed - bob_angle)
 }
@@ -62,8 +61,8 @@ ggplot(summary_dt, aes(x = bob_angle_rad)) +
 Correlation plotted against the Phase Difference $(\theta_B - \theta_A)$.
 
 ```{r plot-alice-90, echo=FALSE, fig.width=10, fig.height=5}
-ggplot(summary_dt, aes(x = (bob_angle_rad - pi/2) %% (2 * pi))) +
-  # Since x is now the phase difference, we anchor the reference functions at 0
+ggplot(summary_dt, aes(x = phase_diff_90)) +
+  # Reference functions anchored at 0 since x is now Δθ
   stat_function(fun = function(x) classical_ref(x, 0), color = "gray85", linewidth = 1.2) +
   stat_function(fun = function(x) quantum_ref(x, 0), color = "gray50", linetype = "dashed", linewidth = 0.6) +
   geom_point(aes(y = correlation_alice_90), color = "black", size = 0.5) +
