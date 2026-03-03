@@ -4,126 +4,72 @@ library(SternBrocotPhysics)
 
 # --- CONFIGURATION ---
 output_dir <- "man/figures"
-if (!dir.exists(output_dir)) dir.create(output_dir, recursive = TRUE)
+data_dir   <- "/Volumes/SanDisk4TB/SternBrocot-data/06_bell_test"
 
-# TEMP DATA DIR
-data_dir <- "/Volumes/SanDisk4TB/SternBrocot-data/06_bell_test"
-if (!dir.exists(data_dir)) dir.create(data_dir, recursive = TRUE)
+if (dir.exists(data_dir)) { unlink(data_dir, recursive = TRUE) }
+dir.create(data_dir, recursive = TRUE)
 
-# --- SIMULATION PARAMETERS ---
-alice_fixed <- 0.0 + 1e-5
-detector_aperture = 0.1
-bob_sweep   <- seq(0, 360, by = detector_aperture) + 1e-5
-all_angles  <- sort(unique(c(alice_fixed, bob_sweep)))
-sim_count   <- 1e3
+# --- SIMULATION (Spin-1/2 EPR-Bohm Setup) ---
+detector_aperture <- 0.01
+sim_count         <- 1e4 # High resolution for smooth fractal steps
 
-cat("--- GENERATING HERO SHOT ---\n")
-cat("Symplectic Erasure Window: delta_phi = (pi/4) * (sec(alpha) - 1)\n")
+# Spin-1/2 anchor requires Alice at 0
+alice_fixed_rad <- c(0.0) + 1e-5
+bob_sweep_rad   <- seq(0, 2 * pi, by = detector_aperture) + 1e-5
 
-# 1. RUN SIMULATION
-micro_macro_bell_erasure_sweep(
-  detector_angles = all_angles,
-  dir = normalizePath(data_dir, mustWork = TRUE),
-  count = sim_count,
-  microstate_particle_angle_start = -pi,
-  microstate_particle_angle_end = pi,
-  n_threads = 6
-)
+# Run C++ Engine
+micro_macro_bell_erasure_sweep('alice', alice_fixed_rad, normalizePath(data_dir), sim_count, -pi, pi, 6)
+micro_macro_bell_erasure_sweep('bob', bob_sweep_rad, normalizePath(data_dir), sim_count, -pi, pi, 6)
 
-# 2. PROCESS DATA
-f_a <- sprintf("erasure_alice_%013.6f.csv.gz", alice_fixed)
-cols_to_load <- c("spin", "found", "uncertainty", "program_length")
+# --- PROCESS DATA ---
+cols <- c("spin", "found")
+f_alice <- file.path(data_dir, sprintf("erasure_alice_%013.6f.csv.gz", alice_fixed_rad))
+dt_a0   <- fread(f_alice, select = cols)
 
-if (!file.exists(file.path(data_dir, f_a))) stop("Alice file missing!")
-dt_a <- fread(file.path(data_dir, f_a), select = cols_to_load)
+plot_list <- lapply(bob_sweep_rad, function(b_rad) {
+  f_bob <- file.path(data_dir, sprintf("erasure_bob_%013.6f.csv.gz", b_rad))
+  if (!file.exists(f_bob)) return(NULL)
+  dt_b <- fread(f_bob, select = cols)
 
-plot_data <- list()
+  v0 <- dt_a0$found & dt_b$found
+  data.table(phi_rad = b_rad,
+             # ADDED MINUS SIGN: Simulates the anti-correlated singlet state
+             E_0  = -mean(as.numeric(dt_a0$spin[v0]) * as.numeric(dt_b$spin[v0])))
+})
+dt_plot <- rbindlist(plot_list)
 
-# Loop over Bob's angles
-for (b_ang in bob_sweep) {
-  f_b <- sprintf("erasure_bob_%013.6f.csv.gz", b_ang)
-  if (file.exists(file.path(data_dir, f_b))) {
-    dt_b <- fread(file.path(data_dir, f_b), select = cols_to_load)
+# --- METRICS: Spin-1/2 Isotropic Assumption ---
+# For a 2*pi periodic Spin-1/2 system, max violation occurs at 45° and 135° offsets
+e_pi_4   <- approx(dt_plot$phi_rad, dt_plot$E_0, xout = pi/4)$y
+e_3pi_4  <- approx(dt_plot$phi_rad, dt_plot$E_0, xout = 3*pi/4)$y
 
-    # Valid coincidences
-    valid <- dt_a$found & dt_b$found
+# Derived CHSH Sum: S = E(45°) - E(135°) + E(45°) + E(45°)
+S_val <- abs(e_pi_4 - e_3pi_4 + e_pi_4 + e_pi_4)
 
-    if (any(valid)) {
-      # Physics Correlation (E = -mean(A * B))
-      corr <- -mean(as.numeric(dt_a$spin[valid]) * as.numeric(dt_b$spin[valid]))
+# --- PLOT: The Textbook Spin-1/2 Visual ---
+subtitle_str <- sprintf("EPR-Bohm CHSH S: %.5f (Classical Limit: 2.0 | Quantum Limit: 2.828)", S_val)
 
-      # Average Metrics for this angle
-      avg_unc <- (mean(dt_a$uncertainty[valid]) + mean(dt_b$uncertainty[valid])) / 2
-      avg_inf <- (mean(dt_a$program_length[valid]) + mean(dt_b$program_length[valid])) / 2
-
-      plot_data[[length(plot_data) + 1]] <- data.table(
-        phi = b_ang - alice_fixed,
-        E = corr,
-        avg_uncertainty = avg_unc,
-        avg_info = avg_inf
-      )
-    }
-  }
-}
-dt_plot <- rbindlist(plot_data)
-
-# 3. TRANSITION ANALYSIS (Sorted by Magnitude of Change)
-critical_zone <- dt_plot
-critical_zone[, Prev_E := shift(E, fill = 0)]
-critical_zone[, Jump := E - Prev_E]
-critical_zone[, Abs_Jump := abs(Jump)]
-critical_zone[, Prev_Unc := shift(avg_uncertainty, fill = 0)]
-critical_zone[, Delta_Unc := avg_uncertainty - Prev_Unc]
-
-transitions <- critical_zone[order(-Abs_Jump)]
-print_table <- transitions[, .(phi, E, Jump, avg_uncertainty, Delta_Unc)]
-
-cat("\n--- TOP 10 LARGEST TRANSITIONS ---\n")
-print(head(print_table, 10))
-
-# 4. PLOT & METRICS
-dt_plot[, Quantum := -cos(phi * pi / 180)]
-E_45  <- approx(dt_plot$phi, dt_plot$E, xout = 45)$y
-E_135 <- approx(dt_plot$phi, dt_plot$E, xout = 135)$y
-S_val <- abs(3 * E_45 - E_135)
-rmse_val <- sqrt(mean((dt_plot$E - dt_plot$Quantum)^2))
-
-subtitle_str <- sprintf("S: %.5f (Quantum Limit: 2.828)", S_val)
-
-classical_sawtooth <- function(x) {
-  ifelse(x <= 180, -1 + (2*x/180), 3 - (2*x/180))
+# INVERTED TENT: Starts at -1, peaks at +1 at pi radians
+classical_tent <- function(x) {
+  x_mod <- x %% (2 * pi)
+  ifelse(x_mod <= pi, -1 + (2 * x_mod / pi), 3 - (2 * x_mod / pi))
 }
 
-gp <- ggplot(dt_plot, aes(x = phi)) +
-  stat_function(fun = classical_sawtooth,
-                color = "darkgray", linewidth = 1.0, alpha = 0.6) +
-  stat_function(fun = function(x) -cos(x * pi / 180),
-                color = "gray", linewidth = .3) +
-  geom_point(aes(y = E), color = "black", alpha = 0.5, size = 0.01) +
-  scale_x_continuous(
-    breaks = seq(0, 360, by = 45),
-    labels = paste0(seq(0, 360, by = 45), "°")
-  ) +
+gp <- ggplot(dt_plot, aes(x = phi_rad)) +
+  geom_vline(xintercept = c(pi/4, 3*pi/4), color = "gray70", linetype = "dashed", linewidth = 0.5) +
+  # Use the inverted classical tent
+  stat_function(fun = classical_tent, color = "gray70", linewidth = 1.2, alpha = 0.5) +
+  # Inverted theoretical curve to match the singlet state expectation: -cos(phi)
+  stat_function(fun = function(x) -cos(x), color = "gray30", linewidth = 0.5, alpha = 0.4) +
+  geom_point(aes(y = E_0), color = "black", alpha = 0.7, size = 0.4) +
+  scale_x_continuous(breaks = seq(0, 2*pi, by = pi/4),
+                     labels = c("0", "π/4", "π/2", "3π/4", "π", "5π/4", "3π/2", "7π/4", "2π")) +
   ylim(-1.1, 1.1) +
-  labs(
-    title = "Bell Test: Symplectic Contextual Erasure",
-    subtitle = subtitle_str,
-    x = "Alice-Bob Phase",
-    y = "Correlation"
-  ) +
-  theme_minimal(base_size = 14) +
-  theme(
-    plot.title = element_text(face = "bold", hjust = 0.5),
-    plot.subtitle = element_text(face = "italic", hjust = 0.5, color="grey30"),
-    panel.grid.minor = element_blank()
-  )
+  labs(title = "Bell Test: Symplectic Contextual Erasure (Spin-1/2 Singlet State)",
+       subtitle = subtitle_str,
+       x = "Relative Detector Angle (Radians)",
+       y = "Correlation (E)") +
+  theme_minimal() +
+  theme(panel.grid.minor = element_blank())
 
-print(gp)
-
-# 5. SAVE
-save_path <- file.path(output_dir, "hero_bell.png")
-ggsave(save_path, plot = gp, width = 10, height = 6, dpi = 300)
-
-cat(sprintf("\nImage saved to: %s\n", save_path))
-# Cleanup temp data
-unlink(data_dir, recursive = TRUE)
+ggsave(file.path(output_dir, "hero_bell.png"), plot = gp, width = 10, height = 6, dpi = 300)
