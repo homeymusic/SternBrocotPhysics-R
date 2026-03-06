@@ -1,5 +1,5 @@
 ---
-title: "Bell Test: Symplectic Contextual Erasure"
+title: "Bell Test: Symplectic Contextual Erasure (Non-Local)"
 output: github_document
 ---
 
@@ -9,8 +9,13 @@ library(ggplot2)
 
 data_dir <- "/Volumes/SanDisk4TB/SternBrocot-data/06_bell_test"
 
-# Load the primary summary statistics
+# Load the primary summary statistics (New Non-Local Format)
 summary_dt <- fread(file.path(data_dir, "summary_stats.csv.gz"))
+
+# Split into Alice 0 and Alice 90 datasets for the plots
+alice_0_dt <- summary_dt[abs(alice_angle_rad - 0.0) < 1e-4]
+alice_90_dt <- summary_dt[abs(alice_angle_rad - (pi/2)) < 1e-4]
+alice_90_dt[, phase_diff_90 := (bob_angle_rad - pi/2) %% (2 * pi)]
 
 # Reference Functions
 quantum_ref <- function(bob_angle, alice_fixed) {
@@ -23,41 +28,47 @@ classical_ref <- function(bob_angle, alice_fixed) {
 }
 
 # CHSH Interpolation
-e1 <- approx(summary_dt$bob_angle_rad, summary_dt$correlation_alice_0,  xout = pi/4)$y
-e2 <- approx(summary_dt$bob_angle_rad, summary_dt$correlation_alice_0,  xout = 3*pi/4)$y
-e3 <- approx(summary_dt$bob_angle_rad, summary_dt$correlation_alice_90, xout = pi/4)$y
-e4 <- approx(summary_dt$bob_angle_rad, summary_dt$correlation_alice_90, xout = 3*pi/4)$y
+e1 <- approx(alice_0_dt$bob_angle_rad, alice_0_dt$correlation,  xout = pi/4)$y
+e2 <- approx(alice_0_dt$bob_angle_rad, alice_0_dt$correlation,  xout = 3*pi/4)$y
+e3 <- approx(alice_90_dt$bob_angle_rad, alice_90_dt$correlation, xout = pi/4)$y
+e4 <- approx(alice_90_dt$bob_angle_rad, alice_90_dt$correlation, xout = 3*pi/4)$y
 s_val <- abs(e1 - e2 + e3 + e4)
 
 # --- Diagnostic Data Prep ---
-all_files <- list.files(data_dir, pattern = "erasure_.*\\.csv\\.gz")
-alice_files <- grep("alice", all_files, value = TRUE)
-bob_files <- grep("bob", all_files, value = TRUE)
+all_files <- list.files(data_dir, pattern = "bell_pair_.*\\.csv\\.gz")
+alice_0_files <- grep("alpha_0\\.000000", all_files, value = TRUE)
 
-parse_angle <- function(file_names) {
-  as.numeric(gsub("erasure_[^_]+_([-0-9.]+)\\.csv\\.gz", "\\1", file_names))
+parse_beta_angle <- function(file_names) {
+  as.numeric(gsub(".*_beta_([-0-9.]+)\\.csv\\.gz", "\\1", file_names))
 }
 
-# Load Alice 0 data for internal diagnostic plots
-alice_numeric_angles <- parse_angle(alice_files)
-file_key_0 <- alice_files[order(alice_numeric_angles)[1]]
-alice_0_data <- fread(file.path(data_dir, file_key_0))
+# Load ONE diagnostic file for the internal structure plots (Alice at 0, Bob at 0)
+file_key_0 <- alice_0_files[order(abs(parse_beta_angle(alice_0_files)))[1]]
+raw_diagnostic_data <- fread(file.path(data_dir, file_key_0))
+
+# Map the new paired column names to the old independent names for ggplot compatibility
+alice_0_data <- data.table(
+  microstate = raw_diagnostic_data$microstate,
+  erasure_distance = raw_diagnostic_data$alice_distance,
+  macrostate = raw_diagnostic_data$alice_macrostate,
+  uncertainty = raw_diagnostic_data$shared_tolerance,
+  program_length = raw_diagnostic_data$alice_length,
+  found = raw_diagnostic_data$alice_found
+)
 
 # Calculate average algorithmic complexity and found rate across Bob's sweeps
-complexity_dt <- rbindlist(lapply(bob_files, function(f) {
-  dt <- fread(file.path(data_dir, f), select = c("program_length", "found"))
+complexity_dt <- rbindlist(lapply(alice_0_files, function(f) {
+  dt <- fread(file.path(data_dir, f), select = c("alice_length", "alice_found"))
   data.table(
-    bob_angle_rad = parse_angle(f),
-    avg_length = mean(dt$program_length, na.rm = TRUE),
-    found_rate = mean(dt$found, na.rm = TRUE) * 100
+    bob_angle_rad = parse_beta_angle(f),
+    avg_length = mean(dt$alice_length, na.rm = TRUE),
+    found_rate = mean(dt$alice_found, na.rm = TRUE) * 100
   )
 }))
 
 # Calculate Alice's baseline found rate for the summary table
 alice_found_rate <- mean(alice_0_data$found, na.rm = TRUE) * 100
 ```
-
-## Statistical Summary
 
 ## Statistical Summary
 
@@ -75,10 +86,10 @@ alice_found_rate <- mean(alice_0_data$found, na.rm = TRUE) * 100
 Correlation $E(0, \theta_B)$ compared against the quantum $-\cos(\theta)$ baseline (dashed) and the linear classical baseline (solid).
 
 ```{r plot-alice-0, echo=FALSE, fig.width=10, fig.height=5}
-ggplot(summary_dt, aes(x = bob_angle_rad %% (2*pi))) +
+ggplot(alice_0_dt, aes(x = bob_angle_rad %% (2*pi))) +
   stat_function(fun = function(x) classical_ref(x, 0), color = "gray85", linewidth = 1.2) +
   stat_function(fun = function(x) quantum_ref(x, 0), color = "gray50", linetype = "dashed", linewidth = 0.6) +
-  geom_point(aes(y = correlation_alice_0), color = "black", size = 0.5) +
+  geom_point(aes(y = correlation), color = "black", size = 0.5) +
   scale_x_continuous(breaks = seq(0, 2*pi, by = pi/4), 
                      labels = c("0", "π/4", "π/2", "3π/4", "π", "5π/4", "3π/2", "7π/4", "2π")) +
   ylim(-1.1, 1.1) +
@@ -93,10 +104,10 @@ ggplot(summary_dt, aes(x = bob_angle_rad %% (2*pi))) +
 Correlation plotted against the Phase Difference $(\theta_B - \theta_A)$.
 
 ```{r plot-alice-90, echo=FALSE, fig.width=10, fig.height=5}
-ggplot(summary_dt, aes(x = phase_diff_90)) +
+ggplot(alice_90_dt, aes(x = phase_diff_90)) +
   stat_function(fun = function(x) classical_ref(x, 0), color = "gray85", linewidth = 1.2) +
   stat_function(fun = function(x) quantum_ref(x, 0), color = "gray50", linetype = "dashed", linewidth = 0.6) +
-  geom_point(aes(y = correlation_alice_90), color = "black", size = 0.5) +
+  geom_point(aes(y = correlation), color = "black", size = 0.5) +
   scale_x_continuous(breaks = seq(0, 2*pi, by = pi/4), 
                      labels = c("0", "π/4", "π/2", "3π/4", "π", "5π/4", "3π/2", "7π/4", "2π")) +
   ylim(-1.1, 1.1) +
@@ -142,8 +153,8 @@ This plot visualizes the relationship between the physical shift required to sna
 ```{r plot-distance-vs-uncertainty, echo=FALSE, fig.width=10, fig.height=5}
 ggplot(alice_0_data, aes(x = uncertainty, y = erasure_distance)) +
   geom_point(color = "darkorange", size = 0.5, alpha = 0.5) +
-  labs(title = "Erasure Distance vs. Uncertainty", 
-       x = "Uncertainty", 
+  labs(title = "Erasure Distance vs. Shared Non-Local Tolerance", 
+       x = "Shared Tolerance (Uncertainty)", 
        y = "Erasure Distance") +
   theme_minimal()
 ```
@@ -155,7 +166,6 @@ ggplot(alice_0_data, aes(x = uncertainty, y = erasure_distance)) +
 This plot reveals the thermodynamic cost of the measurement context. As the particle's relative angle changes, the computational effort (program length) required to map the microstate to a rational Stern-Brocot macrostate fluctuates in a fractal pattern.
 
 ```{r plot-complexity, echo=FALSE, fig.width=10, fig.height=5}
-# Plot the raw integer program lengths against the microstate for a single detector
 ggplot(alice_0_data, aes(x = microstate, y = program_length)) +
   geom_point(color = "darkred", size = 1, alpha = 0.5) +
   scale_x_continuous(breaks = seq(0, 2*pi, by = pi/2), 
