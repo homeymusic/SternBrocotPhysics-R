@@ -42,8 +42,9 @@ void non_local_bell_sweep(
     std::snprintf(f_name, sizeof(f_name), "bell_pair_alpha_%010.6f_beta_%010.6f.csv.gz", alpha, beta);
     gzFile file = gzopen((dir + "/" + f_name).c_str(), "wb1");
 
-    // 100% API Fidelity: Every single EraseResult variable for both Alice and Bob
+    // 100% API Fidelity + Local Input States (28 Columns)
     const char* header = "microstate,shared_tolerance,alice_spin,bob_spin,"
+    "alice_local_phase,bob_local_phase,"
     "alice_distance,bob_distance,alice_macrostate,bob_macrostate,"
     "alice_numerator,bob_numerator,alice_denominator,bob_denominator,"
     "alice_path,bob_path,alice_minimal_program,bob_minimal_program,"
@@ -56,20 +57,19 @@ void non_local_bell_sweep(
     for (int j = 0; j < count; j++) {
       double microstate = microstate_start + (microstate_end - microstate_start) * ((double)j / (double)(count - 1));
 
-      // Local fractional phases (Singlet state inverted by PI for Bob)
+      // The dimensionless local inputs
       double alice_rel = std::remainder(microstate - alpha, 2.0 * M_PI) / M_PI;
       double bob_rel = std::remainder((microstate + M_PI) - beta, 2.0 * M_PI) / M_PI;
 
-      // Both algorithms choked/relaxed by the shared non-local tolerance
       EraseResult alice_erasure = erase_single_native(alice_rel, shared_tolerance, max_depth);
       EraseResult bob_erasure = erase_single_native(bob_rel, shared_tolerance, max_depth);
 
-      // Spin determined by the continuous erasure distance (Quantum Density)
       int alice_spin = (alice_erasure.found ? alice_erasure.erasure_distance : alice_rel) >= 0 ? 1 : -1;
       int bob_spin = (bob_erasure.found ? bob_erasure.erasure_distance : bob_rel) >= 0 ? 1 : -1;
 
-      // Write Row - 26 columns of pure thermodynamic geometry
+      // Write Row
       gzprintf(file, "%.6f,%.6f,%d,%d,"
+                 "%.6f,%.6f,"
                  "%.6f,%.6f,%.6f,%.6f,"
                  "%.0f,%.0f,%.0f,%.0f,"
                  "%s,%s,%s,%s,"
@@ -77,16 +77,24 @@ void non_local_bell_sweep(
                  "%d,%d,%d,%d,"
                  "%d,%d\n",
                  microstate, shared_tolerance, alice_spin, bob_spin,
+
+                 alice_erasure.microstate, bob_erasure.microstate, // <--- The local inputs
+
                  alice_erasure.erasure_distance, bob_erasure.erasure_distance,
                  alice_erasure.macrostate, bob_erasure.macrostate,
+
                  alice_erasure.numerator, bob_erasure.numerator,
                  alice_erasure.denominator, bob_erasure.denominator,
+
                  alice_erasure.stern_brocot_path.c_str(), bob_erasure.stern_brocot_path.c_str(),
                  alice_erasure.minimal_program.c_str(), bob_erasure.minimal_program.c_str(),
+
                  (int)alice_erasure.program_length, (int)bob_erasure.program_length,
                  alice_erasure.shannon_entropy, bob_erasure.shannon_entropy,
+
                  alice_erasure.left_count, bob_erasure.left_count,
                  alice_erasure.right_count, bob_erasure.right_count,
+
                  (int)alice_erasure.found, (int)bob_erasure.found);
     }
     gzclose(file);
