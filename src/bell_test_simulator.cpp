@@ -47,17 +47,17 @@ void micro_macro_bell_erasure_sweep(
       double microstate = microstate_particle_angle_start +
         (microstate_particle_angle_end - microstate_particle_angle_start) * ((double)j / (double)(count - 1));
 
+      // This is the local contextual misalignment (theta_mu - alpha)
       double relative_phase = std::remainder(microstate - detector_angle_rad, 2.0 * M_PI);
 
+      // Dimensionless fractional continuous microstate mapped to [-1, 1]
       double alpha = relative_phase / M_PI;
 
-      // double delta_phi = std::pow(std::cos(detector_angle_rad), 2.0) / abs(std::sin(detector_angle_rad));
-
-      // double delta_phi = std::cos(alpha);
-
       double epsilon = 1e-9;
-      double delta_phi = (4.0 * std::pow(std::cos(relative_phase), 2.0)) /
-        (M_PI * (std::abs(std::sin(relative_phase)) + epsilon));
+
+      // The dimensionally perfect, finite-support de Gosson boundary!
+      double delta_phi = (2.0 * std::pow(std::cos(relative_phase), 2.0)) /
+        (std::abs(std::sin(relative_phase)) + epsilon);
 
       EraseResult erasure = erase_single_native(alpha, delta_phi, max_depth);
 
@@ -74,7 +74,7 @@ void micro_macro_bell_erasure_sweep(
                erasure.stern_brocot_path.c_str(), erasure.minimal_program.c_str(),
                erasure.program_length, erasure.shannon_entropy, erasure.left_count, erasure.right_count,
                max_depth, (int)erasure.found);
-      }
+    }
     gzclose(file);
   });
   pool.wait();
