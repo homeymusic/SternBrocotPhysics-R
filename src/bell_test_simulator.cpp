@@ -32,44 +32,52 @@ void non_local_bell_sweep(
     double beta = std::remainder(bob_angles_cpp[i], 2.0 * M_PI);
     double alpha = std::remainder(alice_angle_rad, 2.0 * M_PI);
 
-    // 1. THE NON-LOCAL CONTEXT (The Thermodynamic Geometric Limit)
+    // 1. THE NON-LOCAL BOUNDARY (The shared potential action quantum δ_θ)
+    // Derived from the minor axis of the potential action (A_pot + A_kin = pi * hbar)
     double phi = std::remainder(alpha - beta, 2.0 * M_PI);
-    double epsilon = 1e-9;
 
-    // The shared thermodynamic tolerance bounding the conjugate pair
-    double shared_tolerance = (2.0 * std::pow(std::cos(phi), 2.0)) / (std::abs(std::sin(phi)) + epsilon);
+    // The scaling factor relates to hbar. Using standard normalized scale where max tolerance is 1.0 (or scaled down by pi)
+    // Here we use the direct sine projection of the minor axis.
+    double delta_theta = std::abs(std::sin(phi));
 
     char f_name[128];
     std::snprintf(f_name, sizeof(f_name), "bell_pair_alpha_%010.6f_beta_%010.6f.csv.gz", alpha, beta);
     gzFile file = gzopen((dir + "/" + f_name).c_str(), "wb1");
 
-    // 100% API Fidelity + Local Input States (28 Columns)
-    const char* header = "microstate,shared_tolerance,alice_spin,bob_spin,"
-    "alice_local_phase,bob_local_phase,"
-    "alice_distance,bob_distance,alice_macrostate,bob_macrostate,"
+    // 100% Strict API Fidelity + Self-Contained Macroscopic Angles (30 Columns)
+    const char* header = "microstate,alice_angle,bob_angle,delta_theta,alice_spin,bob_spin,"
+    "alice_microstate,bob_microstate,"
+    "alice_erasure_distance,bob_erasure_distance,alice_macrostate,bob_macrostate,"
     "alice_numerator,bob_numerator,alice_denominator,bob_denominator,"
-    "alice_path,bob_path,alice_minimal_program,bob_minimal_program,"
-    "alice_length,bob_length,alice_entropy,bob_entropy,"
+    "alice_stern_brocot_path,bob_stern_brocot_path,alice_minimal_program,bob_minimal_program,"
+    "alice_program_length,bob_program_length,alice_shannon_entropy,bob_shannon_entropy,"
     "alice_left_count,bob_left_count,alice_right_count,bob_right_count,"
     "alice_found,bob_found\n";
     gzprintf(file, header);
 
-    // 2. THE MICROSTATE SWEEP
+    // 2. THE MICROSTATE SWEEP (Rotational/Rational Invariance)
     for (int j = 0; j < count; j++) {
       double microstate = microstate_start + (microstate_end - microstate_start) * ((double)j / (double)(count - 1));
 
-      // The dimensionless local inputs
-      double alice_rel = std::remainder(microstate - alpha, 2.0 * M_PI) / M_PI;
-      double bob_rel = std::remainder((microstate + M_PI) - beta, 2.0 * M_PI) / M_PI;
+      // The Erasure Inputs: Function of microstate angle and local measurement angle
+      // Singlet state applies a PI phase shift to Bob's particle
+      double alice_local_phase = std::remainder(microstate - alpha, 2.0 * M_PI);
+      double bob_local_phase = std::remainder((microstate + M_PI) - beta, 2.0 * M_PI);
 
-      EraseResult alice_erasure = erase_single_native(alice_rel, shared_tolerance, max_depth);
-      EraseResult bob_erasure = erase_single_native(bob_rel, shared_tolerance, max_depth);
+      // Dimensionless fractional inputs for the Stern-Brocot tree mapped to [-1, 1]
+      double alice_rel = alice_local_phase / M_PI;
+      double bob_rel = bob_local_phase / M_PI;
 
+      // Both particles evaluate their local rotational geometry against the shared non-local delta_theta
+      EraseResult alice_erasure = erase_single_native(alice_rel, delta_theta, max_depth);
+      EraseResult bob_erasure = erase_single_native(bob_rel, delta_theta, max_depth);
+
+      // Spin projection based on the unerased quantum density
       int alice_spin = (alice_erasure.found ? alice_erasure.erasure_distance : alice_rel) >= 0 ? 1 : -1;
       int bob_spin = (bob_erasure.found ? bob_erasure.erasure_distance : bob_rel) >= 0 ? 1 : -1;
 
       // Write Row
-      gzprintf(file, "%.6f,%.6f,%d,%d,"
+      gzprintf(file, "%.6f,%.6f,%.6f,%.6f,%d,%d,"
                  "%.6f,%.6f,"
                  "%.6f,%.6f,%.6f,%.6f,"
                  "%.0f,%.0f,%.0f,%.0f,"
@@ -77,25 +85,18 @@ void non_local_bell_sweep(
                  "%d,%d,%.6f,%.6f,"
                  "%d,%d,%d,%d,"
                  "%d,%d\n",
-                 microstate, shared_tolerance, alice_spin, bob_spin,
-
-                 alice_erasure.microstate, bob_erasure.microstate, // <--- The local inputs
-
+                 microstate, alpha, beta, delta_theta, alice_spin, bob_spin,
+                 alice_erasure.microstate, bob_erasure.microstate,
                  alice_erasure.erasure_distance, bob_erasure.erasure_distance,
                  alice_erasure.macrostate, bob_erasure.macrostate,
-
                  alice_erasure.numerator, bob_erasure.numerator,
                  alice_erasure.denominator, bob_erasure.denominator,
-
                  alice_erasure.stern_brocot_path.c_str(), bob_erasure.stern_brocot_path.c_str(),
                  alice_erasure.minimal_program.c_str(), bob_erasure.minimal_program.c_str(),
-
                  (int)alice_erasure.program_length, (int)bob_erasure.program_length,
                  alice_erasure.shannon_entropy, bob_erasure.shannon_entropy,
-
                  alice_erasure.left_count, bob_erasure.left_count,
                  alice_erasure.right_count, bob_erasure.right_count,
-
                  (int)alice_erasure.found, (int)bob_erasure.found);
     }
     gzclose(file);

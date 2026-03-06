@@ -1,16 +1,14 @@
-Bell Test: Symplectic Contextual Erasure
+Bell Test: Symplectic Contextual Erasure (Non-Local Dynamic)
 ================
-
-## Statistical Summary
 
 ## Statistical Summary
 
 | Metric                   | Value       |
 |:-------------------------|:------------|
-| **CHSH S-Value**         | **0.29162** |
+| **CHSH S-Value**         | **0.98464** |
 | **Classical Limit**      | 2.0         |
 | **Quantum Limit**        | 2.828       |
-| **Algorithm Found Rate** | **99.98%**  |
+| **Algorithm Found Rate** | **50%**     |
 
 ------------------------------------------------------------------------
 
@@ -34,12 +32,12 @@ $(\theta_B - \theta_A)$.
 ### CHSH Breakdown
 
 ``` text
-E(0,  pi/4):   0.0356
-E(0, 3pi/4):  -0.1839
-E(90, pi/4):   0.0361
-E(90, 3pi/4):  0.0361
+E(0,  pi/4):  -0.3282
+E(0, 3pi/4):  -0.0003
+E(90, pi/4):  -0.3284
+E(90, 3pi/4): -0.3283
 -----------------------
-S-Value:       0.2916
+S-Value:       0.9846
 ```
 
 ------------------------------------------------------------------------
@@ -72,6 +70,9 @@ the particle’s relative angle changes, the computational effort (program
 length) required to map the microstate to a rational Stern-Brocot
 macrostate fluctuates in a fractal pattern.
 
+    ## Don't know how to automatically pick scale for object of type <integer64>.
+    ## Defaulting to continuous.
+
 ![](bell_test_files/figure-gfm/plot-complexity-1.png)<!-- -->
 
 ------------------------------------------------------------------------
@@ -98,8 +99,16 @@ rational fractions on the Stern-Brocot tree.
 ## Macrostate vs. Initial Microstate
 
 This plot maps the initial continuous hidden variable (microstate)
-directly to the resolved Stern-Brocot fraction (macrostate). In a purely
-classical model, this forms a rigid “Devil’s Staircase” along a linear
-diagonal.
+directly to the resolved Stern-Brocot fraction (macrostate).
 
 ![](bell_test_files/figure-gfm/plot-macro-vs-micro-1.png)<!-- -->
+
+------------------------------------------------------------------------
+
+## Non-Local Action Boundary vs Detector Angle
+
+This plot maps the shared thermodynamic boundary (`delta_theta`) as Bob
+rotates his measurement apparatus, demonstrating how the potential
+action limits pulse relative to the fixed context of Alice’s magnet.
+
+![](bell_test_files/figure-gfm/plot-delta-theta-1.png)<!-- -->

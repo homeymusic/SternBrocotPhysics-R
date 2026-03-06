@@ -32,11 +32,11 @@ all_files <- list.files(data_dir, pattern = "bell_pair_.*\\.csv\\.gz", full.name
 
 correlation_summary <- rbindlist(lapply(all_files, function(f) {
 
-  file_name <- basename(f)
-  alpha_val <- as.numeric(sub(".*alpha_([-0-9.]+)_beta.*", "\\1", file_name))
-  beta_val  <- as.numeric(sub(".*beta_([-0-9.]+)\\.csv\\.gz", "\\1", file_name))
+  # Pull the angles directly from the data file, completely ignoring the filename
+  dt <- fread(f, select = c("alice_angle", "bob_angle", "alice_spin", "bob_spin"))
 
-  dt <- fread(f, select = c("alice_spin", "bob_spin"))
+  alpha_val <- dt$alice_angle[1]
+  beta_val  <- dt$bob_angle[1]
 
   # Standard expectation value calculation E(alpha, beta)
   correlation <- mean(dt$alice_spin * dt$bob_spin)

@@ -1,5 +1,5 @@
 ---
-title: "Bell Test: Symplectic Contextual Erasure (Non-Local)"
+title: "Bell Test: Symplectic Contextual Erasure (Non-Local Dynamic)"
 output: github_document
 ---
 
@@ -7,9 +7,10 @@ output: github_document
 library(data.table)
 library(ggplot2)
 
+# Ensure this matches exactly with the generation script
 data_dir <- "/Volumes/SanDisk4TB/SternBrocot-data/06_bell_test"
 
-# Load the primary summary statistics (New Non-Local Format)
+# Load the primary summary statistics
 summary_dt <- fread(file.path(data_dir, "summary_stats.csv.gz"))
 
 # Split into Alice 0 and Alice 90 datasets for the plots
@@ -36,38 +37,72 @@ s_val <- abs(e1 - e2 + e3 + e4)
 
 # --- Diagnostic Data Prep ---
 all_files <- list.files(data_dir, pattern = "bell_pair_.*\\.csv\\.gz")
-alice_0_files <- grep("alpha_0\\.000000", all_files, value = TRUE)
 
+# Parse both alpha and beta dynamically
+parse_alpha_angle <- function(file_names) {
+  as.numeric(gsub(".*_alpha_([-0-9.]+)_beta.*", "\\1", file_names))
+}
 parse_beta_angle <- function(file_names) {
   as.numeric(gsub(".*_beta_([-0-9.]+)\\.csv\\.gz", "\\1", file_names))
 }
 
-# Load ONE diagnostic file for the internal structure plots (Alice at 0, Bob at 0)
-file_key_0 <- alice_0_files[order(abs(parse_beta_angle(alice_0_files)))[1]]
-raw_diagnostic_data <- fread(file.path(data_dir, file_key_0))
+all_alphas <- parse_alpha_angle(all_files)
 
-# Map the new paired column names to the old independent names for ggplot compatibility
-alice_0_data <- data.table(
+# 1. Load data for Alpha ~ 0
+alice_0_files <- all_files[abs(all_alphas - 0.0) < 1e-4]
+beta_angles_0 <- parse_beta_angle(alice_0_files)
+file_key_0 <- alice_0_files[order(abs(beta_angles_0))[1]] # File where Bob is near 0
+raw_0 <- fread(file.path(data_dir, file_key_0))
+raw_0[, alpha_label := "Alpha = 0 Radians (0°)"]
+
+# 2. Load data for Alpha ~ pi/2
+alice_90_files <- all_files[abs(all_alphas - (pi/2)) < 1e-4]
+beta_angles_90 <- parse_beta_angle(alice_90_files)
+file_key_90 <- alice_90_files[order(abs(beta_angles_90))[1]] # File where Bob is near 0
+raw_90 <- fread(file.path(data_dir, file_key_90))
+raw_90[, alpha_label := "Alpha = π/2 Radians (90°)"]
+
+# Combine diagnostic files
+raw_diagnostic_data <- rbindlist(list(raw_0, raw_90))
+
+# Map the strictly named 28-column paired format to the original ggplot variables
+erasure_data <- data.table(
   microstate = raw_diagnostic_data$microstate,
-  erasure_distance = raw_diagnostic_data$alice_distance,
-  macrostate = raw_diagnostic_data$alice_macrostate,
-  uncertainty = raw_diagnostic_data$shared_tolerance,
-  program_length = raw_diagnostic_data$alice_length,
-  found = raw_diagnostic_data$alice_found
+  erasure_distance = raw_diagnostic_data$bob_erasure_distance,
+  macrostate = raw_diagnostic_data$bob_macrostate,
+  uncertainty = raw_diagnostic_data$delta_theta,
+  program_length = raw_diagnostic_data$bob_program_length,
+  found = raw_diagnostic_data$bob_found,
+  alpha_label = raw_diagnostic_data$alpha_label
 )
 
-# Calculate average algorithmic complexity and found rate across Bob's sweeps
-complexity_dt <- rbindlist(lapply(alice_0_files, function(f) {
-  dt <- fread(file.path(data_dir, f), select = c("alice_length", "alice_found"))
+# Calculate average algorithmic complexity, found rate, AND extract delta_theta across Bob's sweeps
+complexity_dt_0 <- rbindlist(lapply(alice_0_files, function(f) {
+  dt <- fread(file.path(data_dir, f), select = c("bob_program_length", "bob_found", "delta_theta"))
   data.table(
     bob_angle_rad = parse_beta_angle(f),
-    avg_length = mean(dt$alice_length, na.rm = TRUE),
-    found_rate = mean(dt$alice_found, na.rm = TRUE) * 100
+    avg_length = mean(dt$bob_program_length, na.rm = TRUE),
+    found_rate = mean(dt$bob_found, na.rm = TRUE) * 100,
+    delta_theta = dt$delta_theta[1], # Grab the shared boundary for this specific context
+    alpha_label = "Alpha = 0 Radians (0°)"
   )
 }))
 
-# Calculate Alice's baseline found rate for the summary table
-alice_found_rate <- mean(alice_0_data$found, na.rm = TRUE) * 100
+complexity_dt_90 <- rbindlist(lapply(alice_90_files, function(f) {
+  dt <- fread(file.path(data_dir, f), select = c("bob_program_length", "bob_found", "delta_theta"))
+  data.table(
+    bob_angle_rad = parse_beta_angle(f),
+    avg_length = mean(dt$bob_program_length, na.rm = TRUE),
+    found_rate = mean(dt$bob_found, na.rm = TRUE) * 100,
+    delta_theta = dt$delta_theta[1], # Grab the shared boundary for this specific context
+    alpha_label = "Alpha = π/2 Radians (90°)"
+  )
+}))
+
+complexity_dt <- rbindlist(list(complexity_dt_0, complexity_dt_90))
+
+# Calculate baseline found rate for the summary table
+overall_found_rate <- mean(erasure_data$found, na.rm = TRUE) * 100
 ```
 
 ## Statistical Summary
@@ -77,7 +112,7 @@ alice_found_rate <- mean(alice_0_data$found, na.rm = TRUE) * 100
 | **CHSH S-Value** | **`r round(s_val, 5)`** |
 | **Classical Limit** | 2.0 |
 | **Quantum Limit** | 2.828 |
-| **Algorithm Found Rate** | **`r round(alice_found_rate, 2)`%** |
+| **Algorithm Found Rate** | **`r round(overall_found_rate, 2)`%** |
 
 ---
 
@@ -118,6 +153,7 @@ ggplot(alice_90_dt, aes(x = phase_diff_90)) +
 ```
 
 ### CHSH Breakdown
+
 ```text
 E(0,  pi/4):  `r sprintf("%7.4f", e1)`
 E(0, 3pi/4):  `r sprintf("%7.4f", e2)`
@@ -134,11 +170,13 @@ S-Value:      `r sprintf("%7.4f", s_val)`
 This plot visualizes the internal mathematical "warp" of the contextual erasure. It shows how the continuous local hidden variable (microstate) is shifted into its final macroscopic physical distance.
 
 ```{r plot-transfer-function, echo=FALSE, fig.width=10, fig.height=5}
-ggplot(alice_0_data, aes(x = microstate, y = erasure_distance)) +
+ggplot(erasure_data, aes(x = microstate, y = erasure_distance)) +
   geom_point(color = "dodgerblue", size = 0.5, alpha = 0.5) +
   scale_x_continuous(breaks = seq(0, 2*pi, by = pi/2), 
                      labels = c("0", "π/2", "π", "3π/2", "2π")) +
+  facet_wrap(~ alpha_label) +
   labs(title = "Microstate vs. Erasure Distance", 
+       subtitle = "Diagnostic data showing Bob's internal state (Bob near 0 rad)",
        x = "Initial Microstate (rad)", 
        y = "Erasure Distance Shift") +
   theme_minimal()
@@ -151,9 +189,11 @@ ggplot(alice_0_data, aes(x = microstate, y = erasure_distance)) +
 This plot visualizes the relationship between the physical shift required to snap to a rational macrostate (`erasure_distance`) and the fundamental uncertainty of that resulting state. It reveals the precision trade-offs inherent in the contextual erasure process.
 
 ```{r plot-distance-vs-uncertainty, echo=FALSE, fig.width=10, fig.height=5}
-ggplot(alice_0_data, aes(x = uncertainty, y = erasure_distance)) +
+ggplot(erasure_data, aes(x = uncertainty, y = erasure_distance)) +
   geom_point(color = "darkorange", size = 0.5, alpha = 0.5) +
+  facet_wrap(~ alpha_label) +
   labs(title = "Erasure Distance vs. Shared Non-Local Tolerance", 
+       subtitle = "Diagnostic data showing Bob's internal state (Bob near 0 rad)",
        x = "Shared Tolerance (Uncertainty)", 
        y = "Erasure Distance") +
   theme_minimal()
@@ -166,11 +206,13 @@ ggplot(alice_0_data, aes(x = uncertainty, y = erasure_distance)) +
 This plot reveals the thermodynamic cost of the measurement context. As the particle's relative angle changes, the computational effort (program length) required to map the microstate to a rational Stern-Brocot macrostate fluctuates in a fractal pattern.
 
 ```{r plot-complexity, echo=FALSE, fig.width=10, fig.height=5}
-ggplot(alice_0_data, aes(x = microstate, y = program_length)) +
+ggplot(erasure_data, aes(x = microstate, y = program_length)) +
   geom_point(color = "darkred", size = 1, alpha = 0.5) +
   scale_x_continuous(breaks = seq(0, 2*pi, by = pi/2), 
                      labels = c("0", "π/2", "π", "3π/2", "2π")) +
+  facet_wrap(~ alpha_label) +
   labs(title = "Stern-Brocot Program Length vs Particle Microstate", 
+       subtitle = "Diagnostic data showing Bob's internal state (Bob near 0 rad)",
        x = "Initial Microstate (rad)", 
        y = "Program Length (Steps)") +
   theme_minimal()
@@ -182,12 +224,13 @@ ggplot(alice_0_data, aes(x = microstate, y = program_length)) +
 
 This plot verifies the percentage of microstates successfully resolved to a rational macrostate before hitting the maximum search depth limit (`max_depth = 2000`). For the simulation to be valid, this must remain at 100%.
 
-```{r plot-found-rate, echo=FALSE, fig.width=10, fig.height=3}
+```{r plot-found-rate, echo=FALSE, fig.width=10, fig.height=5}
 ggplot(complexity_dt, aes(x = bob_angle_rad, y = found_rate)) +
   geom_line(color = "forestgreen", linewidth = 1.2) +
   scale_x_continuous(breaks = seq(0, 2*pi, by = pi/2), 
                      labels = c("0", "π/2", "π", "3π/2", "2π")) +
   scale_y_continuous(limits = c(0, 105), breaks = c(0, 25, 50, 75, 100)) +
+  facet_wrap(~ alpha_label) +
   labs(title = "Algorithm Found Rate vs Detector Angle", 
        x = "Bob Angle (rad)", 
        y = "Found Rate (%)") +
@@ -201,9 +244,11 @@ ggplot(complexity_dt, aes(x = bob_angle_rad, y = found_rate)) +
 This histogram demonstrates how the contextual erasure acts as a fractal attractor, quantizing the uniform continuous microstates into discrete rational fractions on the Stern-Brocot tree.
 
 ```{r plot-attractors, echo=FALSE, fig.width=10, fig.height=5}
-ggplot(alice_0_data, aes(x = macrostate)) +
+ggplot(erasure_data, aes(x = macrostate)) +
   geom_histogram(bins = 200, fill = "purple", color = "black", alpha = 0.7) +
+  facet_wrap(~ alpha_label) +
   labs(title = "Distribution of Resolved Macrostates", 
+       subtitle = "Diagnostic data showing Bob's internal state (Bob near 0 rad)",
        x = "Macrostate Value", 
        y = "Frequency") +
   theme_minimal()
@@ -211,15 +256,35 @@ ggplot(alice_0_data, aes(x = macrostate)) +
 
 ## Macrostate vs. Initial Microstate
 
-This plot maps the initial continuous hidden variable (microstate) directly to the resolved Stern-Brocot fraction (macrostate). In a purely classical model, this forms a rigid "Devil's Staircase" along a linear diagonal.
+This plot maps the initial continuous hidden variable (microstate) directly to the resolved Stern-Brocot fraction (macrostate).
 
 ```{r plot-macro-vs-micro, echo=FALSE, fig.width=10, fig.height=5}
-ggplot(alice_0_data, aes(x = microstate, y = macrostate)) +
+ggplot(erasure_data, aes(x = microstate, y = macrostate)) +
   geom_point(color = "darkgreen", size = 0.5, alpha = 0.5) +
   scale_x_continuous(breaks = seq(0, 2*pi, by = pi/2), 
                      labels = c("0", "π/2", "π", "3π/2", "2π")) +
+  facet_wrap(~ alpha_label) +
   labs(title = "Resolved Macrostate vs Initial Microstate", 
+       subtitle = "Diagnostic data showing Bob's internal state (Bob near 0 rad)",
        x = "Initial Microstate (rad)", 
        y = "Quantized Macrostate (Normalized)") +
+  theme_minimal()
+```
+
+---
+
+## Non-Local Action Boundary vs Detector Angle
+
+This plot maps the shared thermodynamic boundary (`delta_theta`) as Bob rotates his measurement apparatus, demonstrating how the potential action limits pulse relative to the fixed context of Alice's magnet.
+
+```{r plot-delta-theta, echo=FALSE, fig.width=10, fig.height=5}
+ggplot(complexity_dt, aes(x = bob_angle_rad, y = delta_theta)) +
+  geom_line(color = "blue", linewidth = 1.2) +
+  scale_x_continuous(breaks = seq(0, 2*pi, by = pi/2), 
+                     labels = c("0", "π/2", "π", "3π/2", "2π")) +
+  facet_wrap(~ alpha_label) +
+  labs(title = "Shared Halting Tolerance (delta_theta) vs Bob Angle",
+       x = "Bob Angle (rad)",
+       y = "Delta Theta (Tolerance)") +
   theme_minimal()
 ```
