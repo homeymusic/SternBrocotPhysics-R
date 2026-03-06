@@ -11,19 +11,19 @@ Rcpp::Rostream<true>&  Rcpp::Rcout = Rcpp::Rcpp_cout_get();
 Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
-// micro_macro_bell_erasure_sweep
-void micro_macro_bell_erasure_sweep(std::string persona, NumericVector detector_angles, std::string dir, int count, double microstate_particle_angle_start, double microstate_particle_angle_end, int n_threads);
-RcppExport SEXP _SternBrocotPhysics_micro_macro_bell_erasure_sweep(SEXP personaSEXP, SEXP detector_anglesSEXP, SEXP dirSEXP, SEXP countSEXP, SEXP microstate_particle_angle_startSEXP, SEXP microstate_particle_angle_endSEXP, SEXP n_threadsSEXP) {
+// non_local_bell_sweep
+void non_local_bell_sweep(double alice_angle_rad, NumericVector bob_angles_rad, std::string dir, int count, double microstate_start, double microstate_end, int n_threads);
+RcppExport SEXP _SternBrocotPhysics_non_local_bell_sweep(SEXP alice_angle_radSEXP, SEXP bob_angles_radSEXP, SEXP dirSEXP, SEXP countSEXP, SEXP microstate_startSEXP, SEXP microstate_endSEXP, SEXP n_threadsSEXP) {
 BEGIN_RCPP
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< std::string >::type persona(personaSEXP);
-    Rcpp::traits::input_parameter< NumericVector >::type detector_angles(detector_anglesSEXP);
+    Rcpp::traits::input_parameter< double >::type alice_angle_rad(alice_angle_radSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type bob_angles_rad(bob_angles_radSEXP);
     Rcpp::traits::input_parameter< std::string >::type dir(dirSEXP);
     Rcpp::traits::input_parameter< int >::type count(countSEXP);
-    Rcpp::traits::input_parameter< double >::type microstate_particle_angle_start(microstate_particle_angle_startSEXP);
-    Rcpp::traits::input_parameter< double >::type microstate_particle_angle_end(microstate_particle_angle_endSEXP);
+    Rcpp::traits::input_parameter< double >::type microstate_start(microstate_startSEXP);
+    Rcpp::traits::input_parameter< double >::type microstate_end(microstate_endSEXP);
     Rcpp::traits::input_parameter< int >::type n_threads(n_threadsSEXP);
-    micro_macro_bell_erasure_sweep(persona, detector_angles, dir, count, microstate_particle_angle_start, microstate_particle_angle_end, n_threads);
+    non_local_bell_sweep(alice_angle_rad, bob_angles_rad, dir, count, microstate_start, microstate_end, n_threads);
     return R_NilValue;
 END_RCPP
 }
@@ -90,7 +90,7 @@ END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_SternBrocotPhysics_micro_macro_bell_erasure_sweep", (DL_FUNC) &_SternBrocotPhysics_micro_macro_bell_erasure_sweep, 7},
+    {"_SternBrocotPhysics_non_local_bell_sweep", (DL_FUNC) &_SternBrocotPhysics_non_local_bell_sweep, 7},
     {"_SternBrocotPhysics_erase_uncertainty", (DL_FUNC) &_SternBrocotPhysics_erase_uncertainty, 2},
     {"_SternBrocotPhysics_erase_depth", (DL_FUNC) &_SternBrocotPhysics_erase_depth, 2},
     {"_SternBrocotPhysics_erase_uncertainty_and_depth", (DL_FUNC) &_SternBrocotPhysics_erase_uncertainty_and_depth, 3},

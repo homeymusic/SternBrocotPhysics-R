@@ -8,20 +8,19 @@
 
 using namespace Rcpp;
 
-//' @export
 // [[Rcpp::export]]
-void micro_macro_bell_erasure_sweep(
-    std::string persona,
-    NumericVector detector_angles,
+void non_local_bell_sweep(
+    double alice_angle_rad,
+    NumericVector bob_angles_rad,
     std::string dir,
     int count,
-    double microstate_particle_angle_start,
-    double microstate_particle_angle_end,
+    double microstate_start,
+    double microstate_end,
     int n_threads = 0
 ) {
   int max_depth = 2000;
-  std::vector<double> detector_angles_cpp = Rcpp::as<std::vector<double>>(detector_angles);
-  size_t n = detector_angles_cpp.size();
+  std::vector<double> bob_angles_cpp = Rcpp::as<std::vector<double>>(bob_angles_rad);
+  size_t n = bob_angles_cpp.size();
 
   int threads = (n_threads <= 0) ? (int)std::thread::hardware_concurrency() - 2 : n_threads;
   if (threads < 1) threads = 1;
@@ -29,51 +28,42 @@ void micro_macro_bell_erasure_sweep(
   RcppThread::ThreadPool pool(threads);
 
   pool.parallelFor(0, n, [&](int i) {
+    double beta = std::remainder(bob_angles_cpp[i], 2.0 * M_PI);
+    double alpha = std::remainder(alice_angle_rad, 2.0 * M_PI);
 
-    // 1. Wrap the detector angle ONCE, before making the filename
-    double detector_angle_rad = std::remainder(detector_angles_cpp[i], 2.0 * M_PI);
+    // 1. THE NON-LOCAL CONTEXT (The core of your physics)
+    double phi = std::remainder(alpha - beta, 2.0 * M_PI);
+    double epsilon = 1e-9;
+
+    // The shared thermodynamic tolerance for this specific detector pairing
+    double shared_tolerance = (2.0 * std::pow(std::cos(phi), 2.0)) / (std::abs(std::sin(phi)) + epsilon);
 
     char f_name[128];
-    // Now the filename perfectly matches the data inside the CSV
-    std::snprintf(f_name, sizeof(f_name), "erasure_%s_%013.6f.csv.gz", persona.c_str(), detector_angle_rad);
-
+    std::snprintf(f_name, sizeof(f_name), "bell_pair_alpha_%010.6f_beta_%010.6f.csv.gz", alpha, beta);
     gzFile file = gzopen((dir + "/" + f_name).c_str(), "wb1");
 
-    const char* header = "angle,spin,erasure_distance,microstate,macrostate,uncertainty,numerator,denominator,stern_brocot_path,minimal_program,program_length,shannon_entropy,left_count,right_count,max_search_depth,found\n";
+    const char* header = "microstate,alice_spin,bob_spin,alice_distance,bob_distance,shared_tolerance\n";
     gzprintf(file, header);
 
+    // 2. THE MICROSTATE SWEEP
     for (int j = 0; j < count; j++) {
+      double microstate = microstate_start + (microstate_end - microstate_start) * ((double)j / (double)(count - 1));
 
-      double microstate = microstate_particle_angle_start +
-        (microstate_particle_angle_end - microstate_particle_angle_start) * ((double)j / (double)(count - 1));
+      // Alice's local fractional distance from the microstate
+      double alice_rel = std::remainder(microstate - alpha, 2.0 * M_PI) / M_PI;
+      // Bob's local fractional distance from the microstate (anti-correlated for singlet)
+      double bob_rel = std::remainder((microstate + M_PI) - beta, 2.0 * M_PI) / M_PI;
 
-      // This is the local contextual misalignment (theta_mu - alpha)
-      double relative_phase = std::remainder(microstate - detector_angle_rad, 2.0 * M_PI);
+      // Both halt using the non-local shared tolerance
+      EraseResult alice_erasure = erase_single_native(alice_rel, shared_tolerance, max_depth);
+      EraseResult bob_erasure = erase_single_native(bob_rel, shared_tolerance, max_depth);
 
-      // Dimensionless fractional continuous microstate mapped to [-1, 1]
-      double alpha = relative_phase / M_PI;
+      int alice_spin = (alice_erasure.found ? alice_erasure.erasure_distance : alice_rel) >= 0 ? 1 : -1;
+      int bob_spin = (bob_erasure.found ? bob_erasure.erasure_distance : bob_rel) >= 0 ? 1 : -1;
 
-      double epsilon = 1e-9;
-
-      // The dimensionally perfect, finite-support de Gosson boundary!
-      double delta_phi = (2.0 * std::pow(std::cos(relative_phase), 2.0)) /
-        (std::abs(std::sin(relative_phase)) + epsilon);
-
-      EraseResult erasure = erase_single_native(alpha, delta_phi, max_depth);
-
-      double erasure_distance = erasure.found ? erasure.erasure_distance : alpha;
-      double erased_relative_phase = erasure_distance * M_PI;
-
-      int spin = erasure_distance >= 0 ? 1 : -1;
-
-      // Write Row
-      gzprintf(file, "%.6f,%d,%.6f,%.6f,%.6f,%.6f,%.0f,%.0f,%s,%s,%d,%.6f,%d,%d,%d,%d\n",
-               detector_angle_rad, spin,
-               erasure_distance, microstate, erasure.macrostate, erasure.uncertainty,
-               erasure.numerator, erasure.denominator,
-               erasure.stern_brocot_path.c_str(), erasure.minimal_program.c_str(),
-               erasure.program_length, erasure.shannon_entropy, erasure.left_count, erasure.right_count,
-               max_depth, (int)erasure.found);
+      gzprintf(file, "%.6f,%d,%d,%.6f,%.6f,%.6f\n",
+               microstate, alice_spin, bob_spin,
+               alice_erasure.erasure_distance, bob_erasure.erasure_distance, shared_tolerance);
     }
     gzclose(file);
   });

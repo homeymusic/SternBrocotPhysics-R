@@ -7,7 +7,7 @@ Bell Test: Symplectic Contextual Erasure
 
 | Metric                   | Value       |
 |:-------------------------|:------------|
-| **CHSH S-Value**         | **1.15121** |
+| **CHSH S-Value**         | **0.29162** |
 | **Classical Limit**      | 2.0         |
 | **Quantum Limit**        | 2.828       |
 | **Algorithm Found Rate** | **99.98%**  |
@@ -34,12 +34,12 @@ $(\theta_B - \theta_A)$.
 ### CHSH Breakdown
 
 ``` text
-E(0,  pi/4):   0.3688
-E(0, 3pi/4):  -0.0431
-E(90, pi/4):   0.3698
-E(90, 3pi/4):  0.3694
+E(0,  pi/4):   0.0356
+E(0, 3pi/4):  -0.1839
+E(90, pi/4):   0.0361
+E(90, 3pi/4):  0.0361
 -----------------------
-S-Value:       1.1512
+S-Value:       0.2916
 ```
 
 ------------------------------------------------------------------------
