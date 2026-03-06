@@ -1,7 +1,7 @@
 library(SternBrocotPhysics)
 library(data.table)
 
-data_dir <- "/Volumes/SanDisk4TB/SternBrocot-data/06_bell_test_nonlocal"
+data_dir <- "/Volumes/SanDisk4TB/SternBrocot-data/06_bell_test"
 
 if (dir.exists(data_dir)) {
   unlink(data_dir, recursive = TRUE)
