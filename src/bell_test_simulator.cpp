@@ -8,6 +8,7 @@
 
 using namespace Rcpp;
 
+//' @export
 // [[Rcpp::export]]
 void non_local_bell_sweep(
     double alice_angle_rad,
