@@ -9,7 +9,7 @@
 #' @param bin_width The minimum resolution of the histogram (default 1).
 #' @return A data.table with columns: normalized_momentum, coordinate_q, density_count.
 #' @export
-compute_density <- function(dt, p, bin_width = 1) {
+compute_erasure_distance_density <- function(dt, p, bin_width = 1) {
   # --- 1. PRE-PROCESSING ---
   if ("found" %in% names(dt)) {
     dt <- dt[dt$found == 1, ]
@@ -95,7 +95,7 @@ process_erasure_distance_density <- function(f, out_path) {
 
     P_effective <- P_val * 2 * pi
 
-    density_df <- compute_density(dt, P_effective, bin_width = 1.0)
+    density_df <- compute_erasure_distance_density(dt, P_effective, bin_width = 1.0)
 
     if (is.null(density_df)) return(NULL)
 

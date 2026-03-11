@@ -1,7 +1,9 @@
 Stern-Brocot Physics
 ================
 
-![](README_files/figure-gfm/combined-grid-plot-1.png)<!-- -->
+![](README_files/figure-gfm/combined-grid-plot-erasure-distance-1.png)<!-- -->
+
+![](README_files/figure-gfm/combined-grid-plot-observed-state-1.png)<!-- -->
 
 ------------------------------------------------------------------------
 
