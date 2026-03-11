@@ -68,7 +68,7 @@ render_combined_grid <- function(matches_dt) {
             aspect.ratio = 1,
             plot.margin = margin(5, 5, 5, 5))
     
-    if (i == 1) p_ell <- p_ell + labs(title = "Conjugate Quanta") + 
+    if (i == 1) p_ell <- p_ell + labs(title = "Conjugate Blobs") + 
         theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14))
     
     # ---------------------------------------------------------
@@ -90,7 +90,7 @@ render_combined_grid <- function(matches_dt) {
                 plot.margin = margin(5, 5, 5, 5))
       }
     }
-    if (i == 1) p_scat <- p_scat + labs(title = "Macrostates vs. Microstates") + 
+    if (i == 1) p_scat <- p_scat + labs(title = "Observed vs. Microstate") + 
         theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14))
     
     # ---------------------------------------------------------
@@ -136,7 +136,7 @@ render_combined_grid <- function(matches_dt) {
                 plot.margin = margin(5, 5, 5, 5))
       }
     }
-    if (i == 1) p_den <- p_den + labs(title = "Coordinate Density") + 
+    if (i == 1) p_den <- p_den + labs(title = "Erasure Density") + 
         theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14))
     
     # ---------------------------------------------------------
@@ -152,8 +152,8 @@ render_combined_grid <- function(matches_dt) {
   # ---------------------------------------------------------
   final_grid <- wrap_plots(plot_list, ncol = 3) +
     plot_annotation(
-      title = "Structural Evolution of the Harmonic States",
-      subtitle = "Nodes 0 through 10 rendered in strict grayscale phase space",
+      title = "Quantum Harmonic Oscillator",
+      subtitle = "Nodes 0 through 10 and 29",
       theme = theme(plot.title = element_text(size = 20, face = "bold", hjust = 0.5, family = "mono"),
                     plot.subtitle = element_text(size = 14, hjust = 0.5, color = "gray30"))
     )
