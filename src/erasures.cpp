@@ -67,22 +67,22 @@ void erasures(NumericVector momenta, std::string dir, int n_threads = 0) {
     }
 
     compute_count++;
-    double uncertainty = 1.0 / (2.0 * M_PI * p);
+    double max_erasure_radius = 1.0 / (2.0 * M_PI * p);
     gzFile file = gzopen(path.c_str(), "wb1");
     if (!file) return;
 
-    gzprintf(file, "momentum,erasure_distance,microstate,macrostate,uncertainty,numerator,denominator,stern_brocot_path,minimal_program,program_length,shannon_entropy,left_count,right_count,max_search_depth,found\n");
+    gzprintf(file, "momentum,erasure_distance,microstate,minimal_action_state,max_erasure_radius,numerator,denominator,stern_brocot_path,minimal_program,minimal_program_length,shannon_entropy,left_count,right_count,max_minimal_program_length,found\n");
 
     for (int j = 0; j < current_count; j++) {
       double mu_source = (current_count > 1) ? -1.0 + (2.0 * j) / (double)(current_count - 1) : 0.0;
-      EraseResult res = erase_single_native(mu_source, uncertainty, max_depth_limit);
+      EraseResult res = erase_single_native(mu_source, max_erasure_radius, max_depth_limit);
 
       gzprintf(file, "%.6f,%s,%.6f,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%d,%d\n",
                p, fmt_val(res.erasure_distance).c_str(), mu_source,
-               fmt_val(res.macrostate).c_str(), fmt_val(res.uncertainty).c_str(),
+               fmt_val(res.minimal_action_state).c_str(), fmt_val(res.max_erasure_radius).c_str(),
                fmt_val(res.numerator, "%.0f").c_str(), fmt_val(res.denominator, "%.0f").c_str(),
                res.stern_brocot_path.c_str(), res.minimal_program.c_str(),
-               fmt_val(res.program_length).c_str(), fmt_val(res.shannon_entropy).c_str(),
+               fmt_val(res.minimal_program_length).c_str(), fmt_val(res.shannon_entropy).c_str(),
                fmt_val(res.left_count).c_str(), fmt_val(res.right_count).c_str(),
                max_depth_limit, (int)res.found);
     }

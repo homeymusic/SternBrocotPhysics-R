@@ -47,10 +47,10 @@ void non_local_bell_sweep(
     // 100% Strict API Fidelity + Self-Contained Macroscopic Angles (30 Columns)
     const char* header = "microstate,alice_angle,bob_angle,delta_theta,alice_spin,bob_spin,"
     "alice_microstate,bob_microstate,"
-    "alice_erasure_distance,bob_erasure_distance,alice_macrostate,bob_macrostate,"
+    "alice_erasure_distance,bob_erasure_distance,alice_minimal_action_state,bob_minimal_action_state,"
     "alice_numerator,bob_numerator,alice_denominator,bob_denominator,"
     "alice_stern_brocot_path,bob_stern_brocot_path,alice_minimal_program,bob_minimal_program,"
-    "alice_program_length,bob_program_length,alice_shannon_entropy,bob_shannon_entropy,"
+    "alice_minimal_program_length,bob_minimal_program_length,alice_shannon_entropy,bob_shannon_entropy,"
     "alice_left_count,bob_left_count,alice_right_count,bob_right_count,"
     "alice_found,bob_found\n";
     gzprintf(file, header);
@@ -88,12 +88,12 @@ void non_local_bell_sweep(
                  microstate, alpha, beta, delta_theta, alice_spin, bob_spin,
                  alice_erasure.microstate, bob_erasure.microstate,
                  alice_erasure.erasure_distance, bob_erasure.erasure_distance,
-                 alice_erasure.macrostate, bob_erasure.macrostate,
+                 alice_erasure.minimal_action_state, bob_erasure.minimal_action_state,
                  alice_erasure.numerator, bob_erasure.numerator,
                  alice_erasure.denominator, bob_erasure.denominator,
                  alice_erasure.stern_brocot_path.c_str(), bob_erasure.stern_brocot_path.c_str(),
                  alice_erasure.minimal_program.c_str(), bob_erasure.minimal_program.c_str(),
-                 (int)alice_erasure.program_length, (int)bob_erasure.program_length,
+                 (int)alice_erasure.minimal_program_length, (int)bob_erasure.minimal_program_length,
                  alice_erasure.shannon_entropy, bob_erasure.shannon_entropy,
                  alice_erasure.left_count, bob_erasure.left_count,
                  alice_erasure.right_count, bob_erasure.right_count,

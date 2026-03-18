@@ -7,13 +7,13 @@ struct EraseResult {
   // Exact order matching the requested DataFrame
   double erasure_distance;
   double microstate;
-  double macrostate;
-  double uncertainty;
+  double minimal_action_state;
+  double max_erasure_radius;
   double numerator;
   double denominator;
   std::string stern_brocot_path;
   std::string minimal_program;
-  int program_length;
+  int minimal_program_length;
   double shannon_entropy;
   int left_count;
   int right_count;
@@ -21,6 +21,6 @@ struct EraseResult {
 };
 
 // Function declaration
-EraseResult erase_single_native(double microstate, double uncertainty, int max_search_depth);
+EraseResult erase_single_native(double microstate, double max_erasure_radius, int max_program_length);
 
 #endif

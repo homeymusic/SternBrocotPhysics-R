@@ -6,16 +6,16 @@ non_local_bell_sweep <- function(alice_angle_rad, bob_angles_rad, dir, count, mi
     invisible(.Call(`_SternBrocotPhysics_non_local_bell_sweep`, alice_angle_rad, bob_angles_rad, dir, count, microstate_start, microstate_end, n_threads))
 }
 
-erase_by_uncertainty <- function(x, uncertainty) {
-    .Call(`_SternBrocotPhysics_erase_uncertainty`, x, uncertainty)
+erase_by_max_erasure_radius <- function(x, max_erasure_radius) {
+    .Call(`_SternBrocotPhysics_erase_max_erasure_radius`, x, max_erasure_radius)
 }
 
 erase_by_depth <- function(x, depth) {
     .Call(`_SternBrocotPhysics_erase_depth`, x, depth)
 }
 
-erase_by_uncertainty_and_depth <- function(x, uncertainty, depth) {
-    .Call(`_SternBrocotPhysics_erase_uncertainty_and_depth`, x, uncertainty, depth)
+erase_by_max_erasure_radius_and_depth <- function(x, max_erasure_radius, depth) {
+    .Call(`_SternBrocotPhysics_erase_max_erasure_radius_and_depth`, x, max_erasure_radius, depth)
 }
 
 #' Run Stern-Brocot Erasure Simulation

@@ -27,15 +27,15 @@ BEGIN_RCPP
     return R_NilValue;
 END_RCPP
 }
-// erase_uncertainty
-DataFrame erase_uncertainty(NumericVector x, double uncertainty);
-RcppExport SEXP _SternBrocotPhysics_erase_uncertainty(SEXP xSEXP, SEXP uncertaintySEXP) {
+// erase_max_erasure_radius
+DataFrame erase_max_erasure_radius(NumericVector x, double max_erasure_radius);
+RcppExport SEXP _SternBrocotPhysics_erase_max_erasure_radius(SEXP xSEXP, SEXP max_erasure_radiusSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< NumericVector >::type x(xSEXP);
-    Rcpp::traits::input_parameter< double >::type uncertainty(uncertaintySEXP);
-    rcpp_result_gen = Rcpp::wrap(erase_uncertainty(x, uncertainty));
+    Rcpp::traits::input_parameter< double >::type max_erasure_radius(max_erasure_radiusSEXP);
+    rcpp_result_gen = Rcpp::wrap(erase_max_erasure_radius(x, max_erasure_radius));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -51,16 +51,16 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// erase_uncertainty_and_depth
-DataFrame erase_uncertainty_and_depth(NumericVector x, double uncertainty, int depth);
-RcppExport SEXP _SternBrocotPhysics_erase_uncertainty_and_depth(SEXP xSEXP, SEXP uncertaintySEXP, SEXP depthSEXP) {
+// erase_max_erasure_radius_and_depth
+DataFrame erase_max_erasure_radius_and_depth(NumericVector x, double max_erasure_radius, int depth);
+RcppExport SEXP _SternBrocotPhysics_erase_max_erasure_radius_and_depth(SEXP xSEXP, SEXP max_erasure_radiusSEXP, SEXP depthSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< NumericVector >::type x(xSEXP);
-    Rcpp::traits::input_parameter< double >::type uncertainty(uncertaintySEXP);
+    Rcpp::traits::input_parameter< double >::type max_erasure_radius(max_erasure_radiusSEXP);
     Rcpp::traits::input_parameter< int >::type depth(depthSEXP);
-    rcpp_result_gen = Rcpp::wrap(erase_uncertainty_and_depth(x, uncertainty, depth));
+    rcpp_result_gen = Rcpp::wrap(erase_max_erasure_radius_and_depth(x, max_erasure_radius, depth));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -91,9 +91,9 @@ END_RCPP
 
 static const R_CallMethodDef CallEntries[] = {
     {"_SternBrocotPhysics_non_local_bell_sweep", (DL_FUNC) &_SternBrocotPhysics_non_local_bell_sweep, 7},
-    {"_SternBrocotPhysics_erase_uncertainty", (DL_FUNC) &_SternBrocotPhysics_erase_uncertainty, 2},
+    {"_SternBrocotPhysics_erase_max_erasure_radius", (DL_FUNC) &_SternBrocotPhysics_erase_max_erasure_radius, 2},
     {"_SternBrocotPhysics_erase_depth", (DL_FUNC) &_SternBrocotPhysics_erase_depth, 2},
-    {"_SternBrocotPhysics_erase_uncertainty_and_depth", (DL_FUNC) &_SternBrocotPhysics_erase_uncertainty_and_depth, 3},
+    {"_SternBrocotPhysics_erase_max_erasure_radius_and_depth", (DL_FUNC) &_SternBrocotPhysics_erase_max_erasure_radius_and_depth, 3},
     {"_SternBrocotPhysics_erasures", (DL_FUNC) &_SternBrocotPhysics_erasures, 3},
     {"_SternBrocotPhysics_count_nodes_cpp", (DL_FUNC) &_SternBrocotPhysics_count_nodes_cpp, 2},
     {NULL, NULL, 0}
