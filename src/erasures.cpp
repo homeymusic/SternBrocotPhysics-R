@@ -45,7 +45,7 @@ void erasures(NumericVector momenta, std::string dir, int n_threads = 0) {
   std::atomic<int> skip_count(0);
   std::atomic<int> compute_count(0);
 
-  int max_depth_limit = 2000;
+  int max_program_length = 2000;
   int threads = (n_threads <= 0) ? (int)std::thread::hardware_concurrency() - 2 : n_threads;
   if (threads < 1) threads = 1;
 
@@ -71,11 +71,11 @@ void erasures(NumericVector momenta, std::string dir, int n_threads = 0) {
     gzFile file = gzopen(path.c_str(), "wb1");
     if (!file) return;
 
-    gzprintf(file, "momentum,erasure_distance,microstate,minimal_action_state,max_erasure_radius,numerator,denominator,stern_brocot_path,minimal_program,minimal_program_length,shannon_entropy,left_count,right_count,max_minimal_program_length,found\n");
+    gzprintf(file, "momentum,erasure_distance,microstate,minimal_action_state,max_erasure_radius,numerator,denominator,stern_brocot_path,minimal_program,minimal_program_length,shannon_entropy,left_count,right_count,max_program_length,found\n");
 
     for (int j = 0; j < current_count; j++) {
       double mu_source = (current_count > 1) ? -1.0 + (2.0 * j) / (double)(current_count - 1) : 0.0;
-      EraseResult res = erase_single_native(mu_source, max_erasure_radius, max_depth_limit);
+      EraseResult res = erase_single_native(mu_source, max_erasure_radius, max_program_length);
 
       gzprintf(file, "%.6f,%s,%.6f,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%d,%d\n",
                p, fmt_val(res.erasure_distance).c_str(), mu_source,
@@ -84,7 +84,7 @@ void erasures(NumericVector momenta, std::string dir, int n_threads = 0) {
                res.stern_brocot_path.c_str(), res.minimal_program.c_str(),
                fmt_val(res.minimal_program_length).c_str(), fmt_val(res.shannon_entropy).c_str(),
                fmt_val(res.left_count).c_str(), fmt_val(res.right_count).c_str(),
-               max_depth_limit, (int)res.found);
+               max_program_length, (int)res.found);
     }
     gzclose(file);
   });
