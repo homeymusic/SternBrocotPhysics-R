@@ -67,7 +67,7 @@ EraseResult erase_single_native(double microstate, double max_erasure_radius, in
       if (move_right) {
         stern_brocot_path += "R";
         minimal_program += "1";
-      } else {
+      } else { // move left
         stern_brocot_path += "L";
         minimal_program += "0";
       }
