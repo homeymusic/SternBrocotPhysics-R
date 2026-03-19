@@ -54,15 +54,19 @@ test_that("Node counts match theoretical expectations for specific momenta", {
     raw_file <- file.path(temp_raw_dir, sprintf("harmonic_oscillator_erasures_P_%s.csv.gz", m_str))
 
     # --- REFACTORED TEST LOGIC ---
-    # Call the production function directly instead of recreating its logic
+    # Call the generic production function with the specific target column
     if (file.exists(raw_file)) {
-      process_erasure_distance_density(f = raw_file, out_path = fixtures_dir)
+      process_action_densities(
+        f = raw_file,
+        out_path = fixtures_dir,
+        target_cols = c("erasure_distance")
+      )
       unlink(raw_file)
     }
 
     # Added a safety check in case the production function fails/returns NULL
     if (!file.exists(fixture_path)) {
-      fail(sprintf("Fixture file was not created by process_erasure_distance_density for P=%s", m_val))
+      fail(sprintf("Fixture file was not created by process_action_densities for P=%s", m_val))
       next
     }
 
