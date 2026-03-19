@@ -11,42 +11,61 @@ library(ggforce)
 library(patchwork)
 
 # --- 1. Configuration & Data Load ---
-base_dir     <- "/Volumes/SanDisk4TB/SternBrocot-data"
-erasures_dir <- file.path(base_dir, "01_erasures")
-erasure_distance_density_dir  <- file.path(base_dir, "02_erasure_distance_densities")
-observed_state_density_dir  <- file.path(base_dir, "02_observed_state_densities")
-nodes_dir    <- file.path(base_dir, "03_erasure_distance_density_nodes")
-summary_path <- file.path(base_dir, "04_erasure_distance_summary.csv.gz")
+# Strict Prefix Naming: dir_ (Directory), file_ (File Path), dt_ (DataTable)
 
-if (!file.exists(summary_path)) stop("Summary file not found at: ", summary_path)
+dir_base_data_4TB <- "/Volumes/SanDisk4TB/SternBrocot-data"
 
-dt_summary <- fread(summary_path)
+# Pipeline Directories
+dir_01_raw_erasures           <- file.path(dir_base_data_4TB, "01_harmonic_oscillator_erasures")
+dir_02_densities              <- file.path(dir_base_data_4TB, "02_harmonic_oscillator_densities")
+dir_03_nodes                  <- file.path(dir_base_data_4TB, "03_harmonic_oscillator_nodes")
+dir_04_summary                <- file.path(dir_base_data_4TB, "04_harmonic_oscillator_summary") # NEW
+
+# Summary Files (Routing to the new dir_04_summary)
+file_04_summary_erasure_distance       <- file.path(dir_04_summary, "harmonic_oscillator_erasure_distance_summary.csv.gz")
+file_04_summary_minimal_action_state   <- file.path(dir_04_summary, "harmonic_oscillator_minimal_action_state_summary.csv.gz")
+file_04_summary_minimal_program_length <- file.path(dir_04_summary, "harmonic_oscillator_minimal_program_length_summary.csv.gz")
+
+if (!file.exists(file_04_summary_erasure_distance)) {
+  stop("Erasure Distance Summary file not found at: ", file_04_summary_erasure_distance)
+}
+
+# In-Memory Data Tables (Peers loaded symmetrically)
+dt_summary_erasure_distance <- if (file.exists(file_04_summary_erasure_distance)) fread(file_04_summary_erasure_distance) else data.table()
+dt_summary_minimal_action_state <- if (file.exists(file_04_summary_minimal_action_state)) fread(file_04_summary_minimal_action_state) else data.table()
+dt_summary_minimal_program_length <- if (file.exists(file_04_summary_minimal_program_length)) fread(file_04_summary_minimal_program_length) else data.table()
 
 # --- 2. Manual Selection Logic (Hand-Picked Momenta) ---
-dt_handpicked <- data.table(
-  normalized_momentum = c(0.5, 0.876, 1.065, 1.354, 1.991, 2.308, 2.467, 2.640, 2.829, 2.98, 3.268, 100.0),
+dt_handpicked_momenta <- data.table(
+  normalized_momentum = 2*c(0.5, 0.876, 1.065, 1.354, 1.991, 2.308, 2.467, 2.640, 2.829, 2.98, 3.268, 100.0),
   expected_nodes = c(0:10, 29)
 )
 
-# Rolling join to find the closest actual experimental data points
-dt_selected <- dt_summary[dt_handpicked, on = .(normalized_momentum), roll = "nearest"]
+# Rolling joins to find the closest actual experimental data points for each peer metric
+dt_selected_erasure_distance <- dt_summary_erasure_distance[
+  dt_handpicked_momenta, on = .(normalized_momentum), roll = "nearest"
+]
+
+dt_selected_minimal_action_state <- dt_summary_minimal_action_state[
+  dt_handpicked_momenta, on = .(normalized_momentum), roll = "nearest"
+]
 ```
 
-```{r combined-grid-plot-erasure-distance, echo=FALSE, fig.width=14, fig.height=25, warning=FALSE, message=FALSE}
-# --- Plot 1: Combined Grayscale Small Multiples ---
-render_combined_erasure_distance_grid <- function(matches_dt) {
+```{r plot-1A-combined-grid-erasure-distance, echo=FALSE, fig.width=14, fig.height=25, warning=FALSE, message=FALSE}
+# --- Plot 1A: Combined Grayscale Small Multiples (Erasure Distance) ---
+render_combined_erasure_distance_grid <- function(dt_target_momenta) {
   plot_list <- list()
   
-  for (i in seq_len(nrow(matches_dt))) {
-    row <- matches_dt[i]
-    q_val <- row$normalized_momentum
-    q_str <- sprintf("%013.6f", q_val)
+  for (i in seq_len(nrow(dt_target_momenta))) {
+    current_row <- dt_target_momenta[i]
+    momentum_val <- current_row$normalized_momentum
+    momentum_str_padded <- sprintf("%013.6f", momentum_val)
     
     # ---------------------------------------------------------
     # 1. Conjugate Quanta (Left Column)
     # ---------------------------------------------------------
-    a_base <- q_val / 0.5
-    b_base <- 0.5 / q_val
+    a_base <- momentum_val / 0.5
+    b_base <- 0.5 / momentum_val
     scaling_factor <- 90 / max(a_base, b_base) 
     
     ellipse_df <- data.frame(
@@ -75,13 +94,13 @@ render_combined_erasure_distance_grid <- function(matches_dt) {
     # ---------------------------------------------------------
     # 2. Microstate vs. minimal_action_state (Middle Column)
     # ---------------------------------------------------------
-    f_path <- file.path(erasures_dir, sprintf("erasures_P_%s.csv.gz", q_str))
+    file_raw_erasures <- file.path(dir_01_raw_erasures, sprintf("harmonic_oscillator_erasures_P_%s.csv.gz", momentum_str_padded))
     p_scat <- ggplot() + theme_void() + theme(aspect.ratio = 1, plot.margin = margin(5, 5, 5, 5)) 
     
-    if (file.exists(f_path)) {
-      dt_found <- fread(f_path)[found == 1]
-      if (nrow(dt_found) > 0) {
-        p_scat <- ggplot(dt_found, aes(x = microstate, y = minimal_action_state)) +
+    if (file.exists(file_raw_erasures)) {
+      dt_raw_found <- fread(file_raw_erasures)[found == 1]
+      if (nrow(dt_raw_found) > 0) {
+        p_scat <- ggplot(dt_raw_found, aes(x = microstate, y = minimal_action_state)) +
           geom_point(alpha = 0.25, size = 0.1, color = "black") + 
           theme_minimal() +
           theme(axis.title = element_blank(), 
@@ -91,43 +110,44 @@ render_combined_erasure_distance_grid <- function(matches_dt) {
                 plot.margin = margin(5, 5, 5, 5))
       }
     }
-    if (i == 1) p_scat <- p_scat + labs(title = "Observed vs. Microstate") + 
+    if (i == 1) p_scat <- p_scat + labs(title = "Minimal vs. Micro") + 
         theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14))
     
     # ---------------------------------------------------------
     # 3. Coordinate Density (Right Column)
     # ---------------------------------------------------------
-    d_path <- file.path(erasure_distance_density_dir, sprintf("erasure_distance_density_P_%s.csv.gz", q_str))
-    n_path <- file.path(nodes_dir, sprintf("erasure_distance_nodes_P_%s.csv.gz", q_str))
+    file_density_erasure_distance <- file.path(dir_02_densities, sprintf("harmonic_oscillator_erasure_distance_density_P_%s.csv.gz", momentum_str_padded))
+    file_nodes_erasure_distance   <- file.path(dir_03_nodes, sprintf("harmonic_oscillator_erasure_distance_nodes_P_%s.csv.gz", momentum_str_padded))
     
     p_den <- ggplot() + theme_void() + theme(aspect.ratio = 1, plot.margin = margin(5, 5, 5, 5))
     
-    if (file.exists(d_path)) {
-      h_pts <- fread(d_path)
-      dt_active <- h_pts[density_count > 0]
-      if (nrow(dt_active) > 0) {
-        max_h <- max(dt_active$density_count, na.rm = TRUE)
-        q_diff_raw <- if(nrow(dt_active) > 1) median(diff(dt_active$coordinate_q), na.rm=TRUE) else 1.0
-        max_q_edge <- max(abs(dt_active$coordinate_q), na.rm = TRUE) + (q_diff_raw / 2)
+    if (file.exists(file_density_erasure_distance)) {
+      dt_histogram_points <- fread(file_density_erasure_distance)
+      dt_active_bins <- dt_histogram_points[density_count > 0]
+      
+      if (nrow(dt_active_bins) > 0) {
+        max_density_height <- max(dt_active_bins$density_count, na.rm = TRUE)
+        raw_coordinate_width <- if(nrow(dt_active_bins) > 1) median(diff(dt_active_bins$coordinate_q), na.rm=TRUE) else 1.0
+        max_coordinate_edge <- max(abs(dt_active_bins$coordinate_q), na.rm = TRUE) + (raw_coordinate_width / 2)
         
-        dt_active[, c("pct_density", "pct_q") := list((density_count/max_h)*100, (coordinate_q/max_q_edge)*100)]
-        pct_width <- (q_diff_raw / max_q_edge) * 100
+        dt_active_bins[, c("pct_density", "pct_q") := list((density_count/max_density_height)*100, (coordinate_q/max_coordinate_edge)*100)]
+        pct_bar_width <- (raw_coordinate_width / max_coordinate_edge) * 100
         
-        h_plot_data <- rbind(
-          data.table(pct_q = min(dt_active$pct_q) - pct_width, pct_density = 0),
-          dt_active[, .(pct_q, pct_density)],
-          data.table(pct_q = max(dt_active$pct_q) + pct_width, pct_density = 0)
+        dt_skyline_outline <- rbind(
+          data.table(pct_q = min(dt_active_bins$pct_q) - pct_bar_width, pct_density = 0),
+          dt_active_bins[, .(pct_q, pct_density)],
+          data.table(pct_q = max(dt_active_bins$pct_q) + pct_bar_width, pct_density = 0)
         )
         
-        n_pts <- if(file.exists(n_path)) fread(n_path) else data.table()
-        if (nrow(n_pts) > 0 && "coordinate_q" %in% names(n_pts)) {
-          n_pts[, c("pct_density", "pct_q") := list((density_count/max_h)*100, (coordinate_q/max_q_edge)*100)]
+        dt_node_coordinates <- if(file.exists(file_nodes_erasure_distance)) fread(file_nodes_erasure_distance) else data.table()
+        if (nrow(dt_node_coordinates) > 0 && "coordinate_q" %in% names(dt_node_coordinates)) {
+          dt_node_coordinates[, c("pct_density", "pct_q") := list((density_count/max_density_height)*100, (coordinate_q/max_coordinate_edge)*100)]
         }
         
         p_den <- ggplot() +
-          geom_col(data = dt_active, aes(x = pct_q, y = pct_density), width = pct_width, fill = "gray85") +
-          geom_step(data = h_plot_data, aes(x = pct_q, y = pct_density), color = "black", linewidth = 0.5, direction = "mid") + 
-          geom_point(data = n_pts, aes(x = pct_q, y = pct_density), color = "black", size = 1.5) +
+          geom_col(data = dt_active_bins, aes(x = pct_q, y = pct_density), width = pct_bar_width, fill = "gray85") +
+          geom_step(data = dt_skyline_outline, aes(x = pct_q, y = pct_density), color = "black", linewidth = 0.5, direction = "mid") + 
+          geom_point(data = dt_node_coordinates, aes(x = pct_q, y = pct_density), color = "black", size = 1.5) +
           coord_cartesian(xlim = c(-100, 100), ylim = c(0, 105)) +
           theme_minimal() +
           theme(axis.title = element_blank(), 
@@ -153,34 +173,33 @@ render_combined_erasure_distance_grid <- function(matches_dt) {
   # ---------------------------------------------------------
   final_grid <- wrap_plots(plot_list, ncol = 3) +
     plot_annotation(
-      title = "Quantum Harmonic Oscillator",
+      title = "Structural Evolution of Erasure Distance",
       subtitle = "Nodes 0 through 10 and 29",
       theme = theme(plot.title = element_text(size = 20, face = "bold", hjust = 0.5, family = "mono"),
                     plot.subtitle = element_text(size = 14, hjust = 0.5, color = "gray30"))
     )
   
-  print(final_grid)
+  if(nrow(dt_target_momenta) > 0) print(final_grid)
 }
 
-# Execute the plot
-render_combined_erasure_distance_grid(dt_selected)
+render_combined_erasure_distance_grid(dt_selected_erasure_distance)
 ```
 
-```{r combined-grid-plot-observed-state, echo=FALSE, fig.width=14, fig.height=25, warning=FALSE, message=FALSE}
-# --- Plot 1: Combined Grayscale Small Multiples ---
-render_combined_observed_state_grid <- function(matches_dt) {
+```{r plot-1B-combined-grid-minimal-action-state, echo=FALSE, fig.width=14, fig.height=25, warning=FALSE, message=FALSE}
+# --- Plot 1B: Combined Grayscale Small Multiples (Minimal Action State) ---
+render_combined_minimal_action_state_grid <- function(dt_target_momenta) {
   plot_list <- list()
   
-  for (i in seq_len(nrow(matches_dt))) {
-    row <- matches_dt[i]
-    q_val <- row$normalized_momentum
-    q_str <- sprintf("%013.6f", q_val)
+  for (i in seq_len(nrow(dt_target_momenta))) {
+    current_row <- dt_target_momenta[i]
+    momentum_val <- current_row$normalized_momentum
+    momentum_str_padded <- sprintf("%013.6f", momentum_val)
     
     # ---------------------------------------------------------
     # 1. Conjugate Quanta (Left Column)
     # ---------------------------------------------------------
-    a_base <- q_val / 0.5
-    b_base <- 0.5 / q_val
+    a_base <- momentum_val / 0.5
+    b_base <- 0.5 / momentum_val
     scaling_factor <- 90 / max(a_base, b_base) 
     
     ellipse_df <- data.frame(
@@ -203,21 +222,20 @@ render_combined_observed_state_grid <- function(matches_dt) {
             aspect.ratio = 1,
             plot.margin = margin(5, 5, 5, 5))
     
-    if (i == 1) p_ell <- p_ell + labs(title = "Conjugate Areas") + 
+    if (i == 1) p_ell <- p_ell + labs(title = "Conjugate Blobs") + 
         theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14))
     
     # ---------------------------------------------------------
     # 2. Microstate vs. minimal_action_state (Middle Column)
     # ---------------------------------------------------------
-    f_path <- file.path(erasures_dir, sprintf("erasures_P_%s.csv.gz", q_str))
+    file_raw_erasures <- file.path(dir_01_raw_erasures, sprintf("harmonic_oscillator_erasures_P_%s.csv.gz", momentum_str_padded))
     p_scat <- ggplot() + theme_void() + theme(aspect.ratio = 1, plot.margin = margin(5, 5, 5, 5)) 
     
-    if (file.exists(f_path)) {
-      dt_found <- fread(f_path)[found == 1]
+    if (file.exists(file_raw_erasures)) {
+      dt_raw_found <- fread(file_raw_erasures)[found == 1]
       
-      if (nrow(dt_found) > 0) {
-        # Strictly using 'minimal_action_state' as requested
-        p_scat <- ggplot(dt_found, aes(x = microstate, y = minimal_action_state)) +
+      if (nrow(dt_raw_found) > 0) {
+        p_scat <- ggplot(dt_raw_found, aes(x = microstate, y = minimal_action_state)) +
           geom_point(alpha = 0.25, size = 0.1, color = "black") + 
           theme_minimal() +
           theme(axis.title = element_blank(), 
@@ -228,30 +246,44 @@ render_combined_observed_state_grid <- function(matches_dt) {
       }
     }
     
-    if (i == 1) p_scat <- p_scat + labs(title = "Observed vs. Microstate") + 
+    if (i == 1) p_scat <- p_scat + labs(title = "Minimal vs. Micro") + 
         theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14))
     
     # ---------------------------------------------------------
-    # 3. Coordinate Density (Right Column)
+    # 3. Coordinate Density & Nodes (Right Column)
     # ---------------------------------------------------------
-    d_path <- file.path(observed_state_density_dir, sprintf("observed_state_density_P_%s.csv.gz", q_str))
+    file_density_minimal_action_state <- file.path(dir_02_densities, sprintf("harmonic_oscillator_minimal_action_state_density_P_%s.csv.gz", momentum_str_padded))
+    file_nodes_minimal_action_state   <- file.path(dir_03_nodes, sprintf("harmonic_oscillator_minimal_action_state_nodes_P_%s.csv.gz", momentum_str_padded))
 
     p_den <- ggplot() + theme_void() + theme(aspect.ratio = 1, plot.margin = margin(5, 5, 5, 5))
     
-    if (file.exists(d_path)) {
-      h_pts <- fread(d_path)
-      dt_active <- h_pts[density_count > 0]
+    if (file.exists(file_density_minimal_action_state)) {
+      dt_histogram_points <- fread(file_density_minimal_action_state)
+      dt_active_bins <- dt_histogram_points[density_count > 0]
       
-      if (nrow(dt_active) > 0) {
-        max_h <- max(dt_active$density_count, na.rm = TRUE)
-        q_diff_raw <- if(nrow(dt_active) > 1) median(diff(dt_active$coordinate_q), na.rm=TRUE) else 1.0
-        max_q_edge <- max(abs(dt_active$coordinate_q), na.rm = TRUE) + (q_diff_raw / 2)
+      if (nrow(dt_active_bins) > 0) {
+        max_density_height <- max(dt_active_bins$density_count, na.rm = TRUE)
+        raw_coordinate_width <- if(nrow(dt_active_bins) > 1) median(diff(dt_active_bins$coordinate_q), na.rm=TRUE) else 1.0
+        max_coordinate_edge <- max(abs(dt_active_bins$coordinate_q), na.rm = TRUE) + (raw_coordinate_width / 2)
         
-        dt_active[, c("pct_density", "pct_q") := list((density_count/max_h)*100, (coordinate_q/max_q_edge)*100)]
-        pct_width <- (q_diff_raw / max_q_edge) * 100
+        dt_active_bins[, c("pct_density", "pct_q") := list((density_count/max_density_height)*100, (coordinate_q/max_coordinate_edge)*100)]
+        pct_bar_width <- (raw_coordinate_width / max_coordinate_edge) * 100
+        
+        dt_skyline_outline <- rbind(
+          data.table(pct_q = min(dt_active_bins$pct_q) - pct_bar_width, pct_density = 0),
+          dt_active_bins[, .(pct_q, pct_density)],
+          data.table(pct_q = max(dt_active_bins$pct_q) + pct_bar_width, pct_density = 0)
+        )
+        
+        dt_node_coordinates <- if(file.exists(file_nodes_minimal_action_state)) fread(file_nodes_minimal_action_state) else data.table()
+        if (nrow(dt_node_coordinates) > 0 && "coordinate_q" %in% names(dt_node_coordinates)) {
+          dt_node_coordinates[, c("pct_density", "pct_q") := list((density_count/max_density_height)*100, (coordinate_q/max_coordinate_edge)*100)]
+        }
         
         p_den <- ggplot() +
-          geom_col(data = dt_active, aes(x = pct_q, y = pct_density), width = pct_width * 0.8, fill = "gray50") +
+          geom_col(data = dt_active_bins, aes(x = pct_q, y = pct_density), width = pct_bar_width, fill = "gray85") +
+          geom_step(data = dt_skyline_outline, aes(x = pct_q, y = pct_density), color = "black", linewidth = 0.5, direction = "mid") + 
+          geom_point(data = dt_node_coordinates, aes(x = pct_q, y = pct_density), color = "black", size = 1.5) +
           coord_cartesian(xlim = c(-100, 100), ylim = c(0, 105)) +
           theme_minimal() +
           theme(axis.title = element_blank(), 
@@ -262,7 +294,7 @@ render_combined_observed_state_grid <- function(matches_dt) {
       }
     }
     
-    if (i == 1) p_den <- p_den + labs(title = "Observed State Density") + 
+    if (i == 1) p_den <- p_den + labs(title = "Minimal Action Density") + 
         theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14))
     
     # ---------------------------------------------------------
@@ -278,17 +310,16 @@ render_combined_observed_state_grid <- function(matches_dt) {
   # ---------------------------------------------------------
   final_grid <- wrap_plots(plot_list, ncol = 3) +
     plot_annotation(
-      title = "Structural Evolution of Observed States",
-      subtitle = "Nodes 0 through 10 rendered in strict grayscale phase space",
+      title = "Structural Evolution of Minimal Action States",
+      subtitle = "Nodes 0 through 10 and 29",
       theme = theme(plot.title = element_text(size = 20, face = "bold", hjust = 0.5, family = "mono"),
                     plot.subtitle = element_text(size = 14, hjust = 0.5, color = "gray30"))
     )
   
-  print(final_grid)
+  if(nrow(dt_target_momenta) > 0) print(final_grid)
 }
 
-# Execute the plot
-render_combined_observed_state_grid(dt_selected)
+render_combined_minimal_action_state_grid(dt_selected_minimal_action_state)
 ```
 
 ---
@@ -297,80 +328,137 @@ render_combined_observed_state_grid(dt_selected)
 
 ---
 
-```{r overview-scatter-plot, echo=FALSE, results='asis', message=FALSE, warning=FALSE, fig.width=12, fig.height=8}
-# --- Plot 2: Overview Scatter Plot (Filtered to Nodes 0-10) ---
+```{r plot-2A-overview-scatter-erasure-distance, echo=FALSE, results='asis', message=FALSE, warning=FALSE, fig.width=12, fig.height=8}
+# --- Plot 2A: Overview Scatter Plot (Erasure Distance) ---
 qho_backbone <- function(P) { P^2 }
 
-dt_plot_bg <- dt_summary[node_count >= 0 & node_count <= 10]
-
-p_ov_action <- ggplot() +
-  stat_function(fun = qho_backbone, 
-                n = 1001, 
-                color = "black", 
-                linetype = "dashed", 
-                alpha = 0.5, 
-                linewidth = 0.8) +
-  geom_point(data = dt_plot_bg[order(complexity_ntv)], 
-             aes(x = normalized_momentum, y = node_count, color = complexity_ntv), 
-             size = 1.5, alpha = 0.6) +
-  scale_color_gradient(low = "black", high = "grey80", name = "Variation") +  
-  geom_point(data = dt_selected, aes(x = normalized_momentum, y = node_count), 
-             color = "black", size = 5, shape = 21, fill = NA, stroke = 1.2) +
-  geom_text(data = dt_selected, aes(x = normalized_momentum, y = node_count, 
-            label = sprintf("n=%d P=%.3f v=%.2f", node_count, normalized_momentum, complexity_ntv)),
-            nudge_y = 0.35, size = 3, fontface = "bold", family = "mono") +
-  labs(title = "Node Count and Momentum: Hand-Picked States (0-10)",
-       subtitle = "Selection constrained to the first 10 harmonic nodes",
-       x = "Normalized Momentum (P)", y = "Nodes (n)") +
-  scale_y_continuous(breaks = 0:10) +
-  coord_cartesian(xlim = c(0.4, 3.5), ylim = c(-0.5, 11)) +
-  theme_minimal() +
-  theme(panel.grid.minor = element_blank(), plot.title = element_text(face = "bold", size = 14))
-
-print(p_ov_action)
-cat("\n\n---\n\n")
+if(nrow(dt_summary_erasure_distance) > 0) {
+  dt_background_erasure_distance <- dt_summary_erasure_distance[node_count >= 0]
+  
+  p_ov_action_a <- ggplot() +
+    stat_function(fun = qho_backbone, 
+                  n = 1001, color = "black", linetype = "dashed", alpha = 0.5, linewidth = 0.8) +
+    geom_point(data = dt_background_erasure_distance[order(complexity_ntv)], 
+               aes(x = normalized_momentum, y = node_count, color = complexity_ntv), 
+               size = 1.5, alpha = 0.6) +
+    scale_color_gradient(low = "black", high = "grey80", name = "Variation") +  
+    geom_point(data = dt_selected_erasure_distance, aes(x = normalized_momentum, y = node_count), 
+               color = "black", size = 5, shape = 21, fill = NA, stroke = 1.2) +
+    geom_text(data = dt_selected_erasure_distance, aes(x = normalized_momentum, y = node_count, 
+              label = sprintf("n=%d P=%.3f v=%.2f", node_count, normalized_momentum, complexity_ntv)),
+              nudge_y = 0.35, size = 3, fontface = "bold", family = "mono") +
+    labs(title = "Node Count vs Momentum: Erasure Distance",
+         subtitle = "Continuous phase-space evolution to P=10",
+         x = "Normalized Momentum (P)", y = "Nodes (n)") +
+    scale_y_continuous(breaks = seq(0, 30, by=5)) +
+    coord_cartesian(xlim = c(0.1, 10.5), ylim = c(-0.5, 32)) +
+    theme_minimal() +
+    theme(panel.grid.minor = element_blank(), plot.title = element_text(face = "bold", size = 14))
+  
+  print(p_ov_action_a)
+  cat("\n\n---\n\n")
+}
 ```
 
-```{r individual-detail-plots, echo=FALSE, results='asis', message=FALSE, warning=FALSE, fig.width=10, fig.height=6}
-# --- Plot 3: Profiles ---
-render_profiles <- function(matches_dt, dot_color = "black") {
-  for (i in seq_len(nrow(matches_dt))) {
-    row <- matches_dt[i]
-    q_val <- row$normalized_momentum
-    q_str <- sprintf("%013.6f", q_val) # Standardized formatting
+```{r plot-2B-overview-scatter-minimal-action-state, echo=FALSE, results='asis', message=FALSE, warning=FALSE, fig.width=12, fig.height=8}
+# --- Plot 2B: Overview Scatter Plot (Minimal Action State) ---
+if(nrow(dt_summary_minimal_action_state) > 0) {
+  dt_background_minimal_action_state <- dt_summary_minimal_action_state[node_count >= 0]
+  
+  p_ov_action_b <- ggplot() +
+    stat_function(fun = qho_backbone, 
+                  n = 1001, color = "black", linetype = "dashed", alpha = 0.5, linewidth = 0.8) +
+    geom_point(data = dt_background_minimal_action_state[order(complexity_ntv)], 
+               aes(x = normalized_momentum, y = node_count, color = complexity_ntv), 
+               size = 1.5, alpha = 0.6) +
+    scale_color_gradient(low = "black", high = "grey80", name = "Variation") +  
+    geom_point(data = dt_selected_minimal_action_state, aes(x = normalized_momentum, y = node_count), 
+               color = "black", size = 5, shape = 21, fill = NA, stroke = 1.2) +
+    geom_text(data = dt_selected_minimal_action_state, aes(x = normalized_momentum, y = node_count, 
+              label = sprintf("n=%d P=%.3f v=%.2f", node_count, normalized_momentum, complexity_ntv)),
+              nudge_y = 0.35, size = 3, fontface = "bold", family = "mono") +
+    labs(title = "Node Count vs Momentum: Minimal Action State",
+         subtitle = "Continuous phase-space evolution to P=10",
+         x = "Normalized Momentum (P)", y = "Nodes (n)") +
+    scale_y_continuous(breaks = seq(0, 30, by=5)) +
+    coord_cartesian(xlim = c(0.1, 10.5), ylim = c(-0.5, 32)) +
+    theme_minimal() +
+    theme(panel.grid.minor = element_blank(), plot.title = element_text(face = "bold", size = 14))
+  
+  print(p_ov_action_b)
+  cat("\n\n---\n\n")
+}
+```
+
+```{r plot-3-program-length-evolution, echo=FALSE, results='asis', message=FALSE, warning=FALSE, fig.width=12, fig.height=7}
+# --- Plot 3: Program Length Summary ---
+if (nrow(dt_summary_minimal_program_length) > 0) {
+  
+  p_prog <- ggplot(dt_summary_minimal_program_length, aes(x = normalized_momentum)) +
+    geom_ribbon(aes(ymin = lower, ymax = upper), fill = "grey80", alpha = 0.6) +
+    geom_line(aes(y = mean_len, color = "Mean"), linewidth = 1.2) +
+    geom_line(aes(y = median_len, color = "Median"), linetype = "dashed", linewidth = 1) +
+    scale_color_manual(name = "Metric", values = c("Mean" = "black", "Median" = "gray30")) +
+    labs(title = "Evolution of Algorithmic Complexity",
+         subtitle = "Mean, Median, and ±1 Standard Deviation of Minimal Program Length over Momentum",
+         x = "Normalized Momentum (P)", 
+         y = "Minimal Program Length (bits)") +
+    coord_cartesian(xlim = c(0.1, 10.5)) + 
+    theme_minimal() +
+    theme(
+      plot.title = element_text(family = "mono", face = "bold", size = 16),
+      plot.subtitle = element_text(size = 12, color = "gray40"),
+      legend.position = "bottom",
+      panel.grid.minor = element_blank()
+    )
+  
+  print(p_prog)
+  cat("\n\n---\n\n")
+  
+} else {
+  cat("*(Program length summary data not yet generated)*\n\n---\n\n")
+}
+```
+
+```{r plot-4A-individual-profiles-erasure-distance, echo=FALSE, results='asis', message=FALSE, warning=FALSE, fig.width=10, fig.height=6}
+# --- Plot 4A: Profiles (Erasure Distance) ---
+render_profiles_erasure_distance <- function(dt_target_momenta, dot_color = "black") {
+  for (i in seq_len(nrow(dt_target_momenta))) {
+    current_row <- dt_target_momenta[i]
+    momentum_val <- current_row$normalized_momentum
+    momentum_str_padded <- sprintf("%013.6f", momentum_val)
     
-    d_path <- file.path(erasure_distance_density_dir, sprintf("erasure_distance_density_P_%s.csv.gz", q_str))
-    n_path <- file.path(nodes_dir, sprintf("erasure_distance_nodes_P_%s.csv.gz", q_str))
+    file_density <- file.path(dir_02_densities, sprintf("harmonic_oscillator_erasure_distance_density_P_%s.csv.gz", momentum_str_padded))
+    file_nodes   <- file.path(dir_03_nodes, sprintf("harmonic_oscillator_erasure_distance_nodes_P_%s.csv.gz", momentum_str_padded))
 
-    if (file.exists(d_path)) {
-      h_pts <- fread(d_path)
-      dt_active <- h_pts[density_count > 0]
-      if (nrow(dt_active) == 0) next
+    if (file.exists(file_density)) {
+      dt_histogram_points <- fread(file_density)
+      dt_active_bins <- dt_histogram_points[density_count > 0]
+      if (nrow(dt_active_bins) == 0) next
 
-      max_h <- max(dt_active$density_count, na.rm = TRUE)
-      q_diff_raw <- if(nrow(dt_active) > 1) median(diff(dt_active$coordinate_q), na.rm=TRUE) else 1.0
-      max_q_edge <- max(abs(dt_active$coordinate_q), na.rm = TRUE) + (q_diff_raw / 2)
+      max_density_height <- max(dt_active_bins$density_count, na.rm = TRUE)
+      raw_coordinate_width <- if(nrow(dt_active_bins) > 1) median(diff(dt_active_bins$coordinate_q), na.rm=TRUE) else 1.0
+      max_coordinate_edge <- max(abs(dt_active_bins$coordinate_q), na.rm = TRUE) + (raw_coordinate_width / 2)
       
-      # Safe assignment
-      dt_active[, c("pct_density", "pct_q") := list((density_count/max_h)*100, (coordinate_q/max_q_edge)*100)]
-      pct_width <- (q_diff_raw / max_q_edge) * 100
+      dt_active_bins[, c("pct_density", "pct_q") := list((density_count/max_density_height)*100, (coordinate_q/max_coordinate_edge)*100)]
+      pct_bar_width <- (raw_coordinate_width / max_coordinate_edge) * 100
       
-      h_plot_data <- rbind(
-        data.table(pct_q = min(dt_active$pct_q) - pct_width, pct_density = 0),
-        dt_active[, .(pct_q, pct_density)],
-        data.table(pct_q = max(dt_active$pct_q) + pct_width, pct_density = 0)
+      dt_skyline_outline <- rbind(
+        data.table(pct_q = min(dt_active_bins$pct_q) - pct_bar_width, pct_density = 0),
+        dt_active_bins[, .(pct_q, pct_density)],
+        data.table(pct_q = max(dt_active_bins$pct_q) + pct_bar_width, pct_density = 0)
       )
 
-      n_pts <- if(file.exists(n_path)) fread(n_path) else data.table()
-      if (nrow(n_pts) > 0 && "coordinate_q" %in% names(n_pts)) {
-        n_pts[, c("pct_density", "pct_q") := list((density_count/max_h)*100, (coordinate_q/max_q_edge)*100)]
+      dt_node_coordinates <- if(file.exists(file_nodes)) fread(file_nodes) else data.table()
+      if (nrow(dt_node_coordinates) > 0 && "coordinate_q" %in% names(dt_node_coordinates)) {
+        dt_node_coordinates[, c("pct_density", "pct_q") := list((density_count/max_density_height)*100, (coordinate_q/max_coordinate_edge)*100)]
       }
       
       p <- ggplot() +
-        geom_col(data = dt_active, aes(x = pct_q, y = pct_density), width = pct_width, fill = "grey85") +
-        geom_step(data = h_plot_data, aes(x = pct_q, y = pct_density), color = "black", linewidth = 0.7, direction = "mid") + 
-        geom_point(data = n_pts, aes(x = pct_q, y = pct_density), color = dot_color, size = 3) +
-        labs(title = sprintf("Nodes: %02d | P: %3.3f | NTV: %2.2f", row$node_count, q_val, row$complexity_ntv),
+        geom_col(data = dt_active_bins, aes(x = pct_q, y = pct_density), width = pct_bar_width, fill = "grey85") +
+        geom_step(data = dt_skyline_outline, aes(x = pct_q, y = pct_density), color = "black", linewidth = 0.7, direction = "mid") + 
+        geom_point(data = dt_node_coordinates, aes(x = pct_q, y = pct_density), color = dot_color, size = 3) +
+        labs(title = sprintf("Erasure Distance | Nodes: %02d | P: %3.3f | NTV: %2.2f", current_row$node_count, momentum_val, current_row$complexity_ntv),
              x = "Amplitude (%)", y = "Density %") +
         coord_cartesian(xlim = c(-100, 100), ylim = c(0, 105)) +
         scale_x_continuous(breaks = seq(-100, 100, 50)) +
@@ -383,26 +471,81 @@ render_profiles <- function(matches_dt, dot_color = "black") {
     }
   }
 }
-render_profiles(dt_selected, "black")
+render_profiles_erasure_distance(dt_selected_erasure_distance, "black")
+```
 
-# --- Plot 4: Micro Macro ---
-render_micro_macro_scatters <- function(matches_dt) {
-  for (i in seq_len(nrow(matches_dt))) {
-    row <- matches_dt[i]
-    q_val <- row$normalized_momentum
-    q_str <- sprintf("%013.6f", q_val)
-    f_path <- file.path(erasures_dir, sprintf("erasures_P_%s.csv.gz", q_str))
+```{r plot-4B-individual-profiles-minimal-action-state, echo=FALSE, results='asis', message=FALSE, warning=FALSE, fig.width=10, fig.height=6}
+# --- Plot 4B: Profiles (Minimal Action State) ---
+render_profiles_minimal_action_state <- function(dt_target_momenta, dot_color = "black") {
+  for (i in seq_len(nrow(dt_target_momenta))) {
+    current_row <- dt_target_momenta[i]
+    momentum_val <- current_row$normalized_momentum
+    momentum_str_padded <- sprintf("%013.6f", momentum_val)
     
-    if (file.exists(f_path)) {
-      dt_found <- fread(f_path)[found == 1]
-      if (nrow(dt_found) == 0) next
+    file_density <- file.path(dir_02_densities, sprintf("harmonic_oscillator_minimal_action_state_density_P_%s.csv.gz", momentum_str_padded))
+    file_nodes   <- file.path(dir_03_nodes, sprintf("harmonic_oscillator_minimal_action_state_nodes_P_%s.csv.gz", momentum_str_padded))
+
+    if (file.exists(file_density)) {
+      dt_histogram_points <- fread(file_density)
+      dt_active_bins <- dt_histogram_points[density_count > 0]
+      if (nrow(dt_active_bins) == 0) next
+
+      max_density_height <- max(dt_active_bins$density_count, na.rm = TRUE)
+      raw_coordinate_width <- if(nrow(dt_active_bins) > 1) median(diff(dt_active_bins$coordinate_q), na.rm=TRUE) else 1.0
+      max_coordinate_edge <- max(abs(dt_active_bins$coordinate_q), na.rm = TRUE) + (raw_coordinate_width / 2)
       
-      p <- ggplot(dt_found, aes(x = microstate, y = minimal_action_state)) +
+      dt_active_bins[, c("pct_density", "pct_q") := list((density_count/max_density_height)*100, (coordinate_q/max_coordinate_edge)*100)]
+      pct_bar_width <- (raw_coordinate_width / max_coordinate_edge) * 100
+      
+      dt_skyline_outline <- rbind(
+        data.table(pct_q = min(dt_active_bins$pct_q) - pct_bar_width, pct_density = 0),
+        dt_active_bins[, .(pct_q, pct_density)],
+        data.table(pct_q = max(dt_active_bins$pct_q) + pct_bar_width, pct_density = 0)
+      )
+
+      dt_node_coordinates <- if(file.exists(file_nodes)) fread(file_nodes) else data.table()
+      if (nrow(dt_node_coordinates) > 0 && "coordinate_q" %in% names(dt_node_coordinates)) {
+        dt_node_coordinates[, c("pct_density", "pct_q") := list((density_count/max_density_height)*100, (coordinate_q/max_coordinate_edge)*100)]
+      }
+      
+      p <- ggplot() +
+        geom_col(data = dt_active_bins, aes(x = pct_q, y = pct_density), width = pct_bar_width, fill = "grey85") +
+        geom_step(data = dt_skyline_outline, aes(x = pct_q, y = pct_density), color = "black", linewidth = 0.7, direction = "mid") + 
+        geom_point(data = dt_node_coordinates, aes(x = pct_q, y = pct_density), color = dot_color, size = 3) +
+        labs(title = sprintf("Minimal Action State | Nodes: %02d | P: %3.3f | NTV: %2.2f", current_row$node_count, momentum_val, current_row$complexity_ntv),
+             x = "Amplitude (%)", y = "Density %") +
+        coord_cartesian(xlim = c(-100, 100), ylim = c(0, 105)) +
+        scale_x_continuous(breaks = seq(-100, 100, 50)) +
+        scale_y_continuous(expand = c(0, 0)) +
+        theme_minimal() +
+        theme(plot.title = element_text(family = "mono", face = "bold", size = 11))
+      
+      print(p)
+      cat("\n\n---\n\n")
+    }
+  }
+}
+render_profiles_minimal_action_state(dt_selected_minimal_action_state, "black")
+```
+
+```{r plot-5-through-9-phase-space-scatters, echo=FALSE, results='asis', message=FALSE, warning=FALSE, fig.width=10, fig.height=6}
+# --- Plot 5: Micro Macro ---
+render_micro_macro_scatters <- function(dt_target_momenta) {
+  for (i in seq_len(nrow(dt_target_momenta))) {
+    current_row <- dt_target_momenta[i]
+    momentum_val <- current_row$normalized_momentum
+    momentum_str_padded <- sprintf("%013.6f", momentum_val)
+    file_raw_erasures <- file.path(dir_01_raw_erasures, sprintf("harmonic_oscillator_erasures_P_%s.csv.gz", momentum_str_padded))
+    
+    if (file.exists(file_raw_erasures)) {
+      dt_raw_found <- fread(file_raw_erasures)[found == 1]
+      if (nrow(dt_raw_found) == 0) next
+      
+      p <- ggplot(dt_raw_found, aes(x = microstate, y = minimal_action_state)) +
         geom_point(alpha = 0.4, size = 0.5, color = "black") +
-        labs(title = sprintf("Phase Space Erasure: P = %.6f", q_val),
-             subtitle = sprintf("Nodes: %d | Range: [%.3f, %.3f]", 
-                               row$node_count, min(dt_found$microstate), max(dt_found$microstate)),
-             x = "Microstate", y = "minimal_action_state") +
+        labs(title = sprintf("Phase Space Erasure: P = %.6f", momentum_val),
+             subtitle = sprintf("Range: [%.3f, %.3f]", min(dt_raw_found$microstate), max(dt_raw_found$microstate)),
+             x = "Microstate", y = "Minimal Action State") +
         theme_minimal() +
         theme(plot.title = element_text(family = "mono", face = "bold"))
       
@@ -411,25 +554,24 @@ render_micro_macro_scatters <- function(matches_dt) {
     }
   }
 }
-render_micro_macro_scatters(dt_selected)
+render_micro_macro_scatters(dt_selected_erasure_distance)
 
-# --- Plot 5: Micro Erasure ---
-render_micro_erasure_scatters <- function(matches_dt) {
-  for (i in seq_len(nrow(matches_dt))) {
-    row <- matches_dt[i]
-    q_val <- row$normalized_momentum
-    q_str <- sprintf("%013.6f", q_val)
-    f_path <- file.path(erasures_dir, sprintf("erasures_P_%s.csv.gz", q_str))
+# --- Plot 6: Micro Erasure ---
+render_micro_erasure_scatters <- function(dt_target_momenta) {
+  for (i in seq_len(nrow(dt_target_momenta))) {
+    current_row <- dt_target_momenta[i]
+    momentum_val <- current_row$normalized_momentum
+    momentum_str_padded <- sprintf("%013.6f", momentum_val)
+    file_raw_erasures <- file.path(dir_01_raw_erasures, sprintf("harmonic_oscillator_erasures_P_%s.csv.gz", momentum_str_padded))
     
-    if (file.exists(f_path)) {
-      dt_found <- fread(f_path)[found == 1]
-      if (nrow(dt_found) == 0) next
+    if (file.exists(file_raw_erasures)) {
+      dt_raw_found <- fread(file_raw_erasures)[found == 1]
+      if (nrow(dt_raw_found) == 0) next
       
-      p <- ggplot(dt_found, aes(x = microstate, y = erasure_distance)) +
+      p <- ggplot(dt_raw_found, aes(x = microstate, y = erasure_distance)) +
         geom_point(alpha = 0.4, size = 0.5, color = "black") +
-        labs(title = sprintf("Phase Space Erasure: P = %.6f", q_val),
-             subtitle = sprintf("Nodes: %d | Range: [%.3f, %.3f]", 
-                               row$node_count, min(dt_found$microstate), max(dt_found$microstate)),
+        labs(title = sprintf("Phase Space Erasure: P = %.6f", momentum_val),
+             subtitle = sprintf("Range: [%.3f, %.3f]", min(dt_raw_found$microstate), max(dt_raw_found$microstate)),
              x = "Microstate", y = "Erasure Distance") +
         theme_minimal() +
         theme(plot.title = element_text(family = "mono", face = "bold"))
@@ -439,26 +581,25 @@ render_micro_erasure_scatters <- function(matches_dt) {
     }
   }
 }
-render_micro_erasure_scatters(dt_selected)
+render_micro_erasure_scatters(dt_selected_erasure_distance)
 
-# --- Plot 6: Macro Erasure ---
-render_macro_erasure_scatters <- function(matches_dt) {
-  for (i in seq_len(nrow(matches_dt))) {
-    row <- matches_dt[i]
-    q_val <- row$normalized_momentum
-    q_str <- sprintf("%013.6f", q_val)
-    f_path <- file.path(erasures_dir, sprintf("erasures_P_%s.csv.gz", q_str))
+# --- Plot 7: Macro Erasure ---
+render_macro_erasure_scatters <- function(dt_target_momenta) {
+  for (i in seq_len(nrow(dt_target_momenta))) {
+    current_row <- dt_target_momenta[i]
+    momentum_val <- current_row$normalized_momentum
+    momentum_str_padded <- sprintf("%013.6f", momentum_val)
+    file_raw_erasures <- file.path(dir_01_raw_erasures, sprintf("harmonic_oscillator_erasures_P_%s.csv.gz", momentum_str_padded))
     
-    if (file.exists(f_path)) {
-      dt_found <- fread(f_path)[found == 1]
-      if (nrow(dt_found) == 0) next
+    if (file.exists(file_raw_erasures)) {
+      dt_raw_found <- fread(file_raw_erasures)[found == 1]
+      if (nrow(dt_raw_found) == 0) next
       
-      p <- ggplot(dt_found, aes(x = minimal_action_state, y = erasure_distance)) +
+      p <- ggplot(dt_raw_found, aes(x = minimal_action_state, y = erasure_distance)) +
         geom_point(alpha = 0.4, size = 0.5, color = "black") +
-        labs(title = sprintf("Phase Space Erasure: P = %.6f", q_val),
-             subtitle = sprintf("Nodes: %d | Range: [%.3f, %.3f]", 
-                               row$node_count, min(dt_found$microstate), max(dt_found$microstate)),
-             x = "minimal_action_state", y = "Erasure Distance") +
+        labs(title = sprintf("Phase Space Erasure: P = %.6f", momentum_val),
+             subtitle = sprintf("Range: [%.3f, %.3f]", min(dt_raw_found$microstate), max(dt_raw_found$microstate)),
+             x = "Minimal Action State", y = "Erasure Distance") +
         theme_minimal() +
         theme(plot.title = element_text(family = "mono", face = "bold"))
       
@@ -467,26 +608,25 @@ render_macro_erasure_scatters <- function(matches_dt) {
     }
   }
 }
-render_macro_erasure_scatters(dt_selected)
+render_macro_erasure_scatters(dt_selected_erasure_distance)
 
-# --- Plot 7: Erasure Macro ---
-render_erasure_macro_scatters <- function(matches_dt) {
-  for (i in seq_len(nrow(matches_dt))) {
-    row <- matches_dt[i]
-    q_val <- row$normalized_momentum
-    q_str <- sprintf("%013.6f", q_val)
-    f_path <- file.path(erasures_dir, sprintf("erasures_P_%s.csv.gz", q_str))
+# --- Plot 8: Erasure Macro ---
+render_erasure_macro_scatters <- function(dt_target_momenta) {
+  for (i in seq_len(nrow(dt_target_momenta))) {
+    current_row <- dt_target_momenta[i]
+    momentum_val <- current_row$normalized_momentum
+    momentum_str_padded <- sprintf("%013.6f", momentum_val)
+    file_raw_erasures <- file.path(dir_01_raw_erasures, sprintf("harmonic_oscillator_erasures_P_%s.csv.gz", momentum_str_padded))
     
-    if (file.exists(f_path)) {
-      dt_found <- fread(f_path)[found == 1]
-      if (nrow(dt_found) == 0) next
+    if (file.exists(file_raw_erasures)) {
+      dt_raw_found <- fread(file_raw_erasures)[found == 1]
+      if (nrow(dt_raw_found) == 0) next
       
-      p <- ggplot(dt_found, aes(x = erasure_distance, y = minimal_action_state)) +
+      p <- ggplot(dt_raw_found, aes(x = erasure_distance, y = minimal_action_state)) +
         geom_point(alpha = 0.4, size = 0.5, color = "black") +
-        labs(title = sprintf("Phase Space Erasure: P = %.6f", q_val),
-             subtitle = sprintf("Nodes: %d | Range: [%.3f, %.3f]", 
-                               row$node_count, min(dt_found$microstate), max(dt_found$microstate)),
-             x = "Erasure Distance", y = "minimal_action_state") +
+        labs(title = sprintf("Phase Space Erasure: P = %.6f", momentum_val),
+             subtitle = sprintf("Range: [%.3f, %.3f]", min(dt_raw_found$microstate), max(dt_raw_found$microstate)),
+             x = "Erasure Distance", y = "Minimal Action State") +
         theme_minimal() +
         theme(plot.title = element_text(family = "mono", face = "bold"))
       
@@ -495,15 +635,15 @@ render_erasure_macro_scatters <- function(matches_dt) {
     }
   }
 }
-render_erasure_macro_scatters(dt_selected)
+render_erasure_macro_scatters(dt_selected_erasure_distance)
 
-# --- Plot 8: Conjugate Ellipses ---
-render_ellipses <- function(matches_dt) {
-  for (i in seq_len(nrow(matches_dt))) {
-    row <- matches_dt[i]
-    q_val <- row$normalized_momentum
-    a_base <- q_val / 0.5
-    b_base <- 0.5 / q_val
+# --- Plot 9: Conjugate Ellipses ---
+render_ellipses <- function(dt_target_momenta) {
+  for (i in seq_len(nrow(dt_target_momenta))) {
+    current_row <- dt_target_momenta[i]
+    momentum_val <- current_row$normalized_momentum
+    a_base <- momentum_val / 0.5
+    b_base <- 0.5 / momentum_val
     scaling_factor <- 90 / max(a_base, b_base) 
     
     ellipse_df <- data.frame(
@@ -517,7 +657,7 @@ render_ellipses <- function(matches_dt) {
                    alpha = 0.25, linewidth = 0.8) +
       scale_fill_manual(values = c("Q-Conjugate" = "black", "P-Conjugate" = "gray60")) +
       scale_color_manual(values = c("Q-Conjugate" = "black", "P-Conjugate" = "gray40")) +
-      labs(title = sprintf("Momentum: %3.3f", q_val),
+      labs(title = sprintf("Momentum: %3.3f", momentum_val),
            subtitle = "Action Quanta", x = "q", y = "p") +
       coord_fixed(xlim = c(-100, 100), ylim = c(-100, 100)) +
       theme_minimal() + theme(legend.position = "none", aspect.ratio = 1)
@@ -526,5 +666,5 @@ render_ellipses <- function(matches_dt) {
     cat("\n\n---\n\n")
   }
 }
-render_ellipses(dt_selected)
+render_ellipses(dt_selected_erasure_distance)
 ```
