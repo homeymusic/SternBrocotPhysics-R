@@ -64,15 +64,15 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// erasures
-void erasures(NumericVector momenta, std::string dir, int n_threads);
-RcppExport SEXP _SternBrocotPhysics_erasures(SEXP momentaSEXP, SEXP dirSEXP, SEXP n_threadsSEXP) {
+// harmonic_oscillator_erasures
+void harmonic_oscillator_erasures(NumericVector momenta, std::string dir, int n_threads);
+RcppExport SEXP _SternBrocotPhysics_harmonic_oscillator_erasures(SEXP momentaSEXP, SEXP dirSEXP, SEXP n_threadsSEXP) {
 BEGIN_RCPP
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< NumericVector >::type momenta(momentaSEXP);
     Rcpp::traits::input_parameter< std::string >::type dir(dirSEXP);
     Rcpp::traits::input_parameter< int >::type n_threads(n_threadsSEXP);
-    erasures(momenta, dir, n_threads);
+    harmonic_oscillator_erasures(momenta, dir, n_threads);
     return R_NilValue;
 END_RCPP
 }
@@ -94,7 +94,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_SternBrocotPhysics_erase_max_erasure_radius", (DL_FUNC) &_SternBrocotPhysics_erase_max_erasure_radius, 2},
     {"_SternBrocotPhysics_erase_depth", (DL_FUNC) &_SternBrocotPhysics_erase_depth, 2},
     {"_SternBrocotPhysics_erase_max_erasure_radius_and_depth", (DL_FUNC) &_SternBrocotPhysics_erase_max_erasure_radius_and_depth, 3},
-    {"_SternBrocotPhysics_erasures", (DL_FUNC) &_SternBrocotPhysics_erasures, 3},
+    {"_SternBrocotPhysics_harmonic_oscillator_erasures", (DL_FUNC) &_SternBrocotPhysics_harmonic_oscillator_erasures, 3},
     {"_SternBrocotPhysics_count_nodes_cpp", (DL_FUNC) &_SternBrocotPhysics_count_nodes_cpp, 2},
     {NULL, NULL, 0}
 };

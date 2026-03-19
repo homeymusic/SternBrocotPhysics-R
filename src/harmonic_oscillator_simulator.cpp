@@ -36,7 +36,7 @@ inline bool check_file_exists(const std::string& name) {
 //' @param n_threads Number of threads (0 = auto).
 //' @export
 // [[Rcpp::export]]
-void erasures(NumericVector momenta, std::string dir, int n_threads = 0) {
+void harmonic_oscillator_erasures(NumericVector momenta, std::string dir, int n_threads = 0) {
 
   std::vector<double> p_vec = Rcpp::as<std::vector<double>>(momenta);
   size_t n = p_vec.size();
@@ -58,7 +58,7 @@ void erasures(NumericVector momenta, std::string dir, int n_threads = 0) {
 
     char filename[128];
     // %013.6f ensures 1.01 becomes 000001.010000, matching your previous run
-    std::snprintf(filename, sizeof(filename), "erasures_P_%013.6f.csv.gz", p);
+    std::snprintf(filename, sizeof(filename), "harmonic_oscillator_erasures_P_%013.6f.csv.gz", p);
     std::string path = dir + "/" + std::string(filename);
 
     if (check_file_exists(path)) {

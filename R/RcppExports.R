@@ -27,8 +27,8 @@ erase_by_max_erasure_radius_and_depth <- function(x, max_erasure_radius, depth) 
 #' @param dir Output directory.
 #' @param n_threads Number of threads (0 = auto).
 #' @export
-erasures <- function(momenta, dir, n_threads = 0L) {
-    invisible(.Call(`_SternBrocotPhysics_erasures`, momenta, dir, n_threads))
+harmonic_oscillator_erasures <- function(momenta, dir, n_threads = 0L) {
+    invisible(.Call(`_SternBrocotPhysics_harmonic_oscillator_erasures`, momenta, dir, n_threads))
 }
 
 #' Detect Significant Physical Features (Standard Hysteresis)

@@ -5,13 +5,13 @@ library(future.apply)
 plan(multisession, workers = parallel::detectCores() - 2)
 
 base_data_dir_4TB <- "/Volumes/SanDisk4TB/SternBrocot-data"
-density_dir  <- file.path(base_data_dir_4TB, "02_program_length_densities")
-summary_file <- file.path(base_data_dir_4TB, "04_program_length_summary.csv.gz")
+density_dir  <- file.path(base_data_dir_4TB, "02_harmonic_oscillator_program_length_densities")
+summary_file <- file.path(base_data_dir_4TB, "04_harmonic_oscillator_program_length_summary.csv.gz")
 
 # --- 2. Collection ---
 message("Calculating weighted statistics from density files...")
 
-all_density_files <- list.files(density_dir, pattern = "^program_length_density_P_.*\\.csv\\.gz$", full.names = TRUE)
+all_density_files <- list.files(density_dir, pattern = "^harmonic_oscillator_program_length_density_P_.*\\.csv\\.gz$", full.names = TRUE)
 
 if (length(all_density_files) == 0) {
   stop("No density files found. Run Script 02 first.")

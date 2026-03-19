@@ -8,17 +8,17 @@ library(SternBrocotPhysics)
 plan(multisession, workers = parallel::detectCores() - 2)
 
 base_data_dir_4TB <- "/Volumes/SanDisk4TB/SternBrocot-data"
-density_dir <- file.path(base_data_dir_4TB, "02_erasure_distance_densities")
-nodes_out_dir <- file.path(base_data_dir_4TB, "03_erasure_distance_density_nodes")
+density_dir <- file.path(base_data_dir_4TB, "02_harmonic_oscillator_erasure_distance_densities")
+nodes_out_dir <- file.path(base_data_dir_4TB, "03_harmonic_oscillator_erasure_distance_density_nodes")
 
 if (!dir.exists(nodes_out_dir)) dir.create(nodes_out_dir, recursive = TRUE)
 
 # --- 2. File Matching ---
-density_files <- list.files(density_dir, pattern = "^erasure_distance_density_P_.*\\.csv\\.gz$", full.names = TRUE)
-existing_nodes <- list.files(nodes_out_dir, pattern = "^erasure_distance_nodes_P_.*\\.csv\\.gz$")
+density_files <- list.files(density_dir, pattern = "^harmonic_oscillator_erasure_distance_density_P_.*\\.csv\\.gz$", full.names = TRUE)
+existing_nodes <- list.files(nodes_out_dir, pattern = "^harmonic_oscillator_erasure_distance_nodes_P_.*\\.csv\\.gz$")
 
-all_p_names  <- gsub("erasure_distance_density_P_([0-9.]+)\\.csv\\.gz", "\\1", basename(density_files))
-done_p_names <- gsub("erasure_distance_nodes_P_([0-9.]+)\\.csv\\.gz", "\\1", existing_nodes)
+all_p_names  <- gsub("harmonic_oscillator_erasure_distance_density_P_([0-9.]+)\\.csv\\.gz", "\\1", basename(density_files))
+done_p_names <- gsub("harmonic_oscillator_erasure_distance_nodes_P_([0-9.]+)\\.csv\\.gz", "\\1", existing_nodes)
 
 # To ensure the new metric is included, consider clearing the nodes_out_dir first.
 files_to_process <- density_files[!(all_p_names %in% done_p_names)]
@@ -32,9 +32,9 @@ process_erasure_nodes <- function(f, out_path) {
     # Use 1 thread per worker to avoid conflict with future_apply
     setDTthreads(1)
 
-    p_str <- gsub(".*erasure_distance_density_P_([0-9.]+)\\.csv\\.gz", "\\1", f)
+    p_str <- gsub(".*harmonic_oscillator_erasure_distance_density_P_([0-9.]+)\\.csv\\.gz", "\\1", f)
     P_val <- as.numeric(p_str)
-    out_file <- file.path(out_path, sprintf("erasure_distance_nodes_P_%s.csv.gz", p_str))
+    out_file <- file.path(out_path, sprintf("harmonic_oscillator_erasure_distance_nodes_P_%s.csv.gz", p_str))
 
     density_data <- fread(f)
     input_dt <- density_data[, .(x = coordinate_q, y = density_count)]

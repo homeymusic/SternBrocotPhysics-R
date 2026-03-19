@@ -20,7 +20,7 @@ compute_observed_state_density <- function(dt, p, bin_width = 1) {
   # Physical scaling to Action Space
   q = p
   action = q * p
-  raw_fluc <- dt[["macrostate"]] * action
+  raw_fluc <- dt[["minimal_action_state"]] * action
 
   # --- 2. THE BINNING (Adaptive via Rice's Rule) ---
   max_extent <- max(abs(raw_fluc), na.rm = TRUE)
@@ -91,7 +91,7 @@ process_observed_state_density <- function(f, out_path) {
 
     full_path <- file.path(out_path, sprintf("observed_state_density_P_%s.csv.gz", p_str))
 
-    dt <- fread(f, select = c("found", "macrostate"))
+    dt <- fread(f, select = c("found", "minimal_action_state"))
 
     P_effective <- P_val * 2 * pi
 

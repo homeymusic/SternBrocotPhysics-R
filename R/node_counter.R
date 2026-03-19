@@ -36,7 +36,9 @@ count_nodes <- function(density, debug = FALSE) {
   trend_fit <- stats::lowess(active_data[["x"]], active_data[["y"]], f = 0.2)
   local_baseline <- trend_fit$y
 
-  thresh_vec <- (1/(4 * pi)) * sqrt(local_baseline)
+  # thresh_vec <- (1/(4 * pi)) * sqrt(local_baseline)
+  # thresh_vec <- (1/2) * sqrt(local_baseline)
+  thresh_vec <- sqrt(local_baseline)
   data.table::set(active_data, j = "threshold", value = thresh_vec)
 
   if (debug) {

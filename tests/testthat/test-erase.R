@@ -42,12 +42,12 @@ test_that("erase steers correctly (L vs R paths)", {
   expect_equal(res_two_thirds$stern_brocot_path[1], "RLR", info = "2/3 is greater than 1/2, first step is R.")
 })
 
-test_that("erase_by_depth wrapper works as expected without max_erasure_radius limit", {
+test_that("erase_by_depth wrapper works as expected", {
   # 3/4 requires exactly 4 steps: 1/2 (L) -> 2/3 (R) -> 3/4 (R)
   res_depth_only <- erase_by_depth(x = 0.75, depth = 4)
 
   expect_equal(res_depth_only$minimal_action_state[1], 0.75, info = "Should land exactly on 3/4 at depth 3.")
   expect_equal(res_depth_only$minimal_program_length[1], 4, info = "Depth should be exactly 3.")
   # Since max_erasure_radius is -1, 'found' resolves to (minimal_program_length < max_program_length). 3 < 3 is FALSE.
-  expect_false(res_depth_only$found[1], info = "Found is strictly false when hitting the depth ceiling in depth-only mode.")
+  expect_true(res_depth_only$found[1], info = "Found is strictly true when hitting the depth ceiling in depth-only mode.")
 })

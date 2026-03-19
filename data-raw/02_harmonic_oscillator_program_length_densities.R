@@ -7,15 +7,15 @@ library(SternBrocotPhysics)
 # --- 1. Configuration ---
 plan(multisession, workers = parallel::detectCores() - 2)
 base_data_dir_4TB <- "/Volumes/SanDisk4TB/SternBrocot-data"
-raw_dir <- file.path(base_data_dir_4TB, "01_erasures")
-agg_dir <- file.path(base_data_dir_4TB, "02_program_length_densities")
+raw_dir <- file.path(base_data_dir_4TB, "01_harmonic_oscillator_erasures")
+agg_dir <- file.path(base_data_dir_4TB, "02_harmonic_oscillator_program_length_densities")
 if (!dir.exists(agg_dir)) dir.create(agg_dir, recursive = TRUE)
 
 # --- 2. File Matching ---
-all_files <- list.files(raw_dir, pattern = "^erasures_P_.*\\.csv\\.gz$", full.names = TRUE)
-existing_densities <- list.files(agg_dir, pattern = "^program_length_density_P_.*\\.csv\\.gz$")
-all_p_names  <- gsub("erasures_P_([0-9.]+)\\.csv\\.gz", "\\1", basename(all_files))
-done_p_names <- gsub("program_length_density_P_([0-9.]+)\\.csv\\.gz", "\\1", existing_densities)
+all_files <- list.files(raw_dir, pattern = "^harmonic_oscillator_erasures_P_.*\\.csv\\.gz$", full.names = TRUE)
+existing_densities <- list.files(agg_dir, pattern = "^harmonic_oscillator_program_length_density_P_.*\\.csv\\.gz$")
+all_p_names  <- gsub("harmonic_oscillator_erasures_P_([0-9.]+)\\.csv\\.gz", "\\1", basename(all_files))
+done_p_names <- gsub("harmonic_oscillator_program_length_density_P_([0-9.]+)\\.csv\\.gz", "\\1", existing_densities)
 files_to_process <- all_files[!(all_p_names %in% done_p_names)]
 
 # --- 3. Processing Function ---
@@ -24,18 +24,21 @@ process_program_length_density <- function(f, out_path) {
     library(data.table)
     setDTthreads(1)
 
-    p_str <- gsub(".*erasures_P_([0-9.]+)\\.csv\\.gz", "\\1", f)
+    # 1. Update regex to catch the harmonic_oscillator_ prefix
+    p_str <- gsub(".*harmonic_oscillator_erasures_P_([0-9.]+)\\.csv\\.gz", "\\1", f)
     P_val <- as.numeric(p_str)
-    full_path <- file.path(out_path, sprintf("program_length_density_P_%s.csv.gz", p_str))
 
-    # 1. Load data
-    dt <- fread(f, select = c("found", "program_length"))
+    # 2. Update sprintf to output the harmonic_oscillator_ prefix
+    full_path <- file.path(out_path, sprintf("harmonic_oscillator_observed_state_density_P_%s.csv.gz", p_str))
+
+    # 3. Update fread to select the correct C++ column name
+    dt <- fread(f, select = c("found", "minimal_action_state"))
+
     dt <- dt[found == 1]
     if(nrow(dt) == 0) return(NULL)
 
-    # 2. MANUAL AGGREGATION (Bypassing compute_density)
-    # This creates a "skyline" by counting how many states fall into each integer bit-length.
-    density_df <- dt[, .(density_count = .N), by = .(coordinate_q = program_length)]
+    # 4. BUG FIX: Update the aggregation logic to use the correct column name
+    density_df <- dt[, .(density_count = .N), by = .(coordinate_q = minimal_program_length)]
 
     # Sort by coordinate so the plot flows correctly
     setorder(density_df, coordinate_q)

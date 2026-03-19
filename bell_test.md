@@ -55,7 +55,7 @@ is shifted into its final macroscopic physical distance.
 ## Erasure Distance vs. Uncertainty
 
 This plot visualizes the relationship between the physical shift
-required to snap to a rational macrostate (`erasure_distance`) and the
+required to snap to a rational minimal_action_state (`erasure_distance`) and the
 fundamental uncertainty of that resulting state. It reveals the
 precision trade-offs inherent in the contextual erasure process.
 
@@ -68,7 +68,7 @@ precision trade-offs inherent in the contextual erasure process.
 This plot reveals the thermodynamic cost of the measurement context. As
 the particle’s relative angle changes, the computational effort (program
 length) required to map the microstate to a rational Stern-Brocot
-macrostate fluctuates in a fractal pattern.
+minimal_action_state fluctuates in a fractal pattern.
 
     ## Don't know how to automatically pick scale for object of type <integer64>.
     ## Defaulting to continuous.
@@ -80,7 +80,7 @@ macrostate fluctuates in a fractal pattern.
 ## Erasure Success Rate
 
 This plot verifies the percentage of microstates successfully resolved
-to a rational macrostate before hitting the maximum search depth limit
+to a rational minimal_action_state before hitting the maximum search depth limit
 (`max_depth = 2000`). For the simulation to be valid, this must remain
 at 100%.
 
@@ -88,7 +88,7 @@ at 100%.
 
 ------------------------------------------------------------------------
 
-## Quantization into Rational Macrostates
+## Quantization into Rational minimal_action_states
 
 This histogram demonstrates how the contextual erasure acts as a fractal
 attractor, quantizing the uniform continuous microstates into discrete
@@ -96,10 +96,10 @@ rational fractions on the Stern-Brocot tree.
 
 ![](bell_test_files/figure-gfm/plot-attractors-1.png)<!-- -->
 
-## Macrostate vs. Initial Microstate
+## minimal_action_state vs. Initial Microstate
 
 This plot maps the initial continuous hidden variable (microstate)
-directly to the resolved Stern-Brocot fraction (macrostate).
+directly to the resolved Stern-Brocot fraction (minimal_action_state).
 
 ![](bell_test_files/figure-gfm/plot-macro-vs-micro-1.png)<!-- -->
 

@@ -12,22 +12,22 @@ if (!inherits(future::plan(), "sequential")) {
 
 tryCatch({
   # Step 1: C++ Simulation (uses internal RcppThread, no future plan needed)
-  message("\n--- Step 1: 01_erasures.R ---")
-  source(here("data-raw", "01_erasures.R"), local = TRUE)
+  message("\n--- Step 1: 01_harmonic_oscillator_erasures.R ---")
+  source(here("data-raw", "01_harmonic_oscillator_erasures.R"), local = TRUE)
 
   # Step 2: Density Generation
-  message("\n--- Step 2: 02_erasure_distance_densities.R ---")
-  source(here("data-raw", "02_erasure_distance_densities.R"), local = TRUE)
+  message("\n--- Step 2: 02_harmonic_oscillator_erasure_distance_densities.R ---")
+  source(here("data-raw", "02_harmonic_oscillator_erasure_distance_densities.R"), local = TRUE)
   future::plan(future::sequential) # Explicitly close workers after step
 
   # Step 3: Node Extraction
-  message("\n--- Step 3: 03_erasure_distance_density_nodes.R ---")
-  source(here("data-raw", "03_erasure_distance_density_nodes.R"), local = TRUE)
+  message("\n--- Step 3: 03_harmonic_oscillator_erasure_distance_density_nodes.R ---")
+  source(here("data-raw", "03_harmonic_oscillator_erasure_distance_density_nodes.R"), local = TRUE)
   future::plan(future::sequential) # Explicitly close workers after step
 
   # Step 4: Summary
-  message("\n--- Step 4: 04_erasure_distance_summary.R ---")
-  source(here("data-raw", "04_erasure_distance_summary.R"), local = TRUE)
+  message("\n--- Step 4: 04_harmonic_oscillator_erasure_distance_summary.R ---")
+  source(here("data-raw", "04_harmonic_oscillator_erasure_distance_summary.R"), local = TRUE)
 
   message("\n✅ Pipeline Finished Successfully.")
 }, error = function(e) {

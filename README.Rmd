@@ -73,7 +73,7 @@ render_combined_erasure_distance_grid <- function(matches_dt) {
         theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14))
     
     # ---------------------------------------------------------
-    # 2. Microstate vs. Macrostate (Middle Column)
+    # 2. Microstate vs. minimal_action_state (Middle Column)
     # ---------------------------------------------------------
     f_path <- file.path(erasures_dir, sprintf("erasures_P_%s.csv.gz", q_str))
     p_scat <- ggplot() + theme_void() + theme(aspect.ratio = 1, plot.margin = margin(5, 5, 5, 5)) 
@@ -81,7 +81,7 @@ render_combined_erasure_distance_grid <- function(matches_dt) {
     if (file.exists(f_path)) {
       dt_found <- fread(f_path)[found == 1]
       if (nrow(dt_found) > 0) {
-        p_scat <- ggplot(dt_found, aes(x = microstate, y = macrostate)) +
+        p_scat <- ggplot(dt_found, aes(x = microstate, y = minimal_action_state)) +
           geom_point(alpha = 0.25, size = 0.1, color = "black") + 
           theme_minimal() +
           theme(axis.title = element_blank(), 
@@ -207,7 +207,7 @@ render_combined_observed_state_grid <- function(matches_dt) {
         theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14))
     
     # ---------------------------------------------------------
-    # 2. Microstate vs. Macrostate (Middle Column)
+    # 2. Microstate vs. minimal_action_state (Middle Column)
     # ---------------------------------------------------------
     f_path <- file.path(erasures_dir, sprintf("erasures_P_%s.csv.gz", q_str))
     p_scat <- ggplot() + theme_void() + theme(aspect.ratio = 1, plot.margin = margin(5, 5, 5, 5)) 
@@ -216,8 +216,8 @@ render_combined_observed_state_grid <- function(matches_dt) {
       dt_found <- fread(f_path)[found == 1]
       
       if (nrow(dt_found) > 0) {
-        # Strictly using 'macrostate' as requested
-        p_scat <- ggplot(dt_found, aes(x = microstate, y = macrostate)) +
+        # Strictly using 'minimal_action_state' as requested
+        p_scat <- ggplot(dt_found, aes(x = microstate, y = minimal_action_state)) +
           geom_point(alpha = 0.25, size = 0.1, color = "black") + 
           theme_minimal() +
           theme(axis.title = element_blank(), 
@@ -397,12 +397,12 @@ render_micro_macro_scatters <- function(matches_dt) {
       dt_found <- fread(f_path)[found == 1]
       if (nrow(dt_found) == 0) next
       
-      p <- ggplot(dt_found, aes(x = microstate, y = macrostate)) +
+      p <- ggplot(dt_found, aes(x = microstate, y = minimal_action_state)) +
         geom_point(alpha = 0.4, size = 0.5, color = "black") +
         labs(title = sprintf("Phase Space Erasure: P = %.6f", q_val),
              subtitle = sprintf("Nodes: %d | Range: [%.3f, %.3f]", 
                                row$node_count, min(dt_found$microstate), max(dt_found$microstate)),
-             x = "Microstate", y = "Macrostate") +
+             x = "Microstate", y = "minimal_action_state") +
         theme_minimal() +
         theme(plot.title = element_text(family = "mono", face = "bold"))
       
@@ -453,12 +453,12 @@ render_macro_erasure_scatters <- function(matches_dt) {
       dt_found <- fread(f_path)[found == 1]
       if (nrow(dt_found) == 0) next
       
-      p <- ggplot(dt_found, aes(x = macrostate, y = erasure_distance)) +
+      p <- ggplot(dt_found, aes(x = minimal_action_state, y = erasure_distance)) +
         geom_point(alpha = 0.4, size = 0.5, color = "black") +
         labs(title = sprintf("Phase Space Erasure: P = %.6f", q_val),
              subtitle = sprintf("Nodes: %d | Range: [%.3f, %.3f]", 
                                row$node_count, min(dt_found$microstate), max(dt_found$microstate)),
-             x = "Macrostate", y = "Erasure Distance") +
+             x = "minimal_action_state", y = "Erasure Distance") +
         theme_minimal() +
         theme(plot.title = element_text(family = "mono", face = "bold"))
       
@@ -481,12 +481,12 @@ render_erasure_macro_scatters <- function(matches_dt) {
       dt_found <- fread(f_path)[found == 1]
       if (nrow(dt_found) == 0) next
       
-      p <- ggplot(dt_found, aes(x = erasure_distance, y = macrostate)) +
+      p <- ggplot(dt_found, aes(x = erasure_distance, y = minimal_action_state)) +
         geom_point(alpha = 0.4, size = 0.5, color = "black") +
         labs(title = sprintf("Phase Space Erasure: P = %.6f", q_val),
              subtitle = sprintf("Nodes: %d | Range: [%.3f, %.3f]", 
                                row$node_count, min(dt_found$microstate), max(dt_found$microstate)),
-             x = "Erasure Distance", y = "Macrostate") +
+             x = "Erasure Distance", y = "minimal_action_state") +
         theme_minimal() +
         theme(plot.title = element_text(family = "mono", face = "bold"))
       

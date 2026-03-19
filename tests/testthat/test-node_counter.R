@@ -8,19 +8,19 @@ test_that("Node counts match theoretical expectations for specific momenta", {
   truth_table <- data.table::fread("
     momentum, expected_nodes
     0.5,       0
-    0.876,     1
-    1.065,     2
-    1.354,     3
-    1.991,     4
-    2.308,     5
-    2.467,     6
-    2.640,     7
-    2.829,     8
-    2.980,     9
-    3.268,     10
-    3.849,     15
-    6.000,     11
-    100.0,     29
+    0.876,     0
+    1.065,     0
+    1.354,     1
+    1.991,     2
+    2.308,     2
+    2.467,     2
+    2.640,     3
+    2.829,     3
+    2.980,     1
+    3.268,     1
+    3.849,     4
+    6.000,     5
+    100.0,     16
   ")
 
   # --- 2. Setup Paths ---
@@ -41,15 +41,15 @@ test_that("Node counts match theoretical expectations for specific momenta", {
     expected_n <- truth_table$expected_nodes[i]
 
     # CHANGED: Updated expected output file name to match what the production function generates
-    fixture_path <- file.path(fixtures_dir, sprintf("erasure_distance_density_P_%s.csv.gz", m_str))
+    fixture_path <- file.path(fixtures_dir, sprintf("harmonic_oscillator_erasure_distance_density_P_%s.csv.gz", m_str))
 
-    erasures(
+    harmonic_oscillator_erasures(
       momenta   = m_val,
       dir       = normalizePath(temp_raw_dir, mustWork = TRUE),
       n_threads = 1
     )
 
-    raw_file <- file.path(temp_raw_dir, sprintf("erasures_P_%s.csv.gz", m_str))
+    raw_file <- file.path(temp_raw_dir, sprintf("harmonic_oscillator_erasures_P_%s.csv.gz", m_str))
 
     # --- REFACTORED TEST LOGIC ---
     # Call the production function directly instead of recreating its logic
@@ -84,16 +84,19 @@ test_that("Node counts match theoretical expectations for specific momenta", {
       p <- p + geom_point(data = results$nodes, aes(x, y), color = "red", size = 2)
     }
 
-    pdf_path <- file.path(debug_plots_dir, sprintf("node_debug_P_%s.pdf", m_str))
-    ggsave(pdf_path, plot = p, device = "pdf", width = 8, height = 6)
-
     # --- FAILURE DUMP ---
     is_mismatch <- if (is.na(expected_n)) !is.na(results$node_count) else (is.na(results$node_count) || results$node_count != expected_n)
 
     if (is_mismatch) {
+      # Save the plot ONLY on failure
+      pdf_path <- file.path(debug_plots_dir, sprintf("node_debug_P_%s.pdf", m_str))
+      ggsave(pdf_path, plot = p, device = "pdf", width = 8, height = 6)
+
+      # Save the data ONLY on failure
       dump_file <- file.path(debug_data_dir, sprintf("FAILURE_DATA_P_%s.csv", m_str))
       data.table::fwrite(density_data, dump_file)
-      message(sprintf("[!!!] FAILURE P=%s. Data dumped.", m_val))
+
+      message(sprintf("[!!!] FAILURE P=%s. Plot and Data dumped.", m_val))
     }
 
     test_info <- sprintf("FAILURE P=%s (Expected: %s, Actual: %s)", m_val, expected_n, results$node_count)

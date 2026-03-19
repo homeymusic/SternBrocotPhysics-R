@@ -86,10 +86,10 @@ process_erasure_distance_density <- function(f, out_path) {
     library(data.table)
     setDTthreads(1)
 
-    p_str <- gsub(".*erasures_P_([0-9.]+)\\.csv\\.gz", "\\1", f)
+    p_str <- gsub(".*harmonic_oscillator_erasures_P_([0-9.]+)\\.csv\\.gz", "\\1", f)
     P_val <- as.numeric(p_str)
 
-    full_path <- file.path(out_path, sprintf("erasure_distance_density_P_%s.csv.gz", p_str))
+    full_path <- file.path(out_path, sprintf("harmonic_oscillator_erasure_distance_density_P_%s.csv.gz", p_str))
 
     dt <- fread(f, select = c("found", "erasure_distance"))
 

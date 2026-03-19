@@ -2,13 +2,13 @@ library(data.table)
 
 # --- 1. Configuration ---
 base_data_dir_4TB <- "/Volumes/SanDisk4TB/SternBrocot-data"
-nodes_dir    <- file.path(base_data_dir_4TB, "03_erasure_distance_density_nodes")
-summary_file <- file.path(base_data_dir_4TB, "04_erasure_distance_summary.csv.gz")
+nodes_dir    <- file.path(base_data_dir_4TB, "03_harmonic_oscillator_erasure_distance_density_nodes")
+summary_file <- file.path(base_data_dir_4TB, "04_harmonic_oscillator_erasure_distance_summary.csv.gz")
 
 # --- 2. Collection ---
 message("Aggregating node counts and complexity metrics from 1:1 feature files...")
 
-all_node_files <- list.files(nodes_dir, pattern = "^erasure_distance_nodes_P_.*\\.csv\\.gz$", full.names = TRUE)
+all_node_files <- list.files(nodes_dir, pattern = "^harmonic_oscillator_erasure_distance_nodes_P_.*\\.csv\\.gz$", full.names = TRUE)
 
 if (length(all_node_files) == 0) {
   stop("No node files found in 03_erasure_distance_density_nodes. Run Script 03 first.")

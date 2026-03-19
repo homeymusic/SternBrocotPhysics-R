@@ -69,7 +69,7 @@ raw_diagnostic_data <- rbindlist(list(raw_0, raw_90))
 erasure_data <- data.table(
   microstate = raw_diagnostic_data$microstate,
   erasure_distance = raw_diagnostic_data$bob_erasure_distance,
-  macrostate = raw_diagnostic_data$bob_macrostate,
+  minimal_action_state = raw_diagnostic_data$bob_minimal_action_state,
   uncertainty = raw_diagnostic_data$delta_theta,
   program_length = raw_diagnostic_data$bob_program_length,
   found = raw_diagnostic_data$bob_found,
@@ -186,7 +186,7 @@ ggplot(erasure_data, aes(x = microstate, y = erasure_distance)) +
 
 ## Erasure Distance vs. Uncertainty
 
-This plot visualizes the relationship between the physical shift required to snap to a rational macrostate (`erasure_distance`) and the fundamental uncertainty of that resulting state. It reveals the precision trade-offs inherent in the contextual erasure process.
+This plot visualizes the relationship between the physical shift required to snap to a rational minimal_action_state (`erasure_distance`) and the fundamental uncertainty of that resulting state. It reveals the precision trade-offs inherent in the contextual erasure process.
 
 ```{r plot-distance-vs-uncertainty, echo=FALSE, fig.width=10, fig.height=5}
 ggplot(erasure_data, aes(x = uncertainty, y = erasure_distance)) +
@@ -203,7 +203,7 @@ ggplot(erasure_data, aes(x = uncertainty, y = erasure_distance)) +
 
 ## Algorithmic Complexity of Measurement
 
-This plot reveals the thermodynamic cost of the measurement context. As the particle's relative angle changes, the computational effort (program length) required to map the microstate to a rational Stern-Brocot macrostate fluctuates in a fractal pattern.
+This plot reveals the thermodynamic cost of the measurement context. As the particle's relative angle changes, the computational effort (program length) required to map the microstate to a rational Stern-Brocot minimal_action_state fluctuates in a fractal pattern.
 
 ```{r plot-complexity, echo=FALSE, fig.width=10, fig.height=5}
 ggplot(erasure_data, aes(x = microstate, y = program_length)) +
@@ -222,7 +222,7 @@ ggplot(erasure_data, aes(x = microstate, y = program_length)) +
 
 ## Erasure Success Rate
 
-This plot verifies the percentage of microstates successfully resolved to a rational macrostate before hitting the maximum search depth limit (`max_depth = 2000`). For the simulation to be valid, this must remain at 100%.
+This plot verifies the percentage of microstates successfully resolved to a rational minimal_action_state before hitting the maximum search depth limit (`max_depth = 2000`). For the simulation to be valid, this must remain at 100%.
 
 ```{r plot-found-rate, echo=FALSE, fig.width=10, fig.height=5}
 ggplot(complexity_dt, aes(x = bob_angle_rad, y = found_rate)) +
@@ -239,35 +239,35 @@ ggplot(complexity_dt, aes(x = bob_angle_rad, y = found_rate)) +
 
 ---
 
-## Quantization into Rational Macrostates
+## Quantization into Rational minimal_action_states
 
 This histogram demonstrates how the contextual erasure acts as a fractal attractor, quantizing the uniform continuous microstates into discrete rational fractions on the Stern-Brocot tree.
 
 ```{r plot-attractors, echo=FALSE, fig.width=10, fig.height=5}
-ggplot(erasure_data, aes(x = macrostate)) +
+ggplot(erasure_data, aes(x = minimal_action_state)) +
   geom_histogram(bins = 200, fill = "purple", color = "black", alpha = 0.7) +
   facet_wrap(~ alpha_label) +
-  labs(title = "Distribution of Resolved Macrostates", 
+  labs(title = "Distribution of Resolved minimal_action_states", 
        subtitle = "Diagnostic data showing Bob's internal state (Bob near 0 rad)",
-       x = "Macrostate Value", 
+       x = "minimal_action_state Value", 
        y = "Frequency") +
   theme_minimal()
 ```
 
-## Macrostate vs. Initial Microstate
+## minimal_action_state vs. Initial Microstate
 
-This plot maps the initial continuous hidden variable (microstate) directly to the resolved Stern-Brocot fraction (macrostate).
+This plot maps the initial continuous hidden variable (microstate) directly to the resolved Stern-Brocot fraction (minimal_action_state).
 
 ```{r plot-macro-vs-micro, echo=FALSE, fig.width=10, fig.height=5}
-ggplot(erasure_data, aes(x = microstate, y = macrostate)) +
+ggplot(erasure_data, aes(x = microstate, y = minimal_action_state)) +
   geom_point(color = "darkgreen", size = 0.5, alpha = 0.5) +
   scale_x_continuous(breaks = seq(0, 2*pi, by = pi/2), 
                      labels = c("0", "π/2", "π", "3π/2", "2π")) +
   facet_wrap(~ alpha_label) +
-  labs(title = "Resolved Macrostate vs Initial Microstate", 
+  labs(title = "Resolved minimal_action_state vs Initial Microstate", 
        subtitle = "Diagnostic data showing Bob's internal state (Bob near 0 rad)",
        x = "Initial Microstate (rad)", 
-       y = "Quantized Macrostate (Normalized)") +
+       y = "Quantized minimal_action_state (Normalized)") +
   theme_minimal()
 ```
 

@@ -20,7 +20,9 @@ EraseResult erase_single_native(double microstate, double max_erasure_radius, in
     max_erasure_radius = 1e9;
   }
 
-  if (max_erasure_radius != -1.0 && std::abs(max_erasure_radius) < 1e-15) {
+  double const max_erasure_diameter = 2.0 * max_erasure_radius;
+
+  if (max_erasure_radius != -1.0 && std::abs(max_erasure_diameter) < 1e-15) {
     return {
     0.0,
     microstate,
@@ -55,7 +57,7 @@ EraseResult erase_single_native(double microstate, double max_erasure_radius, in
   double erasure_distance = minimal_action_state - microstate;
   double absolute_erasure_distance = std::abs(erasure_distance);
 
-  while (absolute_erasure_distance >= max_erasure_radius) {
+  while (absolute_erasure_distance >= max_erasure_diameter) {
 
     if (minimal_program_length >= max_program_length) {
       break;
@@ -110,8 +112,8 @@ EraseResult erase_single_native(double microstate, double max_erasure_radius, in
   }
 
   bool found = (max_erasure_radius > 0) ?
-  (absolute_erasure_distance < max_erasure_radius) :
-    (minimal_program_length < max_program_length);
+  (absolute_erasure_distance <= max_erasure_diameter) :
+    (minimal_program_length <= max_program_length);
 
   return {
       erasure_distance,

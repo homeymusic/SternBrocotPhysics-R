@@ -5,13 +5,13 @@ library(parallel)
 
 # --- 1. Configuration ---
 base_dir       <- "/Volumes/SanDisk4TB/SternBrocot-data"
-density_dir    <- file.path(base_dir, "02_erasure_distance_densities")
-nodes_dir      <- file.path(base_dir, "03_erasure_distance_density_nodes")
-animation_path <- file.path(base_dir, "05_erasure_distance_density_animation.mp4")
+density_dir    <- file.path(base_dir, "02_harmonic_oscillator_erasure_distance_densities")
+nodes_dir      <- file.path(base_dir, "03_harmonic_oscillator_erasure_distance_density_nodes")
+animation_path <- file.path(base_dir, "05_harmonic_oscillator_erasure_distance_density_animation.mp4")
 
 # File Discovery
 density_files <- list.files(density_dir, pattern = "\\.csv\\.gz$", full.names = FALSE)
-file_keys     <- gsub("erasure_distance_density_P_|.csv.gz", "", density_files)
+file_keys     <- gsub("harmonic_oscillator_erasure_distance_density_P_|.csv.gz", "", density_files)
 
 files_to_process <- data.table(key_str = file_keys)
 files_to_process[, momentum := as.numeric(key_str)]
@@ -28,7 +28,7 @@ processed_list <- mclapply(seq_len(nrow(files_to_process)), function(i) {
   q_val    <- row_info$momentum
 
   # Read Density
-  d_path <- file.path(density_dir, paste0("erasure_distance_density_P_", row_info$key_str, ".csv.gz"))
+  d_path <- file.path(density_dir, paste0("harmonic_oscillator_erasure_distance_density_P_", row_info$key_str, ".csv.gz"))
   h_pts <- tryCatch({ fread(d_path) }, error = function(e) NULL)
   if (is.null(h_pts) || nrow(h_pts) == 0) return(NULL)
 
@@ -39,7 +39,7 @@ processed_list <- mclapply(seq_len(nrow(files_to_process)), function(i) {
   dt_active <- h_pts[first_nz:last_nz]
 
   # Read Nodes (Raw coordinates from 03 files)
-  n_path <- file.path(nodes_dir, paste0("erasure_distance_nodes_P_", row_info$key_str, ".csv.gz"))
+  n_path <- file.path(nodes_dir, paste0("harmonic_oscillator_erasure_distance_nodes_P_", row_info$key_str, ".csv.gz"))
   n_pts <- tryCatch({ fread(n_path) }, error = function(e) data.table())
 
   # Extract Metrics
