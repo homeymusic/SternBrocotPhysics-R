@@ -1,14 +1,8 @@
 #' Count Nodes and Calculate Topological Complexity
 #'
-#' Uses outward-scanning adaptive hysteresis to detect nodes and calculates the
-#' Normalized Total Variation (NTV) to rank states by their physical intricacy.
-#'
 #' @param density A data.table containing 'x' (coordinate) and 'y' (density) columns.
 #' @param debug Logical. If TRUE, prints decision logic to the console.
-#' @return A list containing:
-#'   \item{node_count}{Integer count of detected nodes.}
-#'   \item{nodes}{A data.table of the detected node coordinates.}
-#'   \item{complexity_ntv}{Dimensionless metric of skyline intricacy.}
+#' @return A list containing: node_count, nodes, complexity_ntv
 #' @import data.table
 #' @export
 count_nodes <- function(density, debug = FALSE) {
@@ -16,11 +10,14 @@ count_nodes <- function(density, debug = FALSE) {
     density <- data.table::as.data.table(density)
   }
 
-  # Ensure strict coordinate ordering
   density <- density[order(density[["x"]]), ]
 
-  # --- 1. Physics-Based Adaptive Thresholding ---
-  active_idx <- which(density[["y"]] > 1e-9)
+  # PURE SYSTEM QUANTA:
+  # Works for both raw integer counts and normalized probability densities.
+  # Eliminates arbitrary 1e-9 floating-point safety nets.
+  n_active_microstates <- sum(density[["y"]], na.rm = TRUE)
+  system_quanta <- 1.0 / n_active_microstates
+  active_idx <- which(density[["y"]] >= system_quanta)
 
   if (length(active_idx) < 3) {
     return(list(
@@ -31,45 +28,44 @@ count_nodes <- function(density, debug = FALSE) {
   }
 
   active_data <- density[active_idx, ]
+  n_active <- nrow(active_data)
 
-  # Use LOWESS to estimate the baseline (envelope)
-  trend_fit <- stats::lowess(active_data[["x"]], active_data[["y"]], f = 0.2)
+  # PURE GEOMETRIC SMOOTHING:
+  # The bin_width guarantees exactly 4 bins per physical QHO wave.
+  # We smooth over exactly 3 bins to filter grid static without flattening the 4-bin wave.
+  adaptive_f <- 3 / n_active
+
+  trend_fit <- stats::lowess(active_data[["x"]], active_data[["y"]], f = adaptive_f)
   local_baseline <- trend_fit$y
 
-  # thresh_vec <- (1/(4 * pi)) * sqrt(local_baseline)
-  # thresh_vec <- (1/2) * sqrt(local_baseline)
-  thresh_vec <- sqrt(local_baseline)
+  thresh_vec <- (1/(4*pi)) * sqrt(abs(local_baseline))
   data.table::set(active_data, j = "threshold", value = thresh_vec)
 
   if (debug) {
-    message(sprintf("DEBUG: P ~ %0.2f. Baseline ~ %0.0f. Threshold ~ %0.2f.",
-                    active_data$x[which.max(active_data$y)],
+    message(sprintf("DEBUG: Peak ~ %0.0f. Baseline ~ %0.0f. Threshold ~ %0.2f. f-span ~ %0.5f",
+                    max(active_data$y),
                     median(local_baseline),
-                    median(thresh_vec)))
+                    median(thresh_vec),
+                    adaptive_f))
   }
 
-  # --- 2. OUTWARD SCANNING (Center-Out) ---
-
-  # Right Scan (Positive Q)
+  # --- OUTWARD SCANNING (Center-Out) ---
   right_data <- active_data[active_data[["x"]] >= 0, ]
   if (nrow(right_data) > 0) {
     res_r <- count_nodes_cpp(right_data, right_data[["threshold"]])
-    if (debug && nrow(res_r) > 0) message(sprintf("DEBUG: Right Scan found nodes at: %s", paste(res_r$x, collapse=", ")))
   } else {
     res_r <- data.frame(x=numeric(0), y=numeric(0))
   }
 
-  # Left Scan (Negative Q)
   left_data <- active_data[active_data[["x"]] <= 0, ]
   if (nrow(left_data) > 0) {
-    left_data <- left_data[order(-left_data[["x"]]), ] # Sort 0 -> -Inf
+    left_data <- left_data[order(-left_data[["x"]]), ]
     res_l <- count_nodes_cpp(left_data, left_data[["threshold"]])
-    if (debug && nrow(res_l) > 0) message(sprintf("DEBUG: Left Scan found nodes at: %s", paste(res_l$x, collapse=", ")))
   } else {
     res_l <- data.frame(x=numeric(0), y=numeric(0))
   }
 
-  # --- 3. Combine & Topology Check ---
+  # --- Combine & Topology Check ---
   dt_l <- data.table::as.data.table(res_l)
   dt_r <- data.table::as.data.table(res_r)
   dot_df <- rbind(dt_l, dt_r)
@@ -78,7 +74,7 @@ count_nodes <- function(density, debug = FALSE) {
   if (nrow(dot_df) > 0) {
     dot_df <- dot_df[order(dot_df[["x"]]), ]
 
-    # --- CENTRAL PEAK VALIDATION ---
+    # CENTRAL PEAK VALIDATION
     neg_nodes <- dot_df[dot_df[["x"]] < 0, ]
     pos_nodes <- dot_df[dot_df[["x"]] > 0, ]
 
@@ -91,7 +87,12 @@ count_nodes <- function(density, debug = FALSE) {
       should_merge <- FALSE
       center_idx <- which.min(abs(active_data[["x"]]))
       center_thresh <- active_data[["threshold"]][center_idx]
-      if (length(center_thresh) == 0) center_thresh <- 10.0
+
+      # LOCAL INTERPOLATION FALLBACK:
+      # If the exact center threshold is missing, average the two nearest nodes.
+      if (length(center_thresh) == 0) {
+        center_thresh <- (closest_neg[["threshold"]] + closest_pos[["threshold"]]) / 2
+      }
 
       if (nrow(gap_data) == 0) {
         should_merge <- TRUE
@@ -113,7 +114,7 @@ count_nodes <- function(density, debug = FALSE) {
     }
   }
 
-  # --- 4. STRUCTURE VALIDATION ---
+  # --- STRUCTURE VALIDATION ---
   final_count <- nrow(dot_df)
   if (final_count == 0) {
     global_thresh_check <- median(active_data[["threshold"]], na.rm=TRUE)
@@ -127,15 +128,13 @@ count_nodes <- function(density, debug = FALSE) {
     }
   }
 
-  # --- 5. TOPOLOGICAL COMPLEXITY (Simple NTV) ---
+  # --- TOPOLOGICAL COMPLEXITY (Simple NTV) ---
   y_vals  <- active_data[["y"]]
   y_max   <- max(y_vals, na.rm = TRUE)
   y_min   <- min(y_vals, na.rm = TRUE)
   y_range <- y_max - y_min
 
   if (y_range > 0) {
-    # Simple Normalized Total Variation:
-    # The sum of all absolute changes divided by the height of the signal.
     total_variation <- sum(abs(diff(y_vals)), na.rm = TRUE)
     final_complexity <- total_variation / y_max
   } else {

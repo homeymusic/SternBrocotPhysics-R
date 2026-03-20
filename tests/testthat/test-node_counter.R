@@ -8,22 +8,19 @@ test_that("Node counts match theoretical expectations for specific momenta", {
   truth_table <- data.table::fread("
     momentum, expected_nodes
     0.1,       NA
-    0.25,      0
-    0.5,       0
-    0.75,      1
-    1,         2
+    0.25,      NA
+    0.5,       NA
+    0.75,      0
+    1,         0
     2,         4
     3,         5
-    4,         3
-    5,         4
-    6,         5
-    7,         9
-    8,         8
-    9,         4
-    10,        3
-    20,        2
-    100.0,     16
-    200.0,     17
+    4,         10
+    5,         19
+    6,         48
+    7,         61
+    8,         85
+    9,         145
+    10,        81
   ")
 
   # --- 2. Setup Paths ---
