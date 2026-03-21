@@ -12,12 +12,8 @@ count_nodes(density, debug = FALSE)
 \item{debug}{Logical. If TRUE, prints decision logic to the console.}
 }
 \value{
-A list containing:
-  \item{node_count}{Integer count of detected nodes.}
-  \item{nodes}{A data.table of the detected node coordinates.}
-  \item{complexity_ntv}{Dimensionless metric of skyline intricacy.}
+A list containing: node_count, nodes, complexity_ntv
 }
 \description{
-Uses outward-scanning adaptive hysteresis to detect nodes and calculates the
-Normalized Total Variation (NTV) to rank states by their physical intricacy.
+Count Nodes and Calculate Topological Complexity
 }

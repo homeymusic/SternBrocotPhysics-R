@@ -396,8 +396,8 @@ if (nrow(dt_summary_minimal_program_length) > 0) {
   
   p_prog <- ggplot(dt_summary_minimal_program_length, aes(x = normalized_momentum)) +
     geom_ribbon(aes(ymin = lower, ymax = upper), fill = "grey80", alpha = 0.6) +
-    geom_line(aes(y = mean_len, color = "Mean"), linewidth = 1.2) +
-    geom_line(aes(y = median_len, color = "Median"), linetype = "dashed", linewidth = 1) +
+    geom_line(aes(y = mean_len, color = "Mean"), linetype = "dashed", linewidth = 1.0) +
+    geom_line(aes(y = median_len, color = "Median"), linewidth = 1.2) +
     scale_color_manual(name = "Metric", values = c("Mean" = "black", "Median" = "gray30")) +
     labs(title = "Evolution of Algorithmic Complexity",
          subtitle = "Mean, Median, and ±1 Standard Deviation of Minimal Program Length over Momentum",
