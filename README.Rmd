@@ -35,20 +35,59 @@ dt_summary_erasure_distance <- if (file.exists(file_04_summary_erasure_distance)
 dt_summary_minimal_action_state <- if (file.exists(file_04_summary_minimal_action_state)) fread(file_04_summary_minimal_action_state) else data.table()
 dt_summary_minimal_program_length <- if (file.exists(file_04_summary_minimal_program_length)) fread(file_04_summary_minimal_program_length) else data.table()
 
-# --- 2. Manual Selection Logic (Hand-Picked Momenta) ---
-dt_handpicked_momenta <- data.table(
-  normalized_momentum = c(0.5, 0.876, 1.065, 1.354, 1.991, 2.308, 2.467, 2.640, 2.829, 2.98, 3.268, 100.0, 200.0),
-  expected_nodes = c(0:10, 29, 20)
-)
+# --- 2. Auto-Selection Logic (Max Algorithmic Complexity per Node Count) ---
 
-# Rolling joins to find the closest actual experimental data points for each peer metric
-dt_selected_erasure_distance <- dt_summary_erasure_distance[
-  dt_handpicked_momenta, on = .(normalized_momentum), roll = "nearest"
-]
+# Filter to valid macroscopic states
+valid_summaries <- dt_summary_erasure_distance[node_count >= 0]
 
-dt_selected_minimal_action_state <- dt_summary_minimal_action_state[
-  dt_handpicked_momenta, on = .(normalized_momentum), roll = "nearest"
-]
+# For each node_count, find the row index with the absolute maximum complexity_ntv
+idx_max_complexity <- valid_summaries[, .I[which.max(complexity_ntv)], by = node_count]$V1
+
+# Extract those specific rows
+dt_auto_picked <- valid_summaries[idx_max_complexity]
+
+# Sort sequentially by node count so the physics evolves naturally in your grid
+setorder(dt_auto_picked, node_count)
+
+# --- GRID LIMITER (Optional but Recommended) ---
+# If your P goes up to 10, you have ~100 node counts. 
+# A grid of 100 plots is impossible to read. Let's cap the grid to n = 0 through 12.
+dt_selected_erasure_distance <- dt_auto_picked[node_count <= 12]
+
+# If your downstream code expected the old `dt_handpicked_momenta` variable format 
+# for a join, we can explicitly define it here to prevent pipeline breaks:
+dt_handpicked_momenta <- dt_selected_erasure_distance[, .(
+  normalized_momentum, 
+  expected_nodes = node_count
+)]
+
+# --- Auto-Selection Logic (Max Complexity per Node Count for Minimal Action State) ---
+
+if (exists("dt_summary_minimal_action_state") && nrow(dt_summary_minimal_action_state) > 0) {
+  
+  # Filter to valid macroscopic states
+  valid_summaries_action <- dt_summary_minimal_action_state[node_count >= 0]
+  
+  # For each node_count, find the row index with the absolute maximum complexity_ntv
+  idx_max_complexity_action <- valid_summaries_action[, .I[which.max(complexity_ntv)], by = node_count]$V1
+  
+  # Extract those specific rows
+  dt_auto_picked_action <- valid_summaries_action[idx_max_complexity_action]
+  
+  # Sort sequentially by node count so the physics evolves naturally in your grid
+  setorder(dt_auto_picked_action, node_count)
+  
+  # --- GRID LIMITER ---
+  # Cap the grid to n = 0 through 12 to keep it readable, just like the erasure distance grid.
+  dt_selected_minimal_action <- dt_auto_picked_action[node_count <= 12]
+  
+  # Define the expected format for downstream joins and rendering
+  dt_handpicked_momenta_action <- dt_selected_minimal_action[, .(
+    normalized_momentum, 
+    expected_nodes = node_count
+  )]
+  
+}
 ```
 
 ```{r plot-1A-combined-grid-erasure-distance, echo=FALSE, fig.width=14, fig.height=25, warning=FALSE, message=FALSE}
@@ -61,7 +100,7 @@ render_combined_erasure_distance_grid <- function(dt_target_momenta) {
     momentum_val <- current_row$normalized_momentum
     momentum_str_padded <- sprintf("%013.6f", momentum_val)
     
-    # ---------------------------------------------------------
+ # ---------------------------------------------------------
     # 1. Conjugate Quanta (Left Column)
     # ---------------------------------------------------------
     a_base <- momentum_val / 0.5
@@ -80,9 +119,17 @@ render_combined_erasure_distance_grid <- function(dt_target_momenta) {
       scale_fill_manual(values = c("Q-Conjugate" = "black", "P-Conjugate" = "gray60")) +
       scale_color_manual(values = c("Q-Conjugate" = "black", "P-Conjugate" = "gray30")) +
       coord_fixed(xlim = c(-100, 100), ylim = c(-100, 100)) +
+      
+      # THE FIX: Use node_count instead of expected_nodes
+      labs(y = sprintf("P = %.3f\nn = %d", momentum_val, current_row$node_count)) +
+      
       theme_minimal() + 
       theme(legend.position = "none",
-            axis.title = element_blank(), 
+            axis.title.x = element_blank(), 
+            
+            # THE FIX: Force horizontal text (angle = 0), center it vertically, and add right margin
+            axis.title.y = element_text(angle = 0, vjust = 0.5, hjust = 1, face = "bold", size = 12, margin = margin(r = 15)), 
+            
             axis.text = element_blank(),
             panel.grid = element_line(color = "gray90"),
             aspect.ratio = 1,
@@ -174,7 +221,7 @@ render_combined_erasure_distance_grid <- function(dt_target_momenta) {
   final_grid <- wrap_plots(plot_list, ncol = 3) +
     plot_annotation(
       title = "Structural Evolution of Erasure Distance",
-      subtitle = "Nodes 0 through 10 and 29",
+      subtitle = "Auto-selected states of maximum algorithmic variation",
       theme = theme(plot.title = element_text(size = 20, face = "bold", hjust = 0.5, family = "mono"),
                     plot.subtitle = element_text(size = 14, hjust = 0.5, color = "gray30"))
     )
@@ -183,6 +230,8 @@ render_combined_erasure_distance_grid <- function(dt_target_momenta) {
 }
 
 render_combined_erasure_distance_grid(dt_selected_erasure_distance)
+
+
 ```
 
 ```{r plot-1B-combined-grid-minimal-action-state, echo=FALSE, fig.width=14, fig.height=25, warning=FALSE, message=FALSE}
@@ -319,7 +368,7 @@ render_combined_minimal_action_state_grid <- function(dt_target_momenta) {
   if(nrow(dt_target_momenta) > 0) print(final_grid)
 }
 
-render_combined_minimal_action_state_grid(dt_selected_minimal_action_state)
+render_combined_minimal_action_state_grid(dt_selected_minimal_action)
 ```
 
 ---
@@ -370,11 +419,11 @@ if(nrow(dt_summary_minimal_action_state) > 0) {
                   n = 1001, color = "black", linetype = "dashed", alpha = 0.5, linewidth = 0.8) +
     geom_point(data = dt_background_minimal_action_state[order(complexity_ntv)], 
                aes(x = normalized_momentum, y = node_count, color = complexity_ntv), 
-               size = 1.5, alpha = 0.6) +
-    scale_color_gradient(low = "black", high = "grey80", name = "Variation") +  
-    geom_point(data = dt_selected_minimal_action_state, aes(x = normalized_momentum, y = node_count), 
+               size = 1.5, alpha = 1.0) +
+    scale_color_gradient(low = "black", high = "grey95", name = "Variation") +  
+    geom_point(data = dt_selected_minimal_action, aes(x = normalized_momentum, y = node_count), 
                color = "black", size = 5, shape = 21, fill = NA, stroke = 1.2) +
-    geom_text(data = dt_selected_minimal_action_state, aes(x = normalized_momentum, y = node_count, 
+    geom_text(data = dt_selected_minimal_action, aes(x = normalized_momentum, y = node_count, 
               label = sprintf("n=%d P=%.3f v=%.2f", node_count, normalized_momentum, complexity_ntv)),
               nudge_y = 0.35, size = 3, fontface = "bold", family = "mono") +
     labs(title = "Node Count vs Momentum: Minimal Action State",
@@ -525,7 +574,7 @@ render_profiles_minimal_action_state <- function(dt_target_momenta, dot_color = 
     }
   }
 }
-render_profiles_minimal_action_state(dt_selected_minimal_action_state, "black")
+render_profiles_minimal_action_state(dt_selected_minimal_action, "black")
 ```
 
 ```{r plot-5-through-9-phase-space-scatters, echo=FALSE, results='asis', message=FALSE, warning=FALSE, fig.width=10, fig.height=6}

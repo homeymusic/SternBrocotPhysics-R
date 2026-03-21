@@ -106,26 +106,6 @@ Stern-Brocot Physics
 
 ------------------------------------------------------------------------
 
-![](README_files/figure-gfm/plot-4B-individual-profiles-minimal-action-state-8.png)<!-- -->
-
-------------------------------------------------------------------------
-
-![](README_files/figure-gfm/plot-4B-individual-profiles-minimal-action-state-9.png)<!-- -->
-
-------------------------------------------------------------------------
-
-![](README_files/figure-gfm/plot-4B-individual-profiles-minimal-action-state-10.png)<!-- -->
-
-------------------------------------------------------------------------
-
-![](README_files/figure-gfm/plot-4B-individual-profiles-minimal-action-state-11.png)<!-- -->
-
-------------------------------------------------------------------------
-
-![](README_files/figure-gfm/plot-4B-individual-profiles-minimal-action-state-12.png)<!-- -->
-
-------------------------------------------------------------------------
-
 ![](README_files/figure-gfm/plot-5-through-9-phase-space-scatters-1.png)<!-- -->
 
 ------------------------------------------------------------------------
