@@ -35,50 +35,95 @@ dt_summary_erasure_distance <- if (file.exists(file_04_summary_erasure_distance)
 dt_summary_minimal_action_state <- if (file.exists(file_04_summary_minimal_action_state)) fread(file_04_summary_minimal_action_state) else data.table()
 dt_summary_minimal_program_length <- if (file.exists(file_04_summary_minimal_program_length)) fread(file_04_summary_minimal_program_length) else data.table()
 
-# --- 2. Auto-Selection Logic (Max Algorithmic Complexity per Node Count) ---
+# # --- 2. Auto-Selection Logic (Max Algorithmic Complexity per Node Count) ---
+# 
+# # Filter to valid macroscopic states
+# valid_summaries <- dt_summary_erasure_distance[node_count >= 0]
+# 
+# # For each node_count, find the row index with the absolute maximum complexity_ntv
+# idx_max_complexity <- valid_summaries[, .I[which.max(complexity_ntv)], by = node_count]$V1
+# 
+# # Extract those specific rows
+# dt_auto_picked <- valid_summaries[idx_max_complexity]
+# 
+# # Sort sequentially by node count so the physics evolves naturally in your grid
+# setorder(dt_auto_picked, node_count)
+# 
+# # --- GRID LIMITER (Optional but Recommended) ---
+# # If your P goes up to 10, you have ~100 node counts. 
+# # A grid of 100 plots is impossible to read. Let's cap the grid to n = 0 through 12.
+# dt_selected_erasure_distance <- dt_auto_picked[node_count <= 12]
+# 
+# # If your downstream code expected the old `dt_handpicked_momenta` variable format 
+# # for a join, we can explicitly define it here to prevent pipeline breaks:
+# dt_handpicked_momenta <- dt_selected_erasure_distance[, .(
+#   normalized_momentum, 
+#   expected_nodes = node_count
+# )]
+# 
+# # --- Auto-Selection Logic (Max Complexity per Node Count for Minimal Action State) ---
+# 
+# if (exists("dt_summary_minimal_action_state") && nrow(dt_summary_minimal_action_state) > 0) {
+#   
+#   # Filter to valid macroscopic states
+#   valid_summaries_action <- dt_summary_minimal_action_state[node_count >= 0]
+#   
+#   # For each node_count, find the row index with the absolute maximum complexity_ntv
+#   idx_max_complexity_action <- valid_summaries_action[, .I[which.max(complexity_ntv)], by = node_count]$V1
+#   
+#   # Extract those specific rows
+#   dt_auto_picked_action <- valid_summaries_action[idx_max_complexity_action]
+#   
+#   # Sort sequentially by node count so the physics evolves naturally in your grid
+#   setorder(dt_auto_picked_action, node_count)
+#   
+#   # --- GRID LIMITER ---
+#   # Cap the grid to n = 0 through 12 to keep it readable, just like the erasure distance grid.
+#   dt_selected_minimal_action <- dt_auto_picked_action[node_count <= 12]
+#   
+#   # Define the expected format for downstream joins and rendering
+#   dt_handpicked_momenta_action <- dt_selected_minimal_action[, .(
+#     normalized_momentum, 
+#     expected_nodes = node_count
+#   )]
+#   
+# }
+# --- 2. Auto-Selection Logic (Closest to Theoretical Parabola n = P^2) ---
 
 # Filter to valid macroscopic states
 valid_summaries <- dt_summary_erasure_distance[node_count >= 0]
 
-# For each node_count, find the row index with the absolute maximum complexity_ntv
-idx_max_complexity <- valid_summaries[, .I[which.max(complexity_ntv)], by = node_count]$V1
+# For each node_count, find the row index where P is closest to sqrt(n)
+idx_closest_parabola <- valid_summaries[, .I[which.min(abs(normalized_momentum - sqrt(node_count)))], by = node_count]$V1
 
 # Extract those specific rows
-dt_auto_picked <- valid_summaries[idx_max_complexity]
-
-# Sort sequentially by node count so the physics evolves naturally in your grid
+dt_auto_picked <- valid_summaries[idx_closest_parabola]
 setorder(dt_auto_picked, node_count)
 
-# --- GRID LIMITER (Optional but Recommended) ---
-# If your P goes up to 10, you have ~100 node counts. 
-# A grid of 100 plots is impossible to read. Let's cap the grid to n = 0 through 12.
+# --- GRID LIMITER ---
 dt_selected_erasure_distance <- dt_auto_picked[node_count <= 12]
 
-# If your downstream code expected the old `dt_handpicked_momenta` variable format 
-# for a join, we can explicitly define it here to prevent pipeline breaks:
 dt_handpicked_momenta <- dt_selected_erasure_distance[, .(
   normalized_momentum, 
   expected_nodes = node_count
 )]
 
-# --- Auto-Selection Logic (Max Complexity per Node Count for Minimal Action State) ---
+# --- Auto-Selection Logic (Closest to Theoretical Parabola for Minimal Action State) ---
 
 if (exists("dt_summary_minimal_action_state") && nrow(dt_summary_minimal_action_state) > 0) {
   
   # Filter to valid macroscopic states
   valid_summaries_action <- dt_summary_minimal_action_state[node_count >= 0]
   
-  # For each node_count, find the row index with the absolute maximum complexity_ntv
-  idx_max_complexity_action <- valid_summaries_action[, .I[which.max(complexity_ntv)], by = node_count]$V1
+  # For each node_count, find the row index where P is closest to sqrt(n)
+  idx_closest_parabola_action <- valid_summaries_action[, .I[which.min(abs(normalized_momentum - sqrt(node_count)))], by = node_count]$V1
   
   # Extract those specific rows
-  dt_auto_picked_action <- valid_summaries_action[idx_max_complexity_action]
-  
-  # Sort sequentially by node count so the physics evolves naturally in your grid
+  dt_auto_picked_action <- valid_summaries_action[idx_closest_parabola_action]
   setorder(dt_auto_picked_action, node_count)
   
   # --- GRID LIMITER ---
-  # Cap the grid to n = 0 through 12 to keep it readable, just like the erasure distance grid.
+  # We use the full "_state" name here to be totally consistent
   dt_selected_minimal_action <- dt_auto_picked_action[node_count <= 12]
   
   # Define the expected format for downstream joins and rendering
