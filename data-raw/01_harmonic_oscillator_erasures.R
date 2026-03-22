@@ -7,7 +7,7 @@ raw_directory  <- file.path(base_data_dir_4TB, "01_harmonic_oscillator_erasures"
 if (!dir.exists(raw_directory)) dir.create(raw_directory, recursive = TRUE)
 
 granularity_p <- 0.001
-normalized_momenta <- c(seq(0.1, 10.0, by = granularity_p), seq(20, 200, 10))
+normalized_momenta <- seq(0.1, 10.0, by = granularity_p)
 
 message(sprintf("Launching Dynamic Simulation."))
 message(sprintf("Total Files: %d", length(normalized_momenta)))
