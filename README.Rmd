@@ -5,10 +5,15 @@ output:
 ---
 
 ```{r setup-and-data, echo=FALSE, message=FALSE, warning=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
 library(data.table)
 library(ggplot2)
 library(ggforce)
 library(patchwork)
+library(dplyr)
+library(purrr)
+library(ggrepel) 
+
 
 # --- 1. Configuration & Data Load ---
 # Strict Prefix Naming: dir_ (Directory), file_ (File Path), dt_ (DataTable)
@@ -375,61 +380,124 @@ render_combined_erasure_distance_grid <- function(dt_target_momenta, custom_titl
 render_combined_erasure_distance_grid(dt_selected_parabola, "Harmonic Oscillator Erasure Density (Theoretical Parabola)")
 ```
 
-```{r plot-1B-grid-textbook, echo=FALSE, fig.width=14, fig.height=dynamic_height_textbook, warning=FALSE, message=FALSE}
-# --- Plot 1B: Erasure Distance Grid (Max Visual Prominence / Textbook) ---
-render_combined_erasure_distance_grid(dt_selected_textbook, "Harmonic Oscillator Erasure Density (Max Local SNR)")
+```{r generate_tree}
+# Function to generate the extended Stern-Brocot tree up to max_depth
+generate_tree <- function(max_depth) {
+  nodes <- list(
+    list(
+      depth = 0, num = 0, den = 1,
+      l_num = -1, l_den = 0, r_num = 1, r_den = 0,
+      bin = "", parent_x = NA_real_, parent_y = NA_real_
+    )
+  )
+  
+  all_nodes <- nodes
+  
+  for (d in 1:max_depth) {
+    new_nodes <- list()
+    for (node in nodes) {
+      left_node <- list(
+        depth = d, num = node$l_num + node$num, den = node$l_den + node$den,
+        l_num = node$l_num, l_den = node$l_den, r_num = node$num, r_den = node$den,
+        bin = paste0(node$bin, "0"), parent_x = node$num / node$den, parent_y = node$depth
+      )
+      right_node <- list(
+        depth = d, num = node$num + node$r_num, den = node$den + node$r_den,
+        l_num = node$num, l_den = node$den, r_num = node$r_num, r_den = node$r_den,
+        bin = paste0(node$bin, "1"), parent_x = node$num / node$den, parent_y = node$depth
+      )
+      new_nodes <- append(new_nodes, list(left_node, right_node))
+    }
+    all_nodes <- append(all_nodes, new_nodes)
+    nodes <- new_nodes
+  }
+  
+  df <- bind_rows(all_nodes) %>%
+    mutate(
+      x = num / den,
+      y = depth,
+      frac_label = paste0(num, "/", den),
+      bin_label = ifelse(bin == "", "(no bits)", bin)
+    )
+  
+  return(df)
+}
+
+max_k <- 4
+tree_data <- generate_tree(max_k)
 ```
 
-```{r plot-2B-overview-scatter-minimal-action-state, echo=FALSE, results='asis', message=FALSE, warning=FALSE, fig.width=12, fig.height=8}
-# --- Plot 2B: Overview Scatter Plot (Minimal Action State) ---
-if(nrow(dt_summary_minimal_action_state) > 0) {
-  dt_background_minimal_action_state <- dt_summary_minimal_action_state[
-    !is.na(node_count) & 
-    node_count >= config_min_node_count & 
-    node_count <= config_max_node_count & 
-    normalized_momentum >= config_min_momentum &
-    normalized_momentum <= config_max_momentum
-  ]
+```{r plot_tree, fig.width=14, fig.height=8, dpi=300}
+ggplot(tree_data, aes(x = x, y = y)) +
+  # Edges: Thicker and darker to emphasize the actual tree structure
+  geom_segment(
+    aes(xend = parent_x, yend = parent_y), 
+    color = "gray40", 
+    linewidth = 0.8,
+    na.rm = TRUE  # Silences the NA warning for the root node
+  ) +
   
-  # Compute local relative SNR (percentile rank within each node_count)
-  dt_background_minimal_action_state[, snr_relative := frank(snr_metric, ties.method = "average") / .N, by = node_count]
+  # Points
+  geom_point(color = "black", size = 2) +
   
-  p_ov_action_b <- ggplot() +
-    geom_point(data = dt_background_minimal_action_state[order(snr_relative)], 
-               aes(x = normalized_momentum, y = node_count, color = snr_relative), 
-               size = 1.5, alpha = 1.0) +
-    # Strictly Grayscale gradient for background points
-    scale_color_gradient(low = "black", high = "grey85", name = "Local SNR\n(Percentile)") +  
-    
-    # 1. Plot Textbook SNR Selections (Square, Shape 22, Gray)
-    geom_point(data = dt_selected_minimal_action_textbook, aes(x = normalized_momentum, y = node_count, shape = "Max Local SNR"), 
-               color = "gray50", size = 4, fill = NA, stroke = 1.2) +
-               
-    # 2. Plot Parabola Selections (Circle, Shape 21, Solid Black)
-    geom_point(data = dt_selected_minimal_action_parabola, aes(x = normalized_momentum, y = node_count, shape = "Parabola Fit"), 
-               color = "black", size = 5.5, fill = NA, stroke = 1.2) +
-               
-    # Grayscale Shape Legend
-    scale_shape_manual(name = "Selection Method", values = c("Parabola Fit" = 21, "Max Local SNR" = 22)) +
-    
-    # Text Callouts (Using Parabola data)
-    geom_text(data = dt_selected_minimal_action_parabola, aes(x = normalized_momentum, y = node_count, 
-              label = sprintf("n=%d P=%.3f snr=%.1f", node_count, normalized_momentum, snr_metric)),
-              nudge_y = config_max_node_count * 0.015, 
-              size = 3, color = "black", fontface = "bold", family = "mono") +
-              
-    # Axis Configurations
-    scale_x_continuous(breaks = seq(ceiling(config_min_momentum), floor(config_max_momentum), by = 1)) +
-    scale_y_continuous(breaks = seq(config_min_node_count, config_max_node_count, by = 5)) +
-    
-    labs(title = "Node Count vs Momentum: Minimal Action State",
-         subtitle = sprintf("Continuous phase-space evolution from P=%g to %g and n=%d to %d", config_min_momentum, config_max_momentum, config_min_node_count, config_max_node_count),
-         x = "Normalized Momentum (P)", y = "Nodes (n)") +
-    coord_cartesian(xlim = c(config_min_momentum, config_max_momentum), ylim = c(config_min_node_count - 0.5, config_max_node_count)) +
-    theme_minimal() +
-    theme(panel.grid.minor = element_blank(), plot.title = element_text(face = "bold", size = 14))
+  # Top Labels: Fractions ABOVE the points
+  geom_label_repel(
+    aes(label = frac_label),
+    direction = "x",          # <--- Changed to "x" to only repel horizontally
+    nudge_y = 0.15,           # Locks the vertical push UP
+    segment.color = "gray85", 
+    segment.size = 0.2,       
+    size = 3.5,
+    color = "black",
+    fill = "white",           # Opaque background
+    label.size = NA,          # Removes the box border
+    label.padding = unit(0.15, "lines"),
+    vjust = 0,                # Anchors bottom of text block
+    box.padding = 0.1,       
+    max.overlaps = Inf       
+  ) +
   
-  print(p_ov_action_b)
-  cat("\n\n---\n\n")
-}
+  # Bottom Labels: Binary strings BELOW the points
+  geom_label_repel(
+    aes(label = bin_label),
+    direction = "x",          # <--- Changed to "x" to only repel horizontally
+    nudge_y = -0.15,          # Locks the vertical push DOWN
+    segment.color = "gray85", 
+    segment.size = 0.2,       
+    size = 3.5,
+    family = "mono",          # Fixed-width font for info theory look
+    color = "black",
+    fill = "white",           
+    label.size = NA,          
+    label.padding = unit(0.15, "lines"),
+    vjust = 1,                # Anchors top of text block
+    box.padding = 0.1,       
+    max.overlaps = Inf       
+  ) +
+  
+  scale_y_continuous(
+    breaks = 0:max_k, 
+    limits = c(-0.3, max_k + 0.3), 
+    name = "Kolmogorov Complexity (K)"
+  ) +
+  
+  scale_x_continuous(
+    breaks = -4:4, 
+    name = "Coordinate (q)",
+    expand = expansion(mult = 0.05) 
+  ) +
+  
+  theme_minimal() +
+  theme(
+    panel.grid.minor = element_blank(),
+    panel.grid.major.y = element_line(color = "gray90"),
+    plot.title = element_text(hjust = 0.5, face = "bold", size = 16),
+    plot.subtitle = element_text(hjust = 0.5, size = 12, color = "gray30"),
+    axis.title = element_text(face = "bold"),
+    axis.text = element_text(size = 10)
+  ) +
+  labs(
+    title = "Extended Stern-Brocot Tree (-Inf to +Inf)",
+    subtitle = "Tree depth is Kolmogorov Complexity"
+  )
 ```

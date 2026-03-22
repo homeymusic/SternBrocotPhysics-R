@@ -11,8 +11,4 @@ Harmonic Oscillator Erasure Density
 
 ![](README_files/figure-gfm/plot-1A-grid-parabola-1.png)<!-- -->
 
-![](README_files/figure-gfm/plot-1B-grid-textbook-1.png)<!-- -->
-
-![](README_files/figure-gfm/plot-2B-overview-scatter-minimal-action-state-1.png)<!-- -->
-
-------------------------------------------------------------------------
+![](README_files/figure-gfm/plot_tree-1.png)<!-- -->
