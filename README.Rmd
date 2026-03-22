@@ -18,7 +18,7 @@ dir_base_data_4TB <- "/Volumes/SanDisk4TB/SternBrocot-data"
 # --- 1.2 Display Configuration ---
 config_min_node_count <- 0
 config_max_node_count <- 30
-config_min_momentum <- 0.5
+config_min_momentum <- 0.0
 config_max_momentum <- 10
 
 # Pipeline Directories
@@ -158,11 +158,14 @@ if(nrow(dt_summary_erasure_distance) > 0) {
     scale_shape_manual(name = "Selection Method", values = c("Parabola Fit" = 21, "Max Local SNR" = 22)) +
     
     # Text Callouts (Using Parabola data)
+# Text Callouts (Using Parabola data)
     geom_text(data = dt_selected_parabola, aes(x = normalized_momentum, y = node_count, 
-              label = sprintf("n=%d P=%.3f snr=%.1f", node_count, normalized_momentum, snr_metric)),
-              nudge_y = config_max_node_count * 0.015, 
+              label = sprintf("P=%.3f", normalized_momentum)),
+              hjust = 1,          # 1 = Right-justified (anchors the right side of the text to the point)
+              vjust = 0.5,        # 0.5 = Vertically centered on the point
+              nudge_x = -0.15,    # Nudge it slightly left so it doesn't overlap the actual shape
               size = 3, color = "black", fontface = "bold", family = "mono") +
-              
+    
     # Axis Configurations
     scale_x_continuous(breaks = seq(ceiling(config_min_momentum), floor(config_max_momentum), by = 1)) +
     scale_y_continuous(breaks = seq(config_min_node_count, config_max_node_count, by = 5)) +
