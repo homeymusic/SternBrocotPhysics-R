@@ -12,7 +12,7 @@ count_nodes(density, debug = FALSE)
 \item{debug}{Logical. If TRUE, prints decision logic to the console.}
 }
 \value{
-A list containing: node_count, nodes, complexity_ntv
+A list containing: node_count, nodes, snr_metric
 }
 \description{
 Count Nodes and Calculate Topological Complexity

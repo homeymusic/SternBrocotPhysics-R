@@ -25,6 +25,7 @@ DataFrame count_nodes_cpp(DataFrame sub_df, NumericVector thresh_vec) {
 
   std::vector<double> node_x;
   std::vector<double> node_y;
+  std::vector<double> node_snr;
 
   // --- STATE INITIALIZATION ---
   // State 0 = Seeking Valley / In Valley
@@ -73,6 +74,9 @@ DataFrame count_nodes_cpp(DataFrame sub_df, NumericVector thresh_vec) {
           node_x.push_back(local_min_x);
           node_y.push_back(local_min);
 
+          double well_depth = local_max - local_min;
+          node_snr.push_back(well_depth / local_thresh);
+
           // Switch back to seeking peak
           state = 1;
           local_max = val;
@@ -83,6 +87,7 @@ DataFrame count_nodes_cpp(DataFrame sub_df, NumericVector thresh_vec) {
 
   return DataFrame::create(
     _["x"] = wrap(node_x),
-    _["y"] = wrap(node_y)
+    _["y"] = wrap(node_y),
+    _["snr"] = wrap(node_snr)
   );
 }

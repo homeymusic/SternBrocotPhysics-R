@@ -2,7 +2,7 @@
 #'
 #' @param density A data.table containing 'x' (coordinate) and 'y' (density) columns.
 #' @param debug Logical. If TRUE, prints decision logic to the console.
-#' @return A list containing: node_count, nodes, complexity_ntv
+#' @return A list containing: node_count, nodes, snr_metric
 #' @import data.table
 #' @export
 count_nodes <- function(density, debug = FALSE) {
@@ -12,9 +12,7 @@ count_nodes <- function(density, debug = FALSE) {
 
   density <- density[order(density[["x"]]), ]
 
-  # PURE SYSTEM QUANTA:
-  # Works for both raw integer counts and normalized probability densities.
-  # Eliminates arbitrary 1e-9 floating-point safety nets.
+  # PURE SYSTEM QUANTA
   n_active_microstates <- sum(density[["y"]], na.rm = TRUE)
   system_quanta <- 1.0 / n_active_microstates
   active_idx <- which(density[["y"]] >= system_quanta)
@@ -22,19 +20,16 @@ count_nodes <- function(density, debug = FALSE) {
   if (length(active_idx) < 3) {
     return(list(
       node_count = as.integer(NA),
-      nodes = data.table::data.table(x=numeric(0), y=numeric(0)),
-      complexity_ntv = 0
+      nodes = data.table::data.table(x=numeric(0), y=numeric(0), snr=numeric(0)),
+      snr_metric = 0
     ))
   }
 
   active_data <- density[active_idx, ]
   n_active <- nrow(active_data)
 
-  # PURE GEOMETRIC SMOOTHING:
-  # The bin_width guarantees exactly 4 bins per physical QHO wave.
-  # We smooth over exactly 3 bins to filter grid static without flattening the 4-bin wave.
+  # PURE GEOMETRIC SMOOTHING
   adaptive_f <- 3 / n_active
-
   trend_fit <- stats::lowess(active_data[["x"]], active_data[["y"]], f = adaptive_f)
   local_baseline <- trend_fit$y
 
@@ -55,7 +50,7 @@ count_nodes <- function(density, debug = FALSE) {
   if (nrow(right_data) > 0) {
     res_r <- count_nodes_cpp(right_data, right_data[["threshold"]])
   } else {
-    res_r <- data.frame(x=numeric(0), y=numeric(0))
+    res_r <- data.frame(x=numeric(0), y=numeric(0), snr=numeric(0))
   }
 
   left_data <- active_data[active_data[["x"]] <= 0, ]
@@ -63,13 +58,13 @@ count_nodes <- function(density, debug = FALSE) {
     left_data <- left_data[order(-left_data[["x"]]), ]
     res_l <- count_nodes_cpp(left_data, left_data[["threshold"]])
   } else {
-    res_l <- data.frame(x=numeric(0), y=numeric(0))
+    res_l <- data.frame(x=numeric(0), y=numeric(0), snr=numeric(0))
   }
 
   # --- Combine & Topology Check ---
   dt_l <- data.table::as.data.table(res_l)
   dt_r <- data.table::as.data.table(res_r)
-  dot_df <- rbind(dt_l, dt_r)
+  dot_df <- rbind(dt_l, dt_r, fill = TRUE)
   dot_df <- unique(dot_df, by = "x")
 
   if (nrow(dot_df) > 0) {
@@ -89,8 +84,6 @@ count_nodes <- function(density, debug = FALSE) {
       center_idx <- which.min(abs(active_data[["x"]]))
       center_thresh <- active_data[["threshold"]][center_idx]
 
-      # LOCAL INTERPOLATION FALLBACK:
-      # If the exact center threshold is missing, average the two nearest nodes.
       if (length(center_thresh) == 0) {
         center_thresh <- (closest_neg[["threshold"]] + closest_pos[["threshold"]]) / 2
       }
@@ -110,7 +103,8 @@ count_nodes <- function(density, debug = FALSE) {
       if (should_merge) {
         dot_df <- dot_df[!(dot_df[["x"]] == closest_neg[["x"]] | dot_df[["x"]] == closest_pos[["x"]]), ]
         min_val <- if(nrow(gap_data)>0) min(gap_data[["y"]], na.rm=TRUE) else (closest_neg[["y"]]+closest_pos[["y"]])/2
-        dot_df <- rbind(dot_df, data.table::data.table(x=0, y=min_val))
+        merged_snr <- mean(c(closest_neg[["snr"]], closest_pos[["snr"]]), na.rm = TRUE)
+        dot_df <- rbind(dot_df, data.table::data.table(x=0, y=min_val, snr=merged_snr), fill = TRUE)
       }
     }
   }
@@ -123,21 +117,15 @@ count_nodes <- function(density, debug = FALSE) {
     if (active_range < global_thresh_check) {
       return(list(
         node_count = as.integer(NA),
-        nodes = data.table::data.table(x=numeric(0), y=numeric(0)),
-        complexity_ntv = 0
+        nodes = data.table::data.table(x=numeric(0), y=numeric(0), snr=numeric(0)),
+        snr_metric = 0
       ))
     }
   }
 
-  # --- TOPOLOGICAL COMPLEXITY (Simple NTV) ---
-  y_vals  <- active_data[["y"]]
-  y_max   <- max(y_vals, na.rm = TRUE)
-  y_min   <- min(y_vals, na.rm = TRUE)
-  y_range <- y_max - y_min
-
-  if (y_range > 0) {
-    total_variation <- sum(abs(diff(y_vals)), na.rm = TRUE)
-    final_complexity <- total_variation / y_max
+  # --- TOPOLOGICAL COMPLEXITY (Mean Local SNR) ---
+  if (nrow(dot_df) > 0 && "snr" %in% names(dot_df)) {
+    final_complexity <- mean(dot_df[["snr"]], na.rm = TRUE)
   } else {
     final_complexity <- 0
   }
@@ -147,6 +135,6 @@ count_nodes <- function(density, debug = FALSE) {
   return(list(
     node_count = final_count,
     nodes = dot_df,
-    complexity_ntv = final_complexity
+    snr_metric = final_complexity
   ))
 }

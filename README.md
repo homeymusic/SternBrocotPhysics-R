@@ -1,7 +1,9 @@
 Harmonic Oscillator Erasure Density
 ================
 
-![](README_files/figure-gfm/plot-1A-combined-grid-erasure-distance-1.png)<!-- -->
+![](README_files/figure-gfm/plot-1A-grid-parabola-1.png)<!-- -->
+
+![](README_files/figure-gfm/plot-1B-grid-textbook-1.png)<!-- -->
 
 ------------------------------------------------------------------------
 

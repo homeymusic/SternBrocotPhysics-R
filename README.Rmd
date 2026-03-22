@@ -44,57 +44,59 @@ dt_summary_minimal_program_length <- if (file.exists(file_04_summary_minimal_pro
 # P^2 = n + 0.5  =>  n = P^2 - 0.5
 qho_zpe_offset <- 0.0
 
-# --- 2. Auto-Selection Logic (Closest to Theoretical Parabola n = P^2 - 0.5) ---
+# --- 2. Auto-Selection Logic (Erasure Distance) ---
 
 # Filter to valid macroscopic states
 valid_summaries <- dt_summary_erasure_distance[node_count >= 0]
 
-# For each node_count, find the row index where P is closest to sqrt(n + zpe_offset)
+# SELECTION A: Closest to Theoretical Parabola
 idx_closest_parabola <- valid_summaries[, .I[which.min(abs(normalized_momentum - sqrt(node_count + qho_zpe_offset)))], by = node_count]$V1
+dt_parabola_picked <- valid_summaries[idx_closest_parabola]
+setorder(dt_parabola_picked, node_count)
+dt_selected_parabola <- dt_parabola_picked[node_count <= config_max_node_count & normalized_momentum <= config_max_momentum]
 
-# Extract those specific rows
-dt_auto_picked <- valid_summaries[idx_closest_parabola]
-setorder(dt_auto_picked, node_count)
+# SELECTION B: The "Textbook" Plot (Highest Local SNR)
+if("snr_metric" %in% names(valid_summaries)) {
+  idx_textbook <- valid_summaries[, .I[which.max(snr_metric)], by = node_count]$V1
+} else {
+  idx_textbook <- idx_closest_parabola # Fallback just in case pipeline isn't fully updated
+}
+dt_textbook_picked <- valid_summaries[idx_textbook]
+setorder(dt_textbook_picked, node_count)
+dt_selected_textbook <- dt_textbook_picked[node_count <= config_max_node_count & normalized_momentum <= config_max_momentum]
 
-# --- GRID LIMITER ---
-# Apply the global configuration limits
-dt_selected_erasure_distance <- dt_auto_picked[node_count <= config_max_node_count & normalized_momentum <= config_max_momentum]
 
-dt_auto_picked_momenta <- dt_selected_erasure_distance[, .(
-  normalized_momentum, 
-  expected_nodes = node_count
-)]
-
-# --- Auto-Selection Logic (Closest to Theoretical Parabola for Minimal Action State) ---
+# --- Auto-Selection Logic (Minimal Action State) ---
 
 if (exists("dt_summary_minimal_action_state") && nrow(dt_summary_minimal_action_state) > 0) {
   
   valid_summaries_action <- dt_summary_minimal_action_state[node_count >= 0]
   
-  # Ensure the ZPE offset is respected here too!
+  # SELECTION A: Parabola
   idx_closest_parabola_action <- valid_summaries_action[, .I[which.min(abs(normalized_momentum - sqrt(node_count + qho_zpe_offset)))], by = node_count]$V1
+  dt_parabola_picked_action <- valid_summaries_action[idx_closest_parabola_action]
+  setorder(dt_parabola_picked_action, node_count)
+  dt_selected_minimal_action_parabola <- dt_parabola_picked_action[node_count <= config_max_node_count & normalized_momentum <= config_max_momentum]
   
-  dt_auto_picked_action <- valid_summaries_action[idx_closest_parabola_action]
-  setorder(dt_auto_picked_action, node_count)
-  
-  # Apply the global configuration limits
-  dt_selected_minimal_action <- dt_auto_picked_action[node_count <= config_max_node_count & normalized_momentum <= config_max_momentum]
-  
-  dt_auto_picked_momenta_action <- dt_selected_minimal_action[, .(
-    normalized_momentum, 
-    expected_nodes = node_count
-  )]
+  # SELECTION B: Textbook (SNR)
+  if("snr_metric" %in% names(valid_summaries_action)) {
+    idx_textbook_action <- valid_summaries_action[, .I[which.max(snr_metric)], by = node_count]$V1
+  } else {
+    idx_textbook_action <- idx_closest_parabola_action
+  }
+  dt_textbook_picked_action <- valid_summaries_action[idx_textbook_action]
+  setorder(dt_textbook_picked_action, node_count)
+  dt_selected_minimal_action_textbook <- dt_textbook_picked_action[node_count <= config_max_node_count & normalized_momentum <= config_max_momentum]
 }
 
 # --- 3. Dynamic Plot Sizing ---
-# With fig.width = 14 and ncol = 3, each plot gets ~4.66 inches of width.
-# To maintain a 1:1 aspect ratio and maximize visibility, allocate ~4.7 inches of height per row, plus 1 inch for headers/margins.
-dynamic_height_1a <- max(5, nrow(dt_selected_erasure_distance) * 4.7 + 1)
+dynamic_height_parabola <- max(5, nrow(dt_selected_parabola) * 4.7 + 1)
+dynamic_height_textbook <- max(5, nrow(dt_selected_textbook) * 4.7 + 1)
 ```
 
-```{r plot-1A-combined-grid-erasure-distance, echo=FALSE, fig.width=14, fig.height=dynamic_height_1a, warning=FALSE, message=FALSE}
-# --- Plot 1A: Combined Grayscale Small Multiples (Erasure Distance) ---
-render_combined_erasure_distance_grid <- function(dt_target_momenta) {
+```{r setup-plotting-functions, echo=FALSE, message=FALSE, warning=FALSE}
+# --- Function: Render Combined Erasure Distance Grid ---
+render_combined_erasure_distance_grid <- function(dt_target_momenta, custom_title) {
   plot_list <- list()
   
   for (i in seq_len(nrow(dt_target_momenta))) {
@@ -102,7 +104,7 @@ render_combined_erasure_distance_grid <- function(dt_target_momenta) {
     momentum_val <- current_row$normalized_momentum
     momentum_str_padded <- sprintf("%013.6f", momentum_val)
     
- # ---------------------------------------------------------
+    # ---------------------------------------------------------
     # 1. Conjugate Quanta (Left Column)
     # ---------------------------------------------------------
     a_base <- momentum_val / 0.5
@@ -218,15 +220,23 @@ render_combined_erasure_distance_grid <- function(dt_target_momenta) {
   # ---------------------------------------------------------
   final_grid <- wrap_plots(plot_list, ncol = 3) +
     plot_annotation(
-      title = "Harmonic Oscillator Erasure Density",
+      title = custom_title,
       theme = theme(plot.title = element_text(size = 20, face = "bold", hjust = 0.5, family = "mono"),
                     plot.subtitle = element_text(size = 14, hjust = 0.5, color = "gray30"))
     )
   
   if(nrow(dt_target_momenta) > 0) print(final_grid)
 }
+```
 
-render_combined_erasure_distance_grid(dt_selected_erasure_distance)
+```{r plot-1A-grid-parabola, echo=FALSE, fig.width=14, fig.height=dynamic_height_parabola, warning=FALSE, message=FALSE}
+# --- Plot 1A: Erasure Distance Grid (Theoretical Parabola) ---
+render_combined_erasure_distance_grid(dt_selected_parabola, "Harmonic Oscillator Erasure Density (Theoretical Parabola)")
+```
+
+```{r plot-1B-grid-textbook, echo=FALSE, fig.width=14, fig.height=dynamic_height_textbook, warning=FALSE, message=FALSE}
+# --- Plot 1B: Erasure Distance Grid (Max Visual Prominence / Textbook) ---
+render_combined_erasure_distance_grid(dt_selected_textbook, "Harmonic Oscillator Erasure Density (Max Local SNR)")
 ```
 
 ---
@@ -246,20 +256,32 @@ if(nrow(dt_summary_erasure_distance) > 0) {
   p_ov_action_a <- ggplot() +
     stat_function(fun = qho_backbone, 
                   n = 1001, color = "black", linetype = "dashed", alpha = 0.5, linewidth = 0.8) +
-    geom_point(data = dt_background_erasure_distance[order(complexity_ntv)], 
-               aes(x = normalized_momentum, y = node_count, color = complexity_ntv), 
+    geom_point(data = dt_background_erasure_distance[order(snr_metric)], 
+               aes(x = normalized_momentum, y = node_count, color = snr_metric), 
                size = 1.5, alpha = 0.6) +
-    scale_color_gradient(low = "black", high = "grey80", name = "Variation") +  
-    geom_point(data = dt_selected_erasure_distance, aes(x = normalized_momentum, y = node_count), 
-               color = "black", size = 5, shape = 21, fill = NA, stroke = 1.2) +
-    geom_text(data = dt_selected_erasure_distance, aes(x = normalized_momentum, y = node_count, 
-              label = sprintf("n=%d P=%.3f v=%.2f", node_count, normalized_momentum, complexity_ntv)),
+    # Strictly Grayscale gradient for background points
+    scale_color_gradient(low = "black", high = "grey85", name = "SNR") +  
+    
+    # 1. Plot Parabola Selections (Square, Shape 22)
+    geom_point(data = dt_selected_parabola, aes(x = normalized_momentum, y = node_count, shape = "Parabola Fit"), 
+               color = "black", size = 4, fill = NA, stroke = 1.2) +
+               
+    # 2. Plot Textbook SNR Selections (Circle, Shape 21)
+    geom_point(data = dt_selected_textbook, aes(x = normalized_momentum, y = node_count, shape = "Max Local SNR"), 
+               color = "black", size = 5.5, fill = NA, stroke = 1.2) +
+               
+    # Grayscale Shape Legend
+    scale_shape_manual(name = "Selection Method", values = c("Parabola Fit" = 22, "Max Local SNR" = 21)) +
+    
+    # Optional Text Callouts (Using Textbook data)
+    geom_text(data = dt_selected_textbook, aes(x = normalized_momentum, y = node_count, 
+              label = sprintf("n=%d P=%.3f snr=%.1f", node_count, normalized_momentum, snr_metric)),
               nudge_y = config_max_node_count * 0.015, 
-              size = 3, fontface = "bold", family = "mono") +
+              size = 3, color = "black", fontface = "bold", family = "mono") +
+              
     labs(title = "Node Count vs Momentum: Erasure Distance",
          subtitle = sprintf("Continuous phase-space evolution to P=%g and n=%d", config_max_momentum, config_max_node_count),
          x = "Normalized Momentum (P)", y = "Nodes (n)") +
-    # STRICT BOUNDARY: Removed the * 1.05 padding 
     coord_cartesian(xlim = c(0, config_max_momentum), ylim = c(-0.5, config_max_node_count)) +
     theme_minimal() +
     theme(panel.grid.minor = element_blank(), plot.title = element_text(face = "bold", size = 14))
@@ -273,7 +295,6 @@ if(nrow(dt_summary_erasure_distance) > 0) {
 # --- Plot 3: Program Length Summary ---
 if (nrow(dt_summary_minimal_program_length) > 0) {
   
-  # FILTER STRICTLY to match the normalized_momentum config setting
   dt_filtered_prog_len <- dt_summary_minimal_program_length[normalized_momentum <= config_max_momentum]
   
   p_prog <- ggplot(dt_filtered_prog_len, aes(x = normalized_momentum)) +
@@ -285,7 +306,6 @@ if (nrow(dt_summary_minimal_program_length) > 0) {
          subtitle = "Mean, Median, and ±1 Standard Deviation of Minimal Program Length over Momentum",
          x = "Normalized Momentum (P)", 
          y = "Minimal Program Length (bits)") +
-    # STRICT BOUNDARY: Removed the * 1.05 padding
     coord_cartesian(xlim = c(0, config_max_momentum)) +
     theme_minimal() +
     theme(
@@ -306,7 +326,6 @@ if (nrow(dt_summary_minimal_program_length) > 0) {
 ```{r plot-2B-overview-scatter-minimal-action-state, echo=FALSE, results='asis', message=FALSE, warning=FALSE, fig.width=12, fig.height=8}
 # --- Plot 2B: Overview Scatter Plot (Minimal Action State) ---
 if(nrow(dt_summary_minimal_action_state) > 0) {
-  # FILTER STRICTLY: Only pull background data that strictly respects the configured boundaries
   dt_background_minimal_action_state <- dt_summary_minimal_action_state[
     node_count >= 0 & 
     node_count <= config_max_node_count & 
@@ -314,20 +333,32 @@ if(nrow(dt_summary_minimal_action_state) > 0) {
   ]
   
   p_ov_action_b <- ggplot() +
-    geom_point(data = dt_background_minimal_action_state[order(complexity_ntv)], 
-               aes(x = normalized_momentum, y = node_count, color = complexity_ntv), 
+    geom_point(data = dt_background_minimal_action_state[order(snr_metric)], 
+               aes(x = normalized_momentum, y = node_count, color = snr_metric), 
                size = 1.5, alpha = 1.0) +
-    scale_color_gradient(low = "black", high = "grey95", name = "Variation") +  
-    geom_point(data = dt_selected_minimal_action, aes(x = normalized_momentum, y = node_count), 
-               color = "black", size = 5, shape = 21, fill = NA, stroke = 1.2) +
-    geom_text(data = dt_selected_minimal_action, aes(x = normalized_momentum, y = node_count, 
-              label = sprintf("n=%d P=%.3f v=%.2f", node_count, normalized_momentum, complexity_ntv)),
+    # Strictly Grayscale gradient for background points
+    scale_color_gradient(low = "black", high = "grey85", name = "SNR") +  
+    
+    # 1. Plot Parabola Selections (Square, Shape 22)
+    geom_point(data = dt_selected_minimal_action_parabola, aes(x = normalized_momentum, y = node_count, shape = "Parabola Fit"), 
+               color = "black", size = 4, fill = NA, stroke = 1.2) +
+               
+    # 2. Plot Textbook SNR Selections (Circle, Shape 21)
+    geom_point(data = dt_selected_minimal_action_textbook, aes(x = normalized_momentum, y = node_count, shape = "Max Local SNR"), 
+               color = "black", size = 5.5, fill = NA, stroke = 1.2) +
+               
+    # Grayscale Shape Legend
+    scale_shape_manual(name = "Selection Method", values = c("Parabola Fit" = 22, "Max Local SNR" = 21)) +
+    
+    # Optional Text Callouts (Using Textbook data)
+    geom_text(data = dt_selected_minimal_action_textbook, aes(x = normalized_momentum, y = node_count, 
+              label = sprintf("n=%d P=%.3f snr=%.1f", node_count, normalized_momentum, snr_metric)),
               nudge_y = config_max_node_count * 0.015, 
-              size = 3, fontface = "bold", family = "mono") +
+              size = 3, color = "black", fontface = "bold", family = "mono") +
+              
     labs(title = "Node Count vs Momentum: Minimal Action State",
          subtitle = sprintf("Continuous phase-space evolution to P=%g and n=%d", config_max_momentum, config_max_node_count),
          x = "Normalized Momentum (P)", y = "Nodes (n)") +
-    # STRICT BOUNDARY: Removed the * 1.05 padding
     coord_cartesian(xlim = c(0, config_max_momentum), ylim = c(-0.5, config_max_node_count)) +
     theme_minimal() +
     theme(panel.grid.minor = element_blank(), plot.title = element_text(face = "bold", size = 14))
