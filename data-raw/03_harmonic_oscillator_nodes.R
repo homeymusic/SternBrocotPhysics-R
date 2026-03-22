@@ -75,7 +75,7 @@ for (col in target_cols) {
       }, future.seed = TRUE, future.scheduling = 1000)
     })
   } else {
-    message("All node files for this column are up to date.")
+    message(sprintf("\n⏭️  SKIPPING: Node files for '%s' already exist.", col))
   }
 }
 
