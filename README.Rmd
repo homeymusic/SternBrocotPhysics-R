@@ -72,18 +72,6 @@ if(nrow(row_0500) > 0) dt_parabola_picked <- rbind(dt_parabola_picked, row_0500,
 setorder(dt_parabola_picked, node_count)
 dt_selected_parabola <- dt_parabola_picked[node_count >= config_min_node_count & node_count <= config_max_node_count & normalized_momentum >= config_min_momentum & normalized_momentum <= config_max_momentum]
 
-# SELECTION B: The "Textbook" Plot (Highest Local SNR)
-if("snr_metric" %in% names(valid_summaries)) {
-  idx_textbook <- valid_summaries[, .I[which.max(snr_metric)], by = node_count]$V1
-} else {
-  idx_textbook <- idx_closest_parabola # Fallback just in case pipeline isn't fully updated
-}
-dt_textbook_picked <- valid_summaries[idx_textbook]
-dt_textbook_picked <- dt_textbook_picked[node_count != 0] # Strip the algorithm's noisy n=0 pick
-if(nrow(row_0500) > 0) dt_textbook_picked <- rbind(dt_textbook_picked, row_0500, fill = TRUE) # Force exactly 0.500
-setorder(dt_textbook_picked, node_count)
-dt_selected_textbook <- dt_textbook_picked[node_count >= config_min_node_count & node_count <= config_max_node_count & normalized_momentum >= config_min_momentum & normalized_momentum <= config_max_momentum]
-
 # --- Auto-Selection Logic (Minimal Action State) ---
 
 if (exists("dt_summary_minimal_action_state") && nrow(dt_summary_minimal_action_state) > 0) {
@@ -121,7 +109,6 @@ if (exists("dt_summary_minimal_action_state") && nrow(dt_summary_minimal_action_
 # --- 3. Dynamic Plot Sizing ---
 # Adjusted the height multiplier down to 4.0 to eliminate top/bottom white space
 dynamic_height_parabola <- max(5, nrow(dt_selected_parabola) * 4.0 + 1)
-dynamic_height_textbook <- max(5, nrow(dt_selected_textbook) * 4.0 + 1)
 ```
 
 ```{r plot-2A-overview-scatter-erasure-distance, echo=FALSE, results='asis', message=FALSE, warning=FALSE, fig.width=12, fig.height=8}
@@ -150,10 +137,6 @@ if(nrow(dt_summary_erasure_distance) > 0) {
     # Strictly Grayscale gradient for background points
     scale_color_gradient(low = "black", high = "grey85", name = "Local SNR\n(Percentile)") +  
     
-    # 1. Plot Textbook SNR Selections (Square, Shape 22, Gray)
-    geom_point(data = dt_selected_textbook, aes(x = normalized_momentum, y = node_count, shape = "Max Local SNR"), 
-               color = "gray50", size = 4, fill = NA, stroke = 1.2) +
-               
     # 2. Plot Parabola Selections (Circle, Shape 21, Solid Black)
     # Plotted second so they sit clearly on top
     geom_point(data = dt_selected_parabola, aes(x = normalized_momentum, y = node_count, shape = "Parabola Fit"), 
