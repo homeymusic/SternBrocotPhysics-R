@@ -93,6 +93,57 @@ if (exists("dt_summary_minimal_action_state") && nrow(dt_summary_minimal_action_
 dynamic_height_parabola <- max(5, nrow(dt_selected_parabola) * 4.7 + 1)
 dynamic_height_textbook <- max(5, nrow(dt_selected_textbook) * 4.7 + 1)
 ```
+---
+
+```{r plot-2A-overview-scatter-erasure-distance, echo=FALSE, results='asis', message=FALSE, warning=FALSE, fig.width=12, fig.height=8}
+# --- Plot 2A: Overview Scatter Plot (Erasure Distance) ---
+qho_backbone <- function(P) { P^2 - qho_zpe_offset }
+
+if(nrow(dt_summary_erasure_distance) > 0) {
+  # FILTER STRICTLY: Only pull background data that strictly respects the configured boundaries
+  dt_background_erasure_distance <- dt_summary_erasure_distance[
+    node_count >= 0 & 
+    node_count <= config_max_node_count & 
+    normalized_momentum <= config_max_momentum
+  ]
+  
+  p_ov_action_a <- ggplot() +
+    stat_function(fun = qho_backbone, 
+                  n = 1001, color = "black", linetype = "dashed", alpha = 0.5, linewidth = 0.8) +
+    geom_point(data = dt_background_erasure_distance[order(snr_metric)], 
+               aes(x = normalized_momentum, y = node_count, color = snr_metric), 
+               size = 1.5, alpha = 1.0) +
+    # Strictly Grayscale gradient for background points
+    scale_color_gradient(low = "black", high = "grey85", name = "SNR") +  
+    
+    # 1. Plot Parabola Selections (Square, Shape 22)
+    geom_point(data = dt_selected_parabola, aes(x = normalized_momentum, y = node_count, shape = "Parabola Fit"), 
+               color = "black", size = 4, fill = NA, stroke = 1.2) +
+               
+    # 2. Plot Textbook SNR Selections (Circle, Shape 21)
+    geom_point(data = dt_selected_textbook, aes(x = normalized_momentum, y = node_count, shape = "Max Local SNR"), 
+               color = "black", size = 5.5, fill = NA, stroke = 1.2) +
+               
+    # Grayscale Shape Legend
+    scale_shape_manual(name = "Selection Method", values = c("Parabola Fit" = 22, "Max Local SNR" = 21)) +
+    
+    # Optional Text Callouts (Using Textbook data)
+    geom_text(data = dt_selected_textbook, aes(x = normalized_momentum, y = node_count, 
+              label = sprintf("n=%d P=%.3f snr=%.1f", node_count, normalized_momentum, snr_metric)),
+              nudge_y = config_max_node_count * 0.015, 
+              size = 3, color = "black", fontface = "bold", family = "mono") +
+              
+    labs(title = "Node Count vs Momentum: Erasure Distance",
+         subtitle = sprintf("Continuous phase-space evolution to P=%g and n=%d", config_max_momentum, config_max_node_count),
+         x = "Normalized Momentum (P)", y = "Nodes (n)") +
+    coord_cartesian(xlim = c(0, config_max_momentum), ylim = c(-0.5, config_max_node_count)) +
+    theme_minimal() +
+    theme(panel.grid.minor = element_blank(), plot.title = element_text(face = "bold", size = 14))
+  
+  print(p_ov_action_a)
+  cat("\n\n---\n\n")
+}
+```
 
 ```{r setup-plotting-functions, echo=FALSE, message=FALSE, warning=FALSE}
 # --- Function: Render Combined Erasure Distance Grid ---
@@ -237,58 +288,6 @@ render_combined_erasure_distance_grid(dt_selected_parabola, "Harmonic Oscillator
 ```{r plot-1B-grid-textbook, echo=FALSE, fig.width=14, fig.height=dynamic_height_textbook, warning=FALSE, message=FALSE}
 # --- Plot 1B: Erasure Distance Grid (Max Visual Prominence / Textbook) ---
 render_combined_erasure_distance_grid(dt_selected_textbook, "Harmonic Oscillator Erasure Density (Max Local SNR)")
-```
-
----
-
-```{r plot-2A-overview-scatter-erasure-distance, echo=FALSE, results='asis', message=FALSE, warning=FALSE, fig.width=12, fig.height=8}
-# --- Plot 2A: Overview Scatter Plot (Erasure Distance) ---
-qho_backbone <- function(P) { P^2 - qho_zpe_offset }
-
-if(nrow(dt_summary_erasure_distance) > 0) {
-  # FILTER STRICTLY: Only pull background data that strictly respects the configured boundaries
-  dt_background_erasure_distance <- dt_summary_erasure_distance[
-    node_count >= 0 & 
-    node_count <= config_max_node_count & 
-    normalized_momentum <= config_max_momentum
-  ]
-  
-  p_ov_action_a <- ggplot() +
-    stat_function(fun = qho_backbone, 
-                  n = 1001, color = "black", linetype = "dashed", alpha = 0.5, linewidth = 0.8) +
-    geom_point(data = dt_background_erasure_distance[order(snr_metric)], 
-               aes(x = normalized_momentum, y = node_count, color = snr_metric), 
-               size = 1.5, alpha = 0.6) +
-    # Strictly Grayscale gradient for background points
-    scale_color_gradient(low = "black", high = "grey85", name = "SNR") +  
-    
-    # 1. Plot Parabola Selections (Square, Shape 22)
-    geom_point(data = dt_selected_parabola, aes(x = normalized_momentum, y = node_count, shape = "Parabola Fit"), 
-               color = "black", size = 4, fill = NA, stroke = 1.2) +
-               
-    # 2. Plot Textbook SNR Selections (Circle, Shape 21)
-    geom_point(data = dt_selected_textbook, aes(x = normalized_momentum, y = node_count, shape = "Max Local SNR"), 
-               color = "black", size = 5.5, fill = NA, stroke = 1.2) +
-               
-    # Grayscale Shape Legend
-    scale_shape_manual(name = "Selection Method", values = c("Parabola Fit" = 22, "Max Local SNR" = 21)) +
-    
-    # Optional Text Callouts (Using Textbook data)
-    geom_text(data = dt_selected_textbook, aes(x = normalized_momentum, y = node_count, 
-              label = sprintf("n=%d P=%.3f snr=%.1f", node_count, normalized_momentum, snr_metric)),
-              nudge_y = config_max_node_count * 0.015, 
-              size = 3, color = "black", fontface = "bold", family = "mono") +
-              
-    labs(title = "Node Count vs Momentum: Erasure Distance",
-         subtitle = sprintf("Continuous phase-space evolution to P=%g and n=%d", config_max_momentum, config_max_node_count),
-         x = "Normalized Momentum (P)", y = "Nodes (n)") +
-    coord_cartesian(xlim = c(0, config_max_momentum), ylim = c(-0.5, config_max_node_count)) +
-    theme_minimal() +
-    theme(panel.grid.minor = element_blank(), plot.title = element_text(face = "bold", size = 14))
-  
-  print(p_ov_action_a)
-  cat("\n\n---\n\n")
-}
 ```
 
 ```{r plot-3-program-length-evolution, echo=FALSE, results='asis', message=FALSE, warning=FALSE, fig.width=12, fig.height=7}
