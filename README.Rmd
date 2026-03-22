@@ -18,7 +18,7 @@ dir_base_data_4TB <- "/Volumes/SanDisk4TB/SternBrocot-data"
 # --- 1.2 Display Configuration ---
 config_min_node_count <- 0
 config_max_node_count <- 30
-config_min_momentum <- 0.0
+config_min_momentum <- 0.5
 config_max_momentum <- 10
 
 # Pipeline Directories
@@ -158,14 +158,11 @@ if(nrow(dt_summary_erasure_distance) > 0) {
     scale_shape_manual(name = "Selection Method", values = c("Parabola Fit" = 21, "Max Local SNR" = 22)) +
     
     # Text Callouts (Using Parabola data)
-# Text Callouts (Using Parabola data)
     geom_text(data = dt_selected_parabola, aes(x = normalized_momentum, y = node_count, 
-              label = sprintf("P=%.3f", normalized_momentum)),
-              hjust = 1,          # 1 = Right-justified (anchors the right side of the text to the point)
-              vjust = 0.5,        # 0.5 = Vertically centered on the point
-              nudge_x = -0.15,    # Nudge it slightly left so it doesn't overlap the actual shape
+              label = sprintf("n=%d P=%.3f snr=%.1f", node_count, normalized_momentum, snr_metric)),
+              nudge_y = config_max_node_count * 0.015, 
               size = 3, color = "black", fontface = "bold", family = "mono") +
-    
+              
     # Axis Configurations
     scale_x_continuous(breaks = seq(ceiling(config_min_momentum), floor(config_max_momentum), by = 1)) +
     scale_y_continuous(breaks = seq(config_min_node_count, config_max_node_count, by = 5)) +
@@ -232,6 +229,18 @@ render_combined_erasure_distance_grid <- function(dt_target_momenta, custom_titl
     momentum_val <- current_row$normalized_momentum
     momentum_str_padded <- sprintf("%013.6f", momentum_val)
     
+    # PRE-LOAD THE DENSITY FILE to get the exact number of minimal action states (bins)
+    file_density_erasure_distance <- file.path(dir_02_densities, sprintf("harmonic_oscillator_erasure_distance_density_P_%s.csv.gz", momentum_str_padded))
+    dt_histogram_points <- data.table()
+    n_bins_text <- ""
+    
+    if (file.exists(file_density_erasure_distance)) {
+      dt_histogram_points <- fread(file_density_erasure_distance)
+      if (nrow(dt_histogram_points) > 0) {
+        n_bins_text <- sprintf("\nbins = %d", nrow(dt_histogram_points))
+      }
+    }
+    
     # ---------------------------------------------------------
     # 1. Conjugate Quanta (Left Column)
     # ---------------------------------------------------------
@@ -252,7 +261,8 @@ render_combined_erasure_distance_grid <- function(dt_target_momenta, custom_titl
       scale_color_manual(values = c("Q-Conjugate" = "black", "P-Conjugate" = "gray30")) +
       coord_fixed(xlim = c(-100, 100), ylim = c(-100, 100)) +
       
-      labs(y = sprintf("P = %.3f\nn = %d", momentum_val, current_row$node_count)) +
+      # INJECTING THE NUMBER OF BINS INTO THE Y-AXIS LABEL
+      labs(y = sprintf("P = %.3f\nn = %d%s", momentum_val, current_row$node_count, n_bins_text)) +
       
       theme_minimal() + 
       theme(legend.position = "none",
@@ -291,47 +301,50 @@ render_combined_erasure_distance_grid <- function(dt_target_momenta, custom_titl
     # ---------------------------------------------------------
     # 3. Coordinate Density (Right Column)
     # ---------------------------------------------------------
-    file_density_erasure_distance <- file.path(dir_02_densities, sprintf("harmonic_oscillator_erasure_distance_density_P_%s.csv.gz", momentum_str_padded))
-    file_nodes_erasure_distance   <- file.path(dir_03_nodes, sprintf("harmonic_oscillator_erasure_distance_nodes_P_%s.csv.gz", momentum_str_padded))
-    
+    file_nodes_erasure_distance <- file.path(dir_03_nodes, sprintf("harmonic_oscillator_erasure_distance_nodes_P_%s.csv.gz", momentum_str_padded))
     p_den <- ggplot() + theme_void() + theme(aspect.ratio = 1, plot.margin = margin(5, 5, 5, 5))
     
-    if (file.exists(file_density_erasure_distance)) {
-      dt_histogram_points <- fread(file_density_erasure_distance)
-      dt_active_bins <- dt_histogram_points[density_count > 0]
+    if (nrow(dt_histogram_points) > 0) {
+      dt_active_bins <- copy(dt_histogram_points) # Do not drop 0-count bins to preserve skyline shape
       
-      if (nrow(dt_active_bins) > 0) {
-        max_density_height <- max(dt_active_bins$density_count, na.rm = TRUE)
-        raw_coordinate_width <- if(nrow(dt_active_bins) > 1) median(diff(dt_active_bins$coordinate_q), na.rm=TRUE) else 1.0
-        max_coordinate_edge <- max(abs(dt_active_bins$coordinate_q), na.rm = TRUE) + (raw_coordinate_width / 2)
-        
-        dt_active_bins[, c("pct_density", "pct_q") := list((density_count/max_density_height)*100, (coordinate_q/max_coordinate_edge)*100)]
-        pct_bar_width <- (raw_coordinate_width / max_coordinate_edge) * 100
-        
-        dt_skyline_outline <- rbind(
-          data.table(pct_q = min(dt_active_bins$pct_q) - pct_bar_width, pct_density = 0),
-          dt_active_bins[, .(pct_q, pct_density)],
-          data.table(pct_q = max(dt_active_bins$pct_q) + pct_bar_width, pct_density = 0)
-        )
-        
-        dt_node_coordinates <- if(file.exists(file_nodes_erasure_distance)) fread(file_nodes_erasure_distance) else data.table()
-        if (nrow(dt_node_coordinates) > 0 && "coordinate_q" %in% names(dt_node_coordinates)) {
-          dt_node_coordinates[, c("pct_density", "pct_q") := list((density_count/max_density_height)*100, (coordinate_q/max_coordinate_edge)*100)]
-        }
-        
-        p_den <- ggplot() +
-          geom_col(data = dt_active_bins, aes(x = pct_q, y = pct_density), width = pct_bar_width, fill = "gray85") +
-          geom_step(data = dt_skyline_outline, aes(x = pct_q, y = pct_density), color = "black", linewidth = 0.5, direction = "mid") + 
-          geom_point(data = dt_node_coordinates, aes(x = pct_q, y = pct_density), color = "black", size = 1.5) +
-          coord_cartesian(xlim = c(-100, 100), ylim = c(0, 105)) +
-          theme_minimal() +
-          theme(axis.title = element_blank(), 
-                axis.text = element_blank(),
-                panel.grid = element_line(color = "gray90"),
-                aspect.ratio = 1,
-                plot.margin = margin(5, 5, 5, 5))
+      max_density_height <- max(dt_active_bins$density_count, na.rm = TRUE)
+      if (max_density_height == 0) max_density_height <- 1 # Prevent division by zero
+      
+      raw_coordinate_width <- if(nrow(dt_active_bins) > 1) median(diff(dt_active_bins$coordinate_q), na.rm=TRUE) else 1.0
+      max_coordinate_edge <- max(abs(dt_active_bins$coordinate_q), na.rm = TRUE) + (raw_coordinate_width / 2)
+      if (max_coordinate_edge == 0) max_coordinate_edge <- 1
+      
+      dt_active_bins[, c("pct_density", "pct_q") := list((density_count/max_density_height)*100, (coordinate_q/max_coordinate_edge)*100)]
+      pct_bar_width <- (raw_coordinate_width / max_coordinate_edge) * 100
+      
+      # --- TRUE SKYLINE PATH LOGIC ---
+      # Build exact geometric perimeter without trailing zero-lines
+      skyline_x <- c(dt_active_bins$pct_q[1] - pct_bar_width/2, 
+                     rep(dt_active_bins$pct_q, each = 2) + rep(c(-pct_bar_width/2, pct_bar_width/2), nrow(dt_active_bins)), 
+                     dt_active_bins$pct_q[nrow(dt_active_bins)] + pct_bar_width/2)
+      
+      skyline_y <- c(0, rep(dt_active_bins$pct_density, each = 2), 0)
+      
+      dt_skyline_outline <- data.table::data.table(pct_q = skyline_x, pct_density = skyline_y)
+      
+      dt_node_coordinates <- if(file.exists(file_nodes_erasure_distance)) fread(file_nodes_erasure_distance) else data.table()
+      if (nrow(dt_node_coordinates) > 0 && "coordinate_q" %in% names(dt_node_coordinates)) {
+        dt_node_coordinates[, c("pct_density", "pct_q") := list((density_count/max_density_height)*100, (coordinate_q/max_coordinate_edge)*100)]
       }
+      
+      p_den <- ggplot() +
+        geom_col(data = dt_active_bins, aes(x = pct_q, y = pct_density), width = pct_bar_width, fill = "gray85") +
+        geom_path(data = dt_skyline_outline, aes(x = pct_q, y = pct_density), color = "black", linewidth = 0.5) + 
+        geom_point(data = dt_node_coordinates, aes(x = pct_q, y = pct_density), color = "black", size = 1.5) +
+        coord_cartesian(xlim = c(-100, 100), ylim = c(0, 105)) +
+        theme_minimal() +
+        theme(axis.title = element_blank(), 
+              axis.text = element_blank(),
+              panel.grid = element_line(color = "gray90"),
+              aspect.ratio = 1,
+              plot.margin = margin(5, 5, 5, 5))
     }
+    
     if (i == 1) p_den <- p_den + labs(title = "Erasure Density") + 
         theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14))
     

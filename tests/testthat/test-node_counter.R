@@ -7,20 +7,20 @@ test_that("Node counts match theoretical expectations for specific momenta", {
   # --- 1. Truth Table ---
   truth_table <- data.table::fread("
     momentum, expected_nodes
-    0.1,       NA
-    0.25,      NA
-    0.5,       NA
-    0.75,      0
-    1,         0
+    0.1,       0
+    0.25,      0
+    0.5,       0
+    0.75,      1
+    1,         2
     2,         4
     3,         5
-    4,         8
-    5,         17
-    6,         48
-    7,         59
-    8,         79
-    9,         145
-    10,        37
+    4,         5
+    5,         8
+    6,         10
+    7,         9
+    8,         13
+    9,         20
+    10,        13
   ")
 
   # --- 2. Setup Paths ---
@@ -76,12 +76,23 @@ test_that("Node counts match theoretical expectations for specific momenta", {
 
     bw <- if(nrow(density_data) > 1) diff(density_data$x[1:2])[1] else 0.1
 
+    # --- TRUE SKYLINE PATH LOGIC ---
+    # Build exact geometric perimeter without trailing zero-lines
+    skyline_x <- c(density_data$x[1] - bw/2,
+                   rep(density_data$x, each = 2) + rep(c(-bw/2, bw/2), nrow(density_data)),
+                   density_data$x[nrow(density_data)] + bw/2)
+
+    skyline_y <- c(0, rep(density_data$y, each = 2), 0)
+
+    outline_data <- data.table::data.table(x = skyline_x, y = skyline_y)
+
     # --- DEBUGGING & PLOTS ---
-    p <- ggplot(density_data, aes(x, y)) +
-      geom_col(fill = "black", alpha = 0.25, width = bw) +
-      geom_step(direction = "mid", color = "black", linewidth = 0.3) +
+    p <- ggplot() +
+      geom_col(data = density_data, aes(x, y), fill = "black", alpha = 0.25, width = bw) +
+      geom_path(data = outline_data, aes(x, y), color = "black", linewidth = 0.3) +
       labs(title = paste("Diagnostic | P =", m_val),
-           subtitle = sprintf("Actual: %s | Expected: %s", results$node_count, expected_n)) +
+           subtitle = sprintf("Actual: %s | Expected: %s | Bins: %d",
+                              results$node_count, expected_n, nrow(density_data))) +
       theme_minimal()
 
     if (!is.null(results$nodes) && nrow(results$nodes) > 0) {

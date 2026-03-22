@@ -4,7 +4,7 @@
 \alias{compute_action_density}
 \title{Compute Action Density from Raw Data}
 \usage{
-compute_action_density(dt, p, target_col, bin_width)
+compute_action_density(dt, p, target_col, n_bins)
 }
 \arguments{
 \item{dt}{A data.table containing 'found' and the target column.}
@@ -13,7 +13,7 @@ compute_action_density(dt, p, target_col, bin_width)
 
 \item{target_col}{The exact string name of the column to process.}
 
-\item{bin_width}{The absolute physical resolution in action space.}
+\item{n_bins}{The exact number of unique quantum states to use as the bin count.}
 }
 \value{
 A data.table with columns: normalized_momentum, coordinate_q, density_count.
