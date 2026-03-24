@@ -400,7 +400,7 @@ generate_tree <- function(max_depth) {
       x = num / den,
       y = depth,
       frac_label = paste0(num, "/", den),
-      bin_label = ifelse(bin == "", "(no bits)", bin)
+      bin_label = ifelse(bin == "", "(zero bits)", bin)
     )
   
   return(df)
