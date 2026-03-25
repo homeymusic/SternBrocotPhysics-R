@@ -36,6 +36,7 @@ dir_04_summary                <- file.path(dir_base_data_4TB, "04_harmonic_oscil
 file_04_summary_erasure_distance       <- file.path(dir_04_summary, "harmonic_oscillator_erasure_distance_summary.csv.gz")
 file_04_summary_minimal_action_state   <- file.path(dir_04_summary, "harmonic_oscillator_minimal_action_state_summary.csv.gz")
 file_04_summary_minimal_program_length <- file.path(dir_04_summary, "harmonic_oscillator_minimal_program_length_summary.csv.gz")
+file_04_summary_resonance_margin <- file.path(dir_04_summary, "harmonic_oscillator_resonance_margin_summary.csv.gz")
 
 if (!file.exists(file_04_summary_erasure_distance)) {
   stop("Erasure Distance Summary file not found at: ", file_04_summary_erasure_distance)
@@ -45,6 +46,7 @@ if (!file.exists(file_04_summary_erasure_distance)) {
 dt_summary_erasure_distance <- if (file.exists(file_04_summary_erasure_distance)) fread(file_04_summary_erasure_distance) else data.table()
 dt_summary_minimal_action_state <- if (file.exists(file_04_summary_minimal_action_state)) fread(file_04_summary_minimal_action_state) else data.table()
 dt_summary_minimal_program_length <- if (file.exists(file_04_summary_minimal_program_length)) fread(file_04_summary_minimal_program_length) else data.table()
+dt_summary_resonance_margin <- if (file.exists(file_04_summary_resonance_margin)) fread(file_04_summary_resonance_margin) else data.table()
 
 # --- 1.5 Physics Constants ---
 # Zero-Point Energy offset for the Quantum Harmonic Oscillator.
@@ -204,6 +206,46 @@ if (nrow(dt_summary_minimal_program_length) > 0) {
   
 } else {
   cat("*(Program length summary data not yet generated)*\n\n---\n\n")
+}
+```
+
+```{r plot-4-correspondence-limit, echo=FALSE, results='asis', message=FALSE, warning=FALSE, fig.width=12, fig.height=7}
+# --- Plot 4: Thermodynamic Correspondence Limit (Geometric Slack) ---
+
+# Check if the standalone summary table loaded successfully and has data
+if (nrow(dt_summary_resonance_margin) > 0) {
+  
+  dt_filtered_res <- dt_summary_resonance_margin[
+    normalized_momentum >= config_min_momentum & 
+    normalized_momentum <= config_max_momentum
+  ]
+  
+  p_res <- ggplot(dt_filtered_res, aes(x = normalized_momentum)) +
+    geom_ribbon(aes(ymin = lower_residual, ymax = upper_residual), fill = "grey80", alpha = 0.6) +
+    geom_line(aes(y = mean_residual, color = "Mean"), linetype = "dashed", linewidth = 1.0) +
+    geom_step(aes(y = median_residual, color = "Median"), linewidth = 1.2) +
+    scale_color_manual(name = "Metric", values = c("Mean" = "gray30", "Median" = "black")) +
+    
+    scale_x_continuous(breaks = seq(ceiling(config_min_momentum), floor(config_max_momentum), by = 1)) +
+    
+    labs(title = "Thermodynamic Correspondence Limit",
+         subtitle = expression(paste("Ensemble average of unspent phase-space capacity (", delta, "q - |", epsilon[q], "|) demonstrating classical smoothing")),
+         x = "Normalized Momentum (P)", 
+         y = expression(paste("Geometric Slack  ", delta, "q - |", epsilon[q], "|"))) +
+    coord_cartesian(xlim = c(config_min_momentum, config_max_momentum)) +
+    theme_minimal() +
+    theme(
+      plot.title = element_text(family = "mono", face = "bold", size = 16),
+      plot.subtitle = element_text(size = 12, color = "gray40"),
+      legend.position = "bottom",
+      panel.grid.minor = element_blank()
+    )
+  
+  print(p_res)
+  cat("\n\n---\n\n")
+  
+} else {
+  cat("*(Correspondence limit summary data not yet generated)*\n\n---\n\n")
 }
 ```
 

@@ -101,4 +101,50 @@ for (col in cols_algorithmic) {
   }
 }
 
+# ==============================================================================
+# PART C: THERMODYNAMIC METRICS (Resonance Margin)
+# ==============================================================================
+message("\n=== Aggregating Thermodynamic Summaries ===")
+
+dir_01_raw <- file.path(dir_base_data_4TB, "01_harmonic_oscillator_erasures")
+file_summary_out_res <- file.path(dir_04_summary, "harmonic_oscillator_resonance_margin_summary.csv.gz")
+
+pattern_str_raw <- "^harmonic_oscillator_erasures_P_.*\\.csv\\.gz$"
+files_raw <- list.files(dir_01_raw, pattern = pattern_str_raw, full.names = TRUE)
+
+if (length(files_raw) == 0) {
+  warning("  -> No raw erasure files found. Skipping Resonance Margin.")
+} else {
+  message(sprintf("Processing Resonance Margin from %d raw files...", length(files_raw)))
+
+  dt_summary_res <- rbindlist(future_lapply(files_raw, function(f) {
+    tryCatch({
+      # EXACT COLUMN MATCH: momentum, max_erasure_radius, erasure_distance
+      dt <- fread(f, select = c("momentum", "max_erasure_radius", "erasure_distance"))
+      if (nrow(dt) == 0) return(NULL)
+
+      # Calculate Resonance Margin: delta_q - |epsilon_q|
+      dt[, residual := max_erasure_radius - abs(erasure_distance)]
+
+      data.table(
+        normalized_momentum = dt$momentum[1],
+        mean_residual   = mean(dt$residual, na.rm = TRUE),
+        median_residual = median(dt$residual, na.rm = TRUE),
+        sd_residual     = sd(dt$residual, na.rm = TRUE)
+      )
+    }, error = function(e) return(NULL))
+  }, future.seed = TRUE))
+
+  if (nrow(dt_summary_res) > 0) {
+    setorder(dt_summary_res, normalized_momentum)
+
+    # Calculate ribbon bounds
+    dt_summary_res[, upper_residual := mean_residual + sd_residual]
+    dt_summary_res[, lower_residual := mean_residual - sd_residual]
+
+    fwrite(dt_summary_res, file_summary_out_res, compress = "gzip")
+    message(sprintf("  -> Saved %d rows to %s", nrow(dt_summary_res), basename(file_summary_out_res)))
+  }
+}
+
 plan(sequential)
