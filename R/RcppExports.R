@@ -13,6 +13,18 @@ action_angle_erase_max_erasure_radius_and_depth <- function(x, max_erasure_radiu
     .Call(`_SternBrocotPhysics_action_angle_erase_max_erasure_radius_and_depth`, x, max_erasure_radius, depth)
 }
 
+golden_ratio_erase_max_erasure_radius <- function(x, max_erasure_radius) {
+    .Call(`_SternBrocotPhysics_golden_ratio_erase_max_erasure_radius`, x, max_erasure_radius)
+}
+
+golden_ratio_erase_depth <- function(x, depth) {
+    .Call(`_SternBrocotPhysics_golden_ratio_erase_depth`, x, depth)
+}
+
+golden_ratio_erase_max_erasure_radius_and_depth <- function(x, max_erasure_radius, depth) {
+    .Call(`_SternBrocotPhysics_golden_ratio_erase_max_erasure_radius_and_depth`, x, max_erasure_radius, depth)
+}
+
 #' Run Erasure Simulation
 #'
 #' @param momenta Vector of momentum values (P) to simulate.

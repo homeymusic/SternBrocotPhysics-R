@@ -21,6 +21,7 @@ test_that("KD-Tree erasure density node counts match theoretical expectations", 
     8,         15
     9,         25
     10,        17
+    100,       1
   ")
 
   # --- 2. Setup Paths & Enforce Clean Slate ---

@@ -39,7 +39,6 @@ typedef EraseResult (*EraseAlgorithmFunc)(double, double, int);
 // [[Rcpp::export]]
 void harmonic_oscillator_erasures(NumericVector momenta, std::string dir, std::string algorithm = "stern_brocot", int n_threads = 0) {
 
-  // 1. Dispatcher: Select the correct algorithm based on the R string
   EraseAlgorithmFunc current_algorithm = nullptr;
 
   if (algorithm == "stern_brocot") {
@@ -48,8 +47,10 @@ void harmonic_oscillator_erasures(NumericVector momenta, std::string dir, std::s
     current_algorithm = &kdtree_erase_single_native;
   } else if (algorithm == "action_angle") {
     current_algorithm = &action_angle_erase_single_native;
+  } else if (algorithm == "golden_ratio") {
+    current_algorithm = &golden_ratio_erase_single_native;
   } else {
-    stop("Unknown algorithm specified. Use 'stern_brocot', 'kdtree', or 'action_angle'.");
+    stop("Unknown algorithm specified. Use 'stern_brocot', 'kdtree', 'action_angle', or 'golden_ratio'.");
   }
 
   std::vector<double> p_vec = Rcpp::as<std::vector<double>>(momenta);

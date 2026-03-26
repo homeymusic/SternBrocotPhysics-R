@@ -27,4 +27,7 @@ EraseResult kdtree_erase_single_native(double microstate, double max_erasure_rad
 // Action-Angle declaration
 EraseResult action_angle_erase_single_native(double microstate, double max_erasure_radius, int max_program_length);
 
+// Golden Ratio (KAM) declaration
+EraseResult golden_ratio_erase_single_native(double microstate, double max_erasure_radius, int max_program_length);
+
 #endif
