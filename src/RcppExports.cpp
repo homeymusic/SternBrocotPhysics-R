@@ -11,69 +11,54 @@ Rcpp::Rostream<true>&  Rcpp::Rcout = Rcpp::Rcpp_cout_get();
 Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
-// non_local_bell_sweep
-void non_local_bell_sweep(double alice_angle_rad, NumericVector bob_angles_rad, std::string dir, int count, double microstate_start, double microstate_end, int n_threads);
-RcppExport SEXP _SternBrocotPhysics_non_local_bell_sweep(SEXP alice_angle_radSEXP, SEXP bob_angles_radSEXP, SEXP dirSEXP, SEXP countSEXP, SEXP microstate_startSEXP, SEXP microstate_endSEXP, SEXP n_threadsSEXP) {
-BEGIN_RCPP
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< double >::type alice_angle_rad(alice_angle_radSEXP);
-    Rcpp::traits::input_parameter< NumericVector >::type bob_angles_rad(bob_angles_radSEXP);
-    Rcpp::traits::input_parameter< std::string >::type dir(dirSEXP);
-    Rcpp::traits::input_parameter< int >::type count(countSEXP);
-    Rcpp::traits::input_parameter< double >::type microstate_start(microstate_startSEXP);
-    Rcpp::traits::input_parameter< double >::type microstate_end(microstate_endSEXP);
-    Rcpp::traits::input_parameter< int >::type n_threads(n_threadsSEXP);
-    non_local_bell_sweep(alice_angle_rad, bob_angles_rad, dir, count, microstate_start, microstate_end, n_threads);
-    return R_NilValue;
-END_RCPP
-}
-// erase_max_erasure_radius
-DataFrame erase_max_erasure_radius(NumericVector x, double max_erasure_radius);
-RcppExport SEXP _SternBrocotPhysics_erase_max_erasure_radius(SEXP xSEXP, SEXP max_erasure_radiusSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< NumericVector >::type x(xSEXP);
-    Rcpp::traits::input_parameter< double >::type max_erasure_radius(max_erasure_radiusSEXP);
-    rcpp_result_gen = Rcpp::wrap(erase_max_erasure_radius(x, max_erasure_radius));
-    return rcpp_result_gen;
-END_RCPP
-}
-// erase_depth
-DataFrame erase_depth(NumericVector x, int depth);
-RcppExport SEXP _SternBrocotPhysics_erase_depth(SEXP xSEXP, SEXP depthSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< NumericVector >::type x(xSEXP);
-    Rcpp::traits::input_parameter< int >::type depth(depthSEXP);
-    rcpp_result_gen = Rcpp::wrap(erase_depth(x, depth));
-    return rcpp_result_gen;
-END_RCPP
-}
-// erase_max_erasure_radius_and_depth
-DataFrame erase_max_erasure_radius_and_depth(NumericVector x, double max_erasure_radius, int depth);
-RcppExport SEXP _SternBrocotPhysics_erase_max_erasure_radius_and_depth(SEXP xSEXP, SEXP max_erasure_radiusSEXP, SEXP depthSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< NumericVector >::type x(xSEXP);
-    Rcpp::traits::input_parameter< double >::type max_erasure_radius(max_erasure_radiusSEXP);
-    Rcpp::traits::input_parameter< int >::type depth(depthSEXP);
-    rcpp_result_gen = Rcpp::wrap(erase_max_erasure_radius_and_depth(x, max_erasure_radius, depth));
-    return rcpp_result_gen;
-END_RCPP
-}
 // harmonic_oscillator_erasures
-void harmonic_oscillator_erasures(NumericVector momenta, std::string dir, int n_threads);
-RcppExport SEXP _SternBrocotPhysics_harmonic_oscillator_erasures(SEXP momentaSEXP, SEXP dirSEXP, SEXP n_threadsSEXP) {
+void harmonic_oscillator_erasures(NumericVector momenta, std::string dir, std::string algorithm, int n_threads);
+RcppExport SEXP _SternBrocotPhysics_harmonic_oscillator_erasures(SEXP momentaSEXP, SEXP dirSEXP, SEXP algorithmSEXP, SEXP n_threadsSEXP) {
 BEGIN_RCPP
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< NumericVector >::type momenta(momentaSEXP);
     Rcpp::traits::input_parameter< std::string >::type dir(dirSEXP);
+    Rcpp::traits::input_parameter< std::string >::type algorithm(algorithmSEXP);
     Rcpp::traits::input_parameter< int >::type n_threads(n_threadsSEXP);
-    harmonic_oscillator_erasures(momenta, dir, n_threads);
+    harmonic_oscillator_erasures(momenta, dir, algorithm, n_threads);
     return R_NilValue;
+END_RCPP
+}
+// kdtree_erase_max_erasure_radius
+DataFrame kdtree_erase_max_erasure_radius(NumericVector x, double max_erasure_radius);
+RcppExport SEXP _SternBrocotPhysics_kdtree_erase_max_erasure_radius(SEXP xSEXP, SEXP max_erasure_radiusSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< NumericVector >::type x(xSEXP);
+    Rcpp::traits::input_parameter< double >::type max_erasure_radius(max_erasure_radiusSEXP);
+    rcpp_result_gen = Rcpp::wrap(kdtree_erase_max_erasure_radius(x, max_erasure_radius));
+    return rcpp_result_gen;
+END_RCPP
+}
+// kdtree_erase_depth
+DataFrame kdtree_erase_depth(NumericVector x, int depth);
+RcppExport SEXP _SternBrocotPhysics_kdtree_erase_depth(SEXP xSEXP, SEXP depthSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< NumericVector >::type x(xSEXP);
+    Rcpp::traits::input_parameter< int >::type depth(depthSEXP);
+    rcpp_result_gen = Rcpp::wrap(kdtree_erase_depth(x, depth));
+    return rcpp_result_gen;
+END_RCPP
+}
+// kdtree_erase_max_erasure_radius_and_depth
+DataFrame kdtree_erase_max_erasure_radius_and_depth(NumericVector x, double max_erasure_radius, int depth);
+RcppExport SEXP _SternBrocotPhysics_kdtree_erase_max_erasure_radius_and_depth(SEXP xSEXP, SEXP max_erasure_radiusSEXP, SEXP depthSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< NumericVector >::type x(xSEXP);
+    Rcpp::traits::input_parameter< double >::type max_erasure_radius(max_erasure_radiusSEXP);
+    Rcpp::traits::input_parameter< int >::type depth(depthSEXP);
+    rcpp_result_gen = Rcpp::wrap(kdtree_erase_max_erasure_radius_and_depth(x, max_erasure_radius, depth));
+    return rcpp_result_gen;
 END_RCPP
 }
 // count_nodes_cpp
@@ -88,14 +73,53 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// stern_brocot_erase_max_erasure_radius
+DataFrame stern_brocot_erase_max_erasure_radius(NumericVector x, double max_erasure_radius);
+RcppExport SEXP _SternBrocotPhysics_stern_brocot_erase_max_erasure_radius(SEXP xSEXP, SEXP max_erasure_radiusSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< NumericVector >::type x(xSEXP);
+    Rcpp::traits::input_parameter< double >::type max_erasure_radius(max_erasure_radiusSEXP);
+    rcpp_result_gen = Rcpp::wrap(stern_brocot_erase_max_erasure_radius(x, max_erasure_radius));
+    return rcpp_result_gen;
+END_RCPP
+}
+// stern_brocot_erase_depth
+DataFrame stern_brocot_erase_depth(NumericVector x, int depth);
+RcppExport SEXP _SternBrocotPhysics_stern_brocot_erase_depth(SEXP xSEXP, SEXP depthSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< NumericVector >::type x(xSEXP);
+    Rcpp::traits::input_parameter< int >::type depth(depthSEXP);
+    rcpp_result_gen = Rcpp::wrap(stern_brocot_erase_depth(x, depth));
+    return rcpp_result_gen;
+END_RCPP
+}
+// stern_brocot_erase_max_erasure_radius_and_depth
+DataFrame stern_brocot_erase_max_erasure_radius_and_depth(NumericVector x, double max_erasure_radius, int depth);
+RcppExport SEXP _SternBrocotPhysics_stern_brocot_erase_max_erasure_radius_and_depth(SEXP xSEXP, SEXP max_erasure_radiusSEXP, SEXP depthSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< NumericVector >::type x(xSEXP);
+    Rcpp::traits::input_parameter< double >::type max_erasure_radius(max_erasure_radiusSEXP);
+    Rcpp::traits::input_parameter< int >::type depth(depthSEXP);
+    rcpp_result_gen = Rcpp::wrap(stern_brocot_erase_max_erasure_radius_and_depth(x, max_erasure_radius, depth));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_SternBrocotPhysics_non_local_bell_sweep", (DL_FUNC) &_SternBrocotPhysics_non_local_bell_sweep, 7},
-    {"_SternBrocotPhysics_erase_max_erasure_radius", (DL_FUNC) &_SternBrocotPhysics_erase_max_erasure_radius, 2},
-    {"_SternBrocotPhysics_erase_depth", (DL_FUNC) &_SternBrocotPhysics_erase_depth, 2},
-    {"_SternBrocotPhysics_erase_max_erasure_radius_and_depth", (DL_FUNC) &_SternBrocotPhysics_erase_max_erasure_radius_and_depth, 3},
-    {"_SternBrocotPhysics_harmonic_oscillator_erasures", (DL_FUNC) &_SternBrocotPhysics_harmonic_oscillator_erasures, 3},
+    {"_SternBrocotPhysics_harmonic_oscillator_erasures", (DL_FUNC) &_SternBrocotPhysics_harmonic_oscillator_erasures, 4},
+    {"_SternBrocotPhysics_kdtree_erase_max_erasure_radius", (DL_FUNC) &_SternBrocotPhysics_kdtree_erase_max_erasure_radius, 2},
+    {"_SternBrocotPhysics_kdtree_erase_depth", (DL_FUNC) &_SternBrocotPhysics_kdtree_erase_depth, 2},
+    {"_SternBrocotPhysics_kdtree_erase_max_erasure_radius_and_depth", (DL_FUNC) &_SternBrocotPhysics_kdtree_erase_max_erasure_radius_and_depth, 3},
     {"_SternBrocotPhysics_count_nodes_cpp", (DL_FUNC) &_SternBrocotPhysics_count_nodes_cpp, 2},
+    {"_SternBrocotPhysics_stern_brocot_erase_max_erasure_radius", (DL_FUNC) &_SternBrocotPhysics_stern_brocot_erase_max_erasure_radius, 2},
+    {"_SternBrocotPhysics_stern_brocot_erase_depth", (DL_FUNC) &_SternBrocotPhysics_stern_brocot_erase_depth, 2},
+    {"_SternBrocotPhysics_stern_brocot_erase_max_erasure_radius_and_depth", (DL_FUNC) &_SternBrocotPhysics_stern_brocot_erase_max_erasure_radius_and_depth, 3},
     {NULL, NULL, 0}
 };
 

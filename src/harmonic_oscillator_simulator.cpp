@@ -24,19 +24,31 @@ inline bool check_file_exists(const std::string& name) {
   return (stat(name.c_str(), &buffer) == 0);
 }
 
+// --- Define a Function Pointer Type for our Erasure Algorithms ---
+typedef EraseResult (*EraseAlgorithmFunc)(double, double, int);
+
 // --- 2. EXPORTED API ---
 
-//' Run Stern-Brocot Erasure Simulation
-//'
-//' Automatically scales the number of microstates (N) based on momentum (P)
-//' to ensure consistent signal-to-noise ratio across the phase space.
+//' Run Erasure Simulation
 //'
 //' @param momenta Vector of momentum values (P) to simulate.
 //' @param dir Output directory.
+//' @param algorithm String to choose the engine: "stern_brocot" or "kdtree"
 //' @param n_threads Number of threads (0 = auto).
 //' @export
 // [[Rcpp::export]]
-void harmonic_oscillator_erasures(NumericVector momenta, std::string dir, int n_threads = 0) {
+void harmonic_oscillator_erasures(NumericVector momenta, std::string dir, std::string algorithm = "stern_brocot", int n_threads = 0) {
+
+  // 1. Dispatcher: Select the correct algorithm based on the R string
+  EraseAlgorithmFunc current_algorithm = nullptr;
+
+  if (algorithm == "stern_brocot") {
+    current_algorithm = &stern_brocot_erase_single_native;
+  } else if (algorithm == "kdtree") {
+    current_algorithm = &kdtree_erase_single_native;
+  } else {
+    stop("Unknown algorithm specified. Use 'stern_brocot' or 'kdtree'.");
+  }
 
   std::vector<double> p_vec = Rcpp::as<std::vector<double>>(momenta);
   size_t n = p_vec.size();
@@ -56,9 +68,9 @@ void harmonic_oscillator_erasures(NumericVector momenta, std::string dir, int n_
 
     int current_count = 100001;
 
-    char filename[128];
-    // %013.6f ensures 1.01 becomes 000001.010000, matching your previous run
-    std::snprintf(filename, sizeof(filename), "harmonic_oscillator_erasures_P_%013.6f.csv.gz", p);
+    char filename[256];
+    // Include the algorithm name in the file so you don't overwrite different experiments!
+    std::snprintf(filename, sizeof(filename), "harmonic_oscillator_erasures_%s_P_%013.6f.csv.gz", algorithm.c_str(), p);
     std::string path = dir + "/" + std::string(filename);
 
     if (check_file_exists(path)) {
@@ -71,24 +83,34 @@ void harmonic_oscillator_erasures(NumericVector momenta, std::string dir, int n_
     gzFile file = gzopen(path.c_str(), "wb1");
     if (!file) return;
 
-    gzprintf(file, "momentum,erasure_distance,microstate,minimal_action_state,max_erasure_radius,numerator,denominator,stern_brocot_path,minimal_program,minimal_program_length,shannon_entropy,left_count,right_count,max_program_length,found\n");
+    // Updated CSV header (removed path, changed left/right to zero/one)
+    gzprintf(file, "momentum,erasure_distance,microstate,minimal_action_state,max_erasure_radius,numerator,denominator,minimal_program,minimal_program_length,shannon_entropy,zero_count,one_count,max_program_length,found\n");
 
     for (int j = 0; j < current_count; j++) {
       double mu_source = (current_count > 1) ? -1.0 + (2.0 * j) / (double)(current_count - 1) : 0.0;
-      EraseResult res = erase_single_native(mu_source, max_erasure_radius, max_program_length);
 
-      gzprintf(file, "%.6f,%s,%.6f,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%d,%d\n",
-               p, fmt_val(res.erasure_distance).c_str(), mu_source,
-               fmt_val(res.minimal_action_state).c_str(), fmt_val(res.max_erasure_radius).c_str(),
-               fmt_val(res.numerator, "%.0f").c_str(), fmt_val(res.denominator, "%.0f").c_str(),
-               res.stern_brocot_path.c_str(), res.minimal_program.c_str(),
-               fmt_val(res.minimal_program_length).c_str(), fmt_val(res.shannon_entropy).c_str(),
-               fmt_val(res.left_count).c_str(), fmt_val(res.right_count).c_str(),
-               max_program_length, (int)res.found);
+      // 2. Execute whichever algorithm pointer was selected above
+      EraseResult res = current_algorithm(mu_source, max_erasure_radius, max_program_length);
+
+      // Updated gzprintf format string (14 columns instead of 15)
+      gzprintf(file, "%.6f,%s,%.6f,%s,%s,%s,%s,%s,%s,%s,%s,%s,%d,%d\n",
+               p,
+               fmt_val(res.erasure_distance).c_str(),
+               mu_source,
+               fmt_val(res.minimal_action_state).c_str(),
+               fmt_val(res.max_erasure_radius).c_str(),
+               fmt_val(res.numerator, "%.0f").c_str(),
+               fmt_val(res.denominator, "%.0f").c_str(),
+               res.minimal_program.c_str(),
+               fmt_val(res.minimal_program_length).c_str(),
+               fmt_val(res.shannon_entropy).c_str(),
+               fmt_val(res.zero_count).c_str(),
+               fmt_val(res.one_count).c_str(),
+               max_program_length,
+               (int)res.found);
     }
     gzclose(file);
   });
 
   pool.wait();
-
 }

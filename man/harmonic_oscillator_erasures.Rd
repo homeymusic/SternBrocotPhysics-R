@@ -2,18 +2,24 @@
 % Please edit documentation in R/RcppExports.R
 \name{harmonic_oscillator_erasures}
 \alias{harmonic_oscillator_erasures}
-\title{Run Stern-Brocot Erasure Simulation}
+\title{Run Erasure Simulation}
 \usage{
-harmonic_oscillator_erasures(momenta, dir, n_threads = 0L)
+harmonic_oscillator_erasures(
+  momenta,
+  dir,
+  algorithm = "stern_brocot",
+  n_threads = 0L
+)
 }
 \arguments{
 \item{momenta}{Vector of momentum values (P) to simulate.}
 
 \item{dir}{Output directory.}
 
+\item{algorithm}{String to choose the engine: "stern_brocot" or "kdtree"}
+
 \item{n_threads}{Number of threads (0 = auto).}
 }
 \description{
-Automatically scales the number of microstates (N) based on momentum (P)
-to ensure consistent signal-to-noise ratio across the phase space.
+Run Erasure Simulation
 }

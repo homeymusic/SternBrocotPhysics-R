@@ -4,23 +4,24 @@
 #include <string>
 
 struct EraseResult {
-  // Exact order matching the requested DataFrame
   double erasure_distance;
   double microstate;
   double minimal_action_state;
   double max_erasure_radius;
   double numerator;
   double denominator;
-  std::string stern_brocot_path;
   std::string minimal_program;
   int minimal_program_length;
   double shannon_entropy;
-  int left_count;
-  int right_count;
+  int zero_count;
+  int one_count;
   bool found;
 };
 
-// Function declaration
-EraseResult erase_single_native(double microstate, double max_erasure_radius, int max_program_length);
+// Stern-Brocot declaration
+EraseResult stern_brocot_erase_single_native(double microstate, double max_erasure_radius, int max_program_length);
+
+// K-D Tree declaration (Updated from geometric)
+EraseResult kdtree_erase_single_native(double microstate, double max_erasure_radius, int max_program_length);
 
 #endif
