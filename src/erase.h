@@ -21,7 +21,10 @@ struct EraseResult {
 // Stern-Brocot declaration
 EraseResult stern_brocot_erase_single_native(double microstate, double max_erasure_radius, int max_program_length);
 
-// K-D Tree declaration (Updated from geometric)
+// K-D Tree declaration
 EraseResult kdtree_erase_single_native(double microstate, double max_erasure_radius, int max_program_length);
+
+// Action-Angle declaration
+EraseResult action_angle_erase_single_native(double microstate, double max_erasure_radius, int max_program_length);
 
 #endif

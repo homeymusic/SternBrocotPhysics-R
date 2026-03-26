@@ -11,6 +11,43 @@ Rcpp::Rostream<true>&  Rcpp::Rcout = Rcpp::Rcpp_cout_get();
 Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
+// action_angle_erase_max_erasure_radius
+DataFrame action_angle_erase_max_erasure_radius(NumericVector x, double max_erasure_radius);
+RcppExport SEXP _SternBrocotPhysics_action_angle_erase_max_erasure_radius(SEXP xSEXP, SEXP max_erasure_radiusSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< NumericVector >::type x(xSEXP);
+    Rcpp::traits::input_parameter< double >::type max_erasure_radius(max_erasure_radiusSEXP);
+    rcpp_result_gen = Rcpp::wrap(action_angle_erase_max_erasure_radius(x, max_erasure_radius));
+    return rcpp_result_gen;
+END_RCPP
+}
+// action_angle_erase_depth
+DataFrame action_angle_erase_depth(NumericVector x, int depth);
+RcppExport SEXP _SternBrocotPhysics_action_angle_erase_depth(SEXP xSEXP, SEXP depthSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< NumericVector >::type x(xSEXP);
+    Rcpp::traits::input_parameter< int >::type depth(depthSEXP);
+    rcpp_result_gen = Rcpp::wrap(action_angle_erase_depth(x, depth));
+    return rcpp_result_gen;
+END_RCPP
+}
+// action_angle_erase_max_erasure_radius_and_depth
+DataFrame action_angle_erase_max_erasure_radius_and_depth(NumericVector x, double max_erasure_radius, int depth);
+RcppExport SEXP _SternBrocotPhysics_action_angle_erase_max_erasure_radius_and_depth(SEXP xSEXP, SEXP max_erasure_radiusSEXP, SEXP depthSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< NumericVector >::type x(xSEXP);
+    Rcpp::traits::input_parameter< double >::type max_erasure_radius(max_erasure_radiusSEXP);
+    Rcpp::traits::input_parameter< int >::type depth(depthSEXP);
+    rcpp_result_gen = Rcpp::wrap(action_angle_erase_max_erasure_radius_and_depth(x, max_erasure_radius, depth));
+    return rcpp_result_gen;
+END_RCPP
+}
 // harmonic_oscillator_erasures
 void harmonic_oscillator_erasures(NumericVector momenta, std::string dir, std::string algorithm, int n_threads);
 RcppExport SEXP _SternBrocotPhysics_harmonic_oscillator_erasures(SEXP momentaSEXP, SEXP dirSEXP, SEXP algorithmSEXP, SEXP n_threadsSEXP) {
@@ -112,6 +149,9 @@ END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
+    {"_SternBrocotPhysics_action_angle_erase_max_erasure_radius", (DL_FUNC) &_SternBrocotPhysics_action_angle_erase_max_erasure_radius, 2},
+    {"_SternBrocotPhysics_action_angle_erase_depth", (DL_FUNC) &_SternBrocotPhysics_action_angle_erase_depth, 2},
+    {"_SternBrocotPhysics_action_angle_erase_max_erasure_radius_and_depth", (DL_FUNC) &_SternBrocotPhysics_action_angle_erase_max_erasure_radius_and_depth, 3},
     {"_SternBrocotPhysics_harmonic_oscillator_erasures", (DL_FUNC) &_SternBrocotPhysics_harmonic_oscillator_erasures, 4},
     {"_SternBrocotPhysics_kdtree_erase_max_erasure_radius", (DL_FUNC) &_SternBrocotPhysics_kdtree_erase_max_erasure_radius, 2},
     {"_SternBrocotPhysics_kdtree_erase_depth", (DL_FUNC) &_SternBrocotPhysics_kdtree_erase_depth, 2},

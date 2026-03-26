@@ -46,8 +46,10 @@ void harmonic_oscillator_erasures(NumericVector momenta, std::string dir, std::s
     current_algorithm = &stern_brocot_erase_single_native;
   } else if (algorithm == "kdtree") {
     current_algorithm = &kdtree_erase_single_native;
+  } else if (algorithm == "action_angle") {
+    current_algorithm = &action_angle_erase_single_native;
   } else {
-    stop("Unknown algorithm specified. Use 'stern_brocot' or 'kdtree'.");
+    stop("Unknown algorithm specified. Use 'stern_brocot', 'kdtree', or 'action_angle'.");
   }
 
   std::vector<double> p_vec = Rcpp::as<std::vector<double>>(momenta);
