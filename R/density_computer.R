@@ -73,39 +73,50 @@ process_action_densities <- function(f, out_path, target_cols) {
     library(data.table)
     setDTthreads(1)
 
-    p_str <- gsub(".*harmonic_oscillator_erasures_P_([0-9.]+)\\.csv\\.gz", "\\1", basename(f))
+    # --- THE REGEX FIX ---
+    # Safely extract both the algorithm and the momentum from the new C++ filenames
+    base_f <- basename(f)
+    matches <- regmatches(base_f, regexec("harmonic_oscillator_erasures_(.*)_P_([0-9.]+)\\.csv\\.gz", base_f))
+
+    if (length(matches[[1]]) == 3) {
+      algo_str <- matches[[1]][2]
+      p_str    <- matches[[1]][3]
+    } else {
+      # Fallback just in case you process an old file generated before the refactor
+      p_str    <- gsub(".*_P_([0-9.]+)\\.csv\\.gz", "\\1", base_f)
+      algo_str <- "stern_brocot"
+    }
+
     P_val <- as.numeric(p_str)
     P_effective <- P_val * 2 * pi
 
-    dt <- fread(f, select = c("found", target_cols))
+    # Safely read the file (adding colClasses just in case you ever target minimal_program)
+    dt <- fread(f, select = c("found", target_cols), colClasses = list(character = "minimal_program"))
 
     # -------------------------------------------------------------
     # THE NEW DISCRETE BINDING LOGIC (STRICT DETERMINISM)
     # -------------------------------------------------------------
     if ("minimal_action_state" %in% names(dt)) {
-      # Use signif() to safely group floating-point representations of the exact same state
       unique_states <- unique(signif(dt[found == 1, minimal_action_state], 7))
       n_unique_states <- length(unique_states)
 
-      # 🚨 FAIL FAST ALARM BELL 🚨
-      # If the deterministic Stern-Brocot symmetry is broken, kill the process.
       if (n_unique_states %% 2 == 0) {
         stop(sprintf(
-          "\n[CRITICAL PHYSICS FAILURE] Deterministic symmetry broken at P=%s.\nFound an EVEN number of states (%d).\nThe Stern-Brocot phase space must be strictly symmetric (odd).",
+          "\n[CRITICAL PHYSICS FAILURE] Deterministic symmetry broken at P=%s.\nFound an EVEN number of states (%d).\nThe phase space must be strictly symmetric (odd).",
           p_str, n_unique_states
         ))
       }
     } else {
-      # For metrics that don't have discrete state lists, enforce an odd baseline
       n_unique_states <- max(5, floor(P_val * 10))
       if (n_unique_states %% 2 == 0) n_unique_states <- n_unique_states + 1
     }
 
     for (col in target_cols) {
-      full_path <- file.path(out_path, sprintf("harmonic_oscillator_%s_density_P_%s.csv.gz", col, p_str))
+      # --- OUTPUT FILENAME FIX ---
+      # Inject the algorithm string into the output file so kdtree and stern_brocot don't overwrite each other
+      full_path <- file.path(out_path, sprintf("harmonic_oscillator_%s_density_%s_P_%s.csv.gz", col, algo_str, p_str))
 
       if (col == "minimal_program_length") {
-        # Program length is already naturally grouped by exact integer values
         dt_active <- dt[found == 1]
         if(nrow(dt_active) > 0) {
           density_df <- dt_active[, .(density_count = .N), by = .(coordinate_q = get(col))]
@@ -114,7 +125,6 @@ process_action_densities <- function(f, out_path, target_cols) {
           density_df <- NULL
         }
       } else {
-        # Pass the exact number of discrete states to the histogram
         density_df <- compute_action_density(dt, P_effective, target_col = col, n_bins = n_unique_states)
       }
 
@@ -128,8 +138,9 @@ process_action_densities <- function(f, out_path, target_cols) {
     }
     return(data.table(normalized_momentum = P_val, status = "success"))
   }, error = function(e) {
-    # If the fail-fast alarm triggers, propagate it up out of the tryCatch
     if (grepl("CRITICAL PHYSICS FAILURE", e$message)) stop(e$message)
+    # Print the error so it doesn't fail silently next time!
+    message(sprintf("Error processing file %s: %s", basename(f), e$message))
     return(NULL)
   })
 }
