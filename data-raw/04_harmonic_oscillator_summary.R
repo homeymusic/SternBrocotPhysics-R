@@ -24,7 +24,7 @@ for (col in cols_topological) {
 
   file_summary_out <- file.path(dir_04_summary, sprintf("harmonic_oscillator_%s_summary.csv.gz", col))
 
-  pattern_str <- sprintf("^harmonic_oscillator_%s_nodes_P_.*\\.csv\\.gz$", col)
+  pattern_str <- sprintf("^harmonic_oscillator_%s_nodes_.*_P_.*\\.csv\\.gz$", col)
   files_nodes <- list.files(dir_03_nodes, pattern = pattern_str, full.names = TRUE)
 
   if (length(files_nodes) == 0) {
@@ -59,7 +59,7 @@ for (col in cols_algorithmic) {
 
   file_summary_out <- file.path(dir_04_summary, sprintf("harmonic_oscillator_%s_summary.csv.gz", col))
 
-  pattern_str <- sprintf("^harmonic_oscillator_%s_density_P_.*\\.csv\\.gz$", col)
+  pattern_str <- sprintf("^harmonic_oscillator_%s_density_.*_P_.*\\.csv\\.gz$", col)
   files_densities <- list.files(dir_02_densities, pattern = pattern_str, full.names = TRUE)
 
   if (length(files_densities) == 0) {

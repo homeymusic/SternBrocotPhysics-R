@@ -19,14 +19,24 @@ if (!dir.exists(nodes_out_dir)) dir.create(nodes_out_dir, recursive = TRUE)
 for (col in target_cols) {
   message(sprintf("\n--- Extracting Nodes & Topology for: %s ---", col))
 
-  pattern_str <- sprintf("^harmonic_oscillator_%s_density_P_.*\\.csv\\.gz$", col)
+  # FIX: Allow the algorithm string in the pattern
+  pattern_str <- sprintf("^harmonic_oscillator_%s_density_.*_P_.*\\.csv\\.gz$", col)
   col_density_files <- list.files(density_dir, pattern = pattern_str, full.names = TRUE)
 
   # --- 3. Skip Logic ---
   files_to_process <- Filter(function(f) {
-    p_str <- gsub(sprintf(".*harmonic_oscillator_%s_density_P_([0-9.]+)\\.csv\\.gz", col), "\\1", basename(f))
-    out_file <- file.path(nodes_out_dir, sprintf("harmonic_oscillator_%s_nodes_P_%s.csv.gz", col, p_str))
-    return(!file.exists(out_file))
+    base_f <- basename(f)
+    # FIX: Extract both algorithm and momentum safely
+    regex_pattern <- sprintf("harmonic_oscillator_%s_density_(.*)_P_([0-9.]+)\\.csv\\.gz", col)
+    matches <- regmatches(base_f, regexec(regex_pattern, base_f))
+
+    if (length(matches[[1]]) == 3) {
+      algo_str <- matches[[1]][2]
+      p_str    <- matches[[1]][3]
+      out_file <- file.path(nodes_out_dir, sprintf("harmonic_oscillator_%s_nodes_%s_P_%s.csv.gz", col, algo_str, p_str))
+      return(!file.exists(out_file))
+    }
+    return(FALSE)
   }, col_density_files)
 
   # --- 4. Parallel Worker ---
@@ -39,31 +49,34 @@ for (col in target_cols) {
       future_lapply(files_to_process, function(f) {
         library(data.table)
         library(SternBrocotPhysics)
-
         setDTthreads(1)
 
-        p_str <- gsub(sprintf(".*harmonic_oscillator_%s_density_P_([0-9.]+)\\.csv\\.gz", col), "\\1", basename(f))
-        P_val <- as.numeric(p_str)
-        out_file <- file.path(nodes_out_dir, sprintf("harmonic_oscillator_%s_nodes_P_%s.csv.gz", col, p_str))
+        base_f <- basename(f)
+        regex_pattern <- sprintf("harmonic_oscillator_%s_density_(.*)_P_([0-9.]+)\\.csv\\.gz", col)
+        matches <- regmatches(base_f, regexec(regex_pattern, base_f))
+
+        algo_str <- matches[[1]][2]
+        p_str    <- matches[[1]][3]
+        P_val    <- as.numeric(p_str)
+
+        # FIX: Propagate the algorithm string into the output file
+        out_file <- file.path(nodes_out_dir, sprintf("harmonic_oscillator_%s_nodes_%s_P_%s.csv.gz", col, algo_str, p_str))
 
         density_data <- fread(f)
         if (nrow(density_data) == 0) { p(); return(NULL) }
 
         input_dt <- density_data[, .(x = coordinate_q, y = density_count)]
-
-        # Call the physics C++ node counter
         analysis <- count_nodes(input_dt)
 
         if (!is.null(analysis$nodes) && nrow(analysis$nodes) > 0) {
           nodes_df <- as.data.table(analysis$nodes)
-          # Only rename x and y, preserve snr
           setnames(nodes_df, c("x", "y"), c("coordinate_q", "density_count"))
         } else {
-          # Added snr placeholder
           nodes_df <- data.table(coordinate_q = NA_real_, density_count = NA_real_, snr = NA_real_)
         }
 
-        # Append Metadata
+        # Append Metadata (Now tracking algorithm)
+        nodes_df[, algorithm := algo_str]
         nodes_df[, normalized_momentum := P_val]
         nodes_df[, node_count := as.integer(analysis$node_count)]
         nodes_df[, snr_metric := as.numeric(analysis$snr_metric)]
