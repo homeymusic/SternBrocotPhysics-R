@@ -9,7 +9,7 @@ Harmonic Oscillator Erasure Density
 
 ------------------------------------------------------------------------
 
-*(Correspondence limit summary data not yet generated)*
+![](README_files/figure-gfm/plot-4-correspondence-limit-1.png)<!-- -->
 
 ------------------------------------------------------------------------
 

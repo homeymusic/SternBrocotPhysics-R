@@ -248,7 +248,6 @@ if (nrow(dt_summary_resonance_margin) > 0) {
   cat("*(Correspondence limit summary data not yet generated)*\n\n---\n\n")
 }
 ```
-
 ```{r setup-plotting-functions, echo=FALSE, message=FALSE, warning=FALSE}
 # --- Function: Render Combined Erasure Distance Grid ---
 render_combined_erasure_distance_grid <- function(dt_target_momenta, custom_title) {
@@ -260,7 +259,8 @@ render_combined_erasure_distance_grid <- function(dt_target_momenta, custom_titl
     momentum_str_padded <- sprintf("%013.6f", momentum_val)
     
     # PRE-LOAD THE DENSITY FILE to get the exact number of minimal action states (bins)
-    file_density_erasure_distance <- file.path(dir_02_densities, sprintf("harmonic_oscillator_erasure_distance_density_P_%s.csv.gz", momentum_str_padded))
+    # FIX: Added '_stern_brocot' to filename
+    file_density_erasure_distance <- file.path(dir_02_densities, sprintf("harmonic_oscillator_erasure_distance_density_stern_brocot_P_%s.csv.gz", momentum_str_padded))
     dt_histogram_points <- data.table()
     n_bins_text <- ""
     
@@ -309,7 +309,8 @@ render_combined_erasure_distance_grid <- function(dt_target_momenta, custom_titl
     # ---------------------------------------------------------
     # 2. Microstate vs. minimal_action_state (Middle Column)
     # ---------------------------------------------------------
-    file_raw_erasures <- file.path(dir_01_raw_erasures, sprintf("harmonic_oscillator_erasures_P_%s.csv.gz", momentum_str_padded))
+    # FIX: Added '_stern_brocot' to filename
+    file_raw_erasures <- file.path(dir_01_raw_erasures, sprintf("harmonic_oscillator_erasures_stern_brocot_P_%s.csv.gz", momentum_str_padded))
     p_scat <- ggplot() + theme_void() + theme(aspect.ratio = 1, plot.margin = margin(5, 5, 5, 5)) 
     
     if (file.exists(file_raw_erasures)) {
@@ -331,7 +332,8 @@ render_combined_erasure_distance_grid <- function(dt_target_momenta, custom_titl
     # ---------------------------------------------------------
     # 3. Coordinate Density (Right Column)
     # ---------------------------------------------------------
-    file_nodes_erasure_distance <- file.path(dir_03_nodes, sprintf("harmonic_oscillator_erasure_distance_nodes_P_%s.csv.gz", momentum_str_padded))
+    # FIX: Added '_stern_brocot' to filename
+    file_nodes_erasure_distance <- file.path(dir_03_nodes, sprintf("harmonic_oscillator_erasure_distance_nodes_stern_brocot_P_%s.csv.gz", momentum_str_padded))
     p_den <- ggplot() + theme_void() + theme(aspect.ratio = 1, plot.margin = margin(5, 5, 5, 5))
     
     if (nrow(dt_histogram_points) > 0) {
@@ -406,7 +408,7 @@ render_combined_erasure_distance_grid(dt_selected_parabola, "Harmonic Oscillator
 ```
 
 ```{r generate_tree}
-# Function to generate the extended Stern-Brocot tree up to max_depth
+# Function to generate the algorithmic state-space tree up to max_depth
 generate_tree <- function(max_depth) {
   nodes <- list(
     list(
@@ -522,7 +524,7 @@ ggplot(tree_data, aes(x = x, y = y)) +
     axis.text = element_text(size = 10)
   ) +
   labs(
-    title = "Extended Stern-Brocot Tree (-Inf to +Inf)",
+    title = "Minimal-Action Information Tree (-Inf to +Inf)",
     subtitle = "Tree depth is Kolmogorov Complexity"
   )
 ```

@@ -17,18 +17,30 @@ agg_dir <- file.path(base_data_dir_4TB, "02_harmonic_oscillator_densities")
 if (!dir.exists(agg_dir)) dir.create(agg_dir, recursive = TRUE)
 
 # --- 2. File Matching & Skip Logic ---
-all_raw_files <- list.files(raw_dir, pattern = "^harmonic_oscillator_erasures_P_.*\\.csv\\.gz$", full.names = TRUE)
+# FIX: Accept the algorithm string between 'erasures_' and '_P_'
+all_raw_files <- list.files(raw_dir, pattern = "^harmonic_oscillator_erasures_.*_P_.*\\.csv\\.gz$", full.names = TRUE)
 
 # We only want to read a massive raw CSV if one of its target density files is missing
 files_to_process <- Filter(function(f) {
-  p_str <- gsub(".*harmonic_oscillator_erasures_P_([0-9.]+)\\.csv\\.gz", "\\1", basename(f))
+  base_f <- basename(f)
 
-  # Check if ALL target columns have already been processed for this momentum
-  all_exist <- all(sapply(target_cols, function(col) {
-    file.exists(file.path(agg_dir, sprintf("harmonic_oscillator_%s_density_P_%s.csv.gz", col, p_str)))
-  }))
+  # FIX: Safely extract both algorithm and momentum
+  matches <- regmatches(base_f, regexec("harmonic_oscillator_erasures_(.*)_P_([0-9.]+)\\.csv\\.gz", base_f))
 
-  return(!all_exist)
+  if (length(matches[[1]]) == 3) {
+    algo_str <- matches[[1]][2]
+    p_str    <- matches[[1]][3]
+
+    # Check if ALL target columns have already been processed for this momentum AND algorithm
+    all_exist <- all(sapply(target_cols, function(col) {
+      file.exists(file.path(agg_dir, sprintf("harmonic_oscillator_%s_density_%s_P_%s.csv.gz", col, algo_str, p_str)))
+    }))
+
+    return(!all_exist)
+  }
+
+  # If the regex fails to match, process it just to be safe
+  return(TRUE)
 }, all_raw_files)
 
 # --- 3. Parallel Execution ---

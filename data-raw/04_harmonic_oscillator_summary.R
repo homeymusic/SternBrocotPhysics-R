@@ -109,8 +109,10 @@ message("\n=== Aggregating Thermodynamic Summaries ===")
 dir_01_raw <- file.path(dir_base_data_4TB, "01_harmonic_oscillator_erasures")
 file_summary_out_res <- file.path(dir_04_summary, "harmonic_oscillator_resonance_margin_summary.csv.gz")
 
-pattern_str_raw <- "^harmonic_oscillator_erasures_P_.*\\.csv\\.gz$"
+# FIX: Allow algorithm string in the raw filename regex
+pattern_str_raw <- "^harmonic_oscillator_erasures_.*_P_.*\\.csv\\.gz$"
 files_raw <- list.files(dir_01_raw, pattern = pattern_str_raw, full.names = TRUE)
+
 
 if (length(files_raw) == 0) {
   warning("  -> No raw erasure files found. Skipping Resonance Margin.")
