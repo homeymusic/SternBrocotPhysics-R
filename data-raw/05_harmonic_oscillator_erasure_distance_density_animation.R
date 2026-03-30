@@ -2,6 +2,7 @@ library(data.table)
 library(ggplot2)
 library(gganimate)
 library(parallel)
+library(av)
 
 # --- 1. Configuration ---
 dir_base_data_4TB <- "/Volumes/SanDisk4TB/SternBrocot-data"
@@ -9,11 +10,13 @@ dir_base_data_4TB <- "/Volumes/SanDisk4TB/SternBrocot-data"
 # Updated to point to the new consolidated generic directories
 dir_02_densities <- file.path(dir_base_data_4TB, "02_harmonic_oscillator_densities")
 dir_03_nodes     <- file.path(dir_base_data_4TB, "03_harmonic_oscillator_nodes")
-file_animation   <- file.path(dir_base_data_4TB, "05_harmonic_oscillator_erasure_distance_animation.mp4")
+file_animation   <- file.path(dir_base_data_4TB, "05_harmonic_oscillator_erasure_distance_stern_brocot_animation.mp4")
 
-# File Discovery: STRICT regex to only grab erasure_distance, ignoring peers like minimal_action_state
-files_density <- list.files(dir_02_densities, pattern = "^harmonic_oscillator_erasure_distance_density_P_.*\\.csv\\.gz$", full.names = FALSE)
-keys_momentum <- gsub("harmonic_oscillator_erasure_distance_density_P_|.csv.gz", "", files_density)
+# File Discovery: STRICT regex to only grab erasure_distance and match the specific algorithm
+files_density <- list.files(dir_02_densities, pattern = "^harmonic_oscillator_erasure_distance_density_stern_brocot_P_.*\\.csv\\.gz$", full.names = FALSE)
+
+# Safely extract the momentum string
+keys_momentum <- gsub("harmonic_oscillator_erasure_distance_density_stern_brocot_P_|\\.csv\\.gz", "", files_density)
 
 dt_files_to_process <- data.table(key_str = keys_momentum)
 dt_files_to_process[, momentum := as.numeric(key_str)]
@@ -28,13 +31,14 @@ cat(sprintf("Processing: %d frames strictly in order (Raw Mode)...\n", nrow(dt_f
 
 # --- 2. Parallel Processing (The Rmd Logic) ---
 num_cores <- parallel::detectCores() - 1
+
 list_processed_frames <- mclapply(seq_len(nrow(dt_files_to_process)), function(i) {
   current_row <- dt_files_to_process[i, ]
   momentum_val <- current_row$momentum
   momentum_str <- current_row$key_str
 
-  # Read Density
-  file_density <- file.path(dir_02_densities, paste0("harmonic_oscillator_erasure_distance_density_P_", momentum_str, ".csv.gz"))
+  # Read Density (Injecting algorithm string)
+  file_density <- file.path(dir_02_densities, paste0("harmonic_oscillator_erasure_distance_density_stern_brocot_P_", momentum_str, ".csv.gz"))
   dt_histogram_points <- tryCatch({ fread(file_density) }, error = function(e) NULL)
   if (is.null(dt_histogram_points) || nrow(dt_histogram_points) == 0) return(NULL)
 
@@ -44,8 +48,8 @@ list_processed_frames <- mclapply(seq_len(nrow(dt_files_to_process)), function(i
   if (is.na(idx_first_active)) return(NULL)
   dt_active_bins <- dt_histogram_points[idx_first_active:idx_last_active]
 
-  # Read Nodes (Raw coordinates from 03 files)
-  file_nodes <- file.path(dir_03_nodes, paste0("harmonic_oscillator_erasure_distance_nodes_P_", momentum_str, ".csv.gz"))
+  # Read Nodes (Injecting algorithm string)
+  file_nodes <- file.path(dir_03_nodes, paste0("harmonic_oscillator_erasure_distance_nodes_stern_brocot_P_", momentum_str, ".csv.gz"))
   dt_node_coordinates <- tryCatch({ fread(file_nodes) }, error = function(e) data.table())
 
   # Extract Metrics
@@ -74,7 +78,9 @@ list_processed_frames <- mclapply(seq_len(nrow(dt_files_to_process)), function(i
   pad_left  <- data.table(pct_q = min(dt_active_bins$pct_q) - pct_bar_width, pct_density = 0)
   pad_right <- data.table(pct_q = max(dt_active_bins$pct_q) + pct_bar_width, pct_density = 0)
   dt_layer_step <- rbind(pad_left, dt_active_bins[, .(pct_q, pct_density)], pad_right)
-  dt_layer_step[, `:=`(type = "step", label = lbl, q_width = NA, momentum = momentum_val)]
+
+  # FIX: Changed NA_ to NA_real_
+  dt_layer_step[, `:=`(type = "step", label = lbl, q_width = NA_real_, momentum = momentum_val)]
 
   # LAYER 3: Raw Node Dots (NO PLATEAU CENTERING)
   if (nrow(dt_node_coordinates) > 0) {
@@ -83,7 +89,9 @@ list_processed_frames <- mclapply(seq_len(nrow(dt_files_to_process)), function(i
   } else {
     dt_layer_nodes <- data.table(pct_q = 0, pct_density = 0, is_ghost = TRUE)
   }
-  dt_layer_nodes[, `:=`(type = "nodes", label = lbl, q_width = NA, momentum = momentum_val)]
+
+  # FIX: Changed NA_ to NA_real_
+  dt_layer_nodes[, `:=`(type = "nodes", label = lbl, q_width = NA_real_, momentum = momentum_val)]
 
   return(rbind(dt_layer_fill, dt_layer_step, dt_layer_nodes, fill = TRUE))
 }, mc.cores = num_cores)
@@ -104,10 +112,9 @@ p <- ggplot() +
             aes(x = pct_q, y = pct_density, group = label),
             color = "black", linewidth = 0.7, direction = "mid") +
   # Raw Hysteresis Nodes
-  geom_point(data = dt_all_frames[type == "nodes"],
-             aes(x = pct_q, y = pct_density, group = label, alpha = !is_ghost),
+  geom_point(data = dt_all_frames[type == "nodes" & is_ghost == FALSE],
+             aes(x = pct_q, y = pct_density, group = label),
              color = "black", size = 3) +
-  scale_alpha_manual(values = c("TRUE" = 1, "FALSE" = 0), guide = "none") +
   labs(title = "{current_frame}", x = "Amplitude (%)", y = "Density %") +
   coord_cartesian(xlim = c(-100, 100), ylim = c(0, 105), clip = "on") +
   scale_x_continuous(breaks = seq(-100, 100, 50), expand = c(0, 0)) +
