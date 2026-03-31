@@ -455,31 +455,100 @@ tree_data <- generate_tree(max_k)
 ```
 
 ```{r plot_tree, fig.width=14, fig.height=8, dpi=300}
+# --- ISOLATE AND LABEL THE ERASURE PATH ---
+target_bin <- "1101" # This targets the 5/3 node
+
+# Helper functions for the reverse inverse
+invert_bit <- function(s) {
+  chars <- unlist(strsplit(s, ""))
+  inv <- ifelse(chars == "1", "0", "1")
+  paste(inv, collapse = "")
+}
+
+reverse_string <- function(s) {
+  paste(rev(unlist(strsplit(s, ""))), collapse = "")
+}
+
+# Calculate the full initial erasure string (the reverse complement)
+s_star_full <- invert_bit(reverse_string(target_bin))
+
+# Dynamically generate all prefixes
+path_bins <- sapply(0:nchar(target_bin), function(i) substr(target_bin, 1, i))
+
+# Filter the tree and calculate the shrinking erase string (ShiftLeft) for each segment
+path_data <- tree_data %>% 
+  filter(bin %in% path_bins) %>%
+  rowwise() %>%
+  mutate(
+    # How many bits have ALREADY been popped to arrive at this node
+    bits_popped = nchar(target_bin) - nchar(bin),
+    
+    # The state of s_x^* BEFORE taking the next upward step (drops leading bits)
+    erase_str = ifelse(!is.na(parent_x), substr(s_star_full, bits_popped + 1, nchar(s_star_full)), ""),
+    erase_label = ifelse(erase_str != "", paste0("s*=", erase_str), ""),
+    
+    # Calculate segment midpoints to place the labels directly on the arrows
+    mid_x = (x + parent_x) / 2,
+    mid_y = (y + parent_y) / 2
+  ) %>%
+  ungroup()
+# ------------------------------------------
+
 ggplot(tree_data, aes(x = x, y = y)) +
-  # Edges: Thicker and darker to emphasize the actual tree structure
+  # Base Edges
   geom_segment(
     aes(xend = parent_x, yend = parent_y), 
-    color = "gray40", 
+    color = "gray85", 
     linewidth = 0.8,
-    na.rm = TRUE  # Silences the NA warning for the root node
+    na.rm = TRUE  
+  ) +
+  # Base Points
+  geom_point(color = "gray75", size = 2) +
+  
+  # --- DRAW THE GRAYSCALE ERASURE PATH ---
+  # Path Edges with Arrowheads
+  geom_segment(
+    data = path_data,
+    aes(xend = parent_x, yend = parent_y), 
+    color = "black", 
+    linewidth = 1.2,
+    arrow = arrow(length = unit(0.15, "inches"), type = "closed"),
+    na.rm = TRUE
+  ) +
+  # Path Points
+  geom_point(
+    data = path_data,
+    color = "black", 
+    size = 3.5
   ) +
   
-  # Points
-  geom_point(color = "black", size = 2) +
+  # Segment Labels (The shrinking s* strings)
+  geom_label(
+    data = filter(path_data, erase_label != ""),
+    aes(x = mid_x, y = mid_y, label = erase_label),
+    family = "mono",
+    fontface = "bold",
+    size = 3.5,
+    color = "white",
+    fill = "black",
+    label.size = NA,
+    label.padding = unit(0.2, "lines")
+  ) +
+  # ---------------------------------------
   
   # Top Labels: Fractions ABOVE the points
   geom_label_repel(
     aes(label = frac_label),
-    direction = "x",          # <--- Changed to "x" to only repel horizontally
-    nudge_y = 0.15,           # Locks the vertical push UP
+    direction = "x",          
+    nudge_y = 0.15,          
     segment.color = "gray85", 
     segment.size = 0.2,       
     size = 3.5,
     color = "black",
-    fill = "white",           # Opaque background
-    label.size = NA,          # Removes the box border
+    fill = "white",          
+    label.size = NA,          
     label.padding = unit(0.15, "lines"),
-    vjust = 0,                # Anchors bottom of text block
+    vjust = 0,                
     box.padding = 0.1,       
     max.overlaps = Inf       
   ) +
@@ -487,17 +556,17 @@ ggplot(tree_data, aes(x = x, y = y)) +
   # Bottom Labels: Binary strings BELOW the points
   geom_label_repel(
     aes(label = bin_label),
-    direction = "x",          # <--- Changed to "x" to only repel horizontally
-    nudge_y = -0.15,          # Locks the vertical push DOWN
+    direction = "x",          
+    nudge_y = -0.15,          
     segment.color = "gray85", 
     segment.size = 0.2,       
     size = 3.5,
-    family = "mono",          # Fixed-width font for info theory look
+    family = "mono",          
     color = "black",
-    fill = "white",           
+    fill = "white",          
     label.size = NA,          
     label.padding = unit(0.15, "lines"),
-    vjust = 1,                # Anchors top of text block
+    vjust = 1,                
     box.padding = 0.1,       
     max.overlaps = Inf       
   ) +
@@ -525,6 +594,6 @@ ggplot(tree_data, aes(x = x, y = y)) +
   ) +
   labs(
     title = "Minimal-Action Information Tree (-Inf to +Inf)",
-    subtitle = "Tree depth is Kolmogorov Complexity"
+    subtitle = "Highlighting the thermodynamic erasure path for q_mu = 5/3"
   )
 ```
