@@ -5,7 +5,8 @@ library(progressr)
 library(SternBrocotPhysics)
 
 # --- 1. Configuration ---
-target_cols <- c("erasure_distance", "minimal_action_state")
+# UPDATED: Matches the new physical nomenclature of the manuscript
+target_cols <- c("erasure_displacement", "selected_microstate")
 
 plan(multisession, workers = parallel::detectCores() - 2)
 

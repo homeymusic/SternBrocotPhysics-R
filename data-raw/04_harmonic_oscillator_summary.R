@@ -2,8 +2,9 @@ library(data.table)
 library(future.apply)
 
 # --- 1. Configuration ---
-cols_topological <- c("erasure_distance", "minimal_action_state")
-cols_algorithmic <- c("minimal_program_length")
+# UPDATED: Matches the new physical nomenclature
+cols_topological <- c("erasure_displacement", "selected_microstate")
+cols_algorithmic <- c("sequence_length")
 
 plan(multisession, workers = parallel::detectCores() - 2)
 
@@ -121,12 +122,12 @@ if (length(files_raw) == 0) {
 
   dt_summary_res <- rbindlist(future_lapply(files_raw, function(f) {
     tryCatch({
-      # EXACT COLUMN MATCH: momentum, max_erasure_radius, erasure_distance
-      dt <- fread(f, select = c("momentum", "max_erasure_radius", "erasure_distance"))
+      # EXACT COLUMN MATCH: momentum, squeezed_boundary, erasure_displacement
+      dt <- fread(f, select = c("momentum", "squeezed_boundary", "erasure_displacement"))
       if (nrow(dt) == 0) return(NULL)
 
       # Calculate Resonance Margin: delta_q - |epsilon_q|
-      dt[, residual := max_erasure_radius - abs(erasure_distance)]
+      dt[, residual := squeezed_boundary - abs(erasure_displacement)]
 
       data.table(
         normalized_momentum = dt$momentum[1],

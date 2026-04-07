@@ -12,9 +12,11 @@ normalized_momenta <- seq(0.1, 10.0, by = granularity_p)
 message(sprintf("Launching Dynamic Simulation."))
 message(sprintf("Total Files: %d", length(normalized_momenta)))
 
+# Explicitly request the engine (matches the new C++ API)
 harmonic_oscillator_erasures(
   momenta   = normalized_momenta,
   dir       = normalizePath(raw_directory, mustWork = TRUE),
+  algorithm = "stern_brocot",
   n_threads = 6
 )
 

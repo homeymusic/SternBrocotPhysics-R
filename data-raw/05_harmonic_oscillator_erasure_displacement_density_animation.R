@@ -8,11 +8,11 @@ library(av)
 dir_base_data_4TB <- "/Volumes/SanDisk4TB/SternBrocot-data"
 dir_02_densities <- file.path(dir_base_data_4TB, "02_harmonic_oscillator_densities")
 dir_03_nodes     <- file.path(dir_base_data_4TB, "03_harmonic_oscillator_nodes")
-file_animation   <- file.path(dir_base_data_4TB, "05_harmonic_oscillator_erasure_distance_stern_brocot_animation_v2.mp4")
+file_animation   <- file.path(dir_base_data_4TB, "05_harmonic_oscillator_erasure_displacement_stern_brocot_animation_v2.mp4")
 
-# File Discovery
-files_density <- list.files(dir_02_densities, pattern = "^harmonic_oscillator_erasure_distance_density_stern_brocot_P_.*\\.csv\\.gz$", full.names = FALSE)
-keys_momentum <- gsub("harmonic_oscillator_erasure_distance_density_stern_brocot_P_|\\.csv\\.gz", "", files_density)
+# File Discovery (UPDATED nomenclature)
+files_density <- list.files(dir_02_densities, pattern = "^harmonic_oscillator_erasure_displacement_density_stern_brocot_P_.*\\.csv\\.gz$", full.names = FALSE)
+keys_momentum <- gsub("harmonic_oscillator_erasure_displacement_density_stern_brocot_P_|\\.csv\\.gz", "", files_density)
 
 dt_files_to_process <- data.table(key_str = keys_momentum)
 dt_files_to_process[, momentum := as.numeric(key_str)]
@@ -28,8 +28,8 @@ list_processed_frames <- mclapply(seq_len(nrow(dt_files_to_process)), function(i
   momentum_val <- current_row$momentum
   momentum_str <- current_row$key_str
 
-  # Density Data
-  file_density <- file.path(dir_02_densities, paste0("harmonic_oscillator_erasure_distance_density_stern_brocot_P_", momentum_str, ".csv.gz"))
+  # Density Data (UPDATED nomenclature)
+  file_density <- file.path(dir_02_densities, paste0("harmonic_oscillator_erasure_displacement_density_stern_brocot_P_", momentum_str, ".csv.gz"))
   dt_histogram_points <- tryCatch({ fread(file_density) }, error = function(e) NULL)
   if (is.null(dt_histogram_points) || nrow(dt_histogram_points) == 0) return(NULL)
 
@@ -37,8 +37,8 @@ list_processed_frames <- mclapply(seq_len(nrow(dt_files_to_process)), function(i
   idx_last_active  <- rev(which(dt_histogram_points$density_count > 0))[1]
   dt_active_bins   <- dt_histogram_points[idx_first_active:idx_last_active]
 
-  # Nodes Data
-  file_nodes <- file.path(dir_03_nodes, paste0("harmonic_oscillator_erasure_distance_nodes_stern_brocot_P_", momentum_str, ".csv.gz"))
+  # Nodes Data (UPDATED nomenclature)
+  file_nodes <- file.path(dir_03_nodes, paste0("harmonic_oscillator_erasure_displacement_nodes_stern_brocot_P_", momentum_str, ".csv.gz"))
   dt_node_coordinates <- tryCatch({ fread(file_nodes) }, error = function(e) data.table())
 
   node_count <- 0

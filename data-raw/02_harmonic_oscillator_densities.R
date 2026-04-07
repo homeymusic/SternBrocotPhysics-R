@@ -5,8 +5,8 @@ library(progressr)
 library(SternBrocotPhysics)
 
 # --- 1. Configuration ---
-# Add any future metrics you want to analyze to this vector!
-target_cols <- c("erasure_distance", "minimal_action_state", "minimal_program_length")
+# UPDATED: Matches the new physical nomenclature of the manuscript
+target_cols <- c("erasure_displacement", "selected_microstate", "sequence_length")
 
 plan(multisession, workers = parallel::detectCores() - 2)
 
@@ -55,7 +55,7 @@ if (length(files_to_process) > 0) {
     future_lapply(files_to_process, function(f) {
 
       # The package function handles the single-read and multi-column density computation
-      # (Including the algorithmic bypass for minimal_program_length)
+      # (Including the algorithmic bypass for sequence_length)
       res <- process_action_densities(f, out_path = agg_dir, target_cols = target_cols)
 
       p()
