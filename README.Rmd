@@ -14,10 +14,7 @@ library(dplyr)
 library(purrr)
 library(ggrepel) 
 
-
 # --- 1. Configuration & Data Load ---
-# Strict Prefix Naming: dir_ (Directory), file_ (File Path), dt_ (DataTable)
-
 dir_base_data_4TB <- "/Volumes/SanDisk4TB/SternBrocot-data"
 
 # --- 1.2 Display Configuration ---
@@ -26,141 +23,127 @@ config_max_node_count <- 30
 config_min_momentum <- 0.5
 config_max_momentum <- 10
 
+# Action bounds (A = P^2)
+config_min_action <- config_min_momentum^2
+config_max_action <- config_max_momentum^2
+
 # Pipeline Directories
 dir_01_raw_erasures           <- file.path(dir_base_data_4TB, "01_harmonic_oscillator_erasures")
 dir_02_densities              <- file.path(dir_base_data_4TB, "02_harmonic_oscillator_densities")
 dir_03_nodes                  <- file.path(dir_base_data_4TB, "03_harmonic_oscillator_nodes")
 dir_04_summary                <- file.path(dir_base_data_4TB, "04_harmonic_oscillator_summary")
 
-# Summary Files
-file_04_summary_erasure_distance       <- file.path(dir_04_summary, "harmonic_oscillator_erasure_distance_summary.csv.gz")
-file_04_summary_minimal_action_state   <- file.path(dir_04_summary, "harmonic_oscillator_minimal_action_state_summary.csv.gz")
-file_04_summary_minimal_program_length <- file.path(dir_04_summary, "harmonic_oscillator_minimal_program_length_summary.csv.gz")
-file_04_summary_resonance_margin <- file.path(dir_04_summary, "harmonic_oscillator_resonance_margin_summary.csv.gz")
+# Summary Files (UPDATED NOMENCLATURE)
+file_04_summary_erasure_displacement <- file.path(dir_04_summary, "harmonic_oscillator_erasure_displacement_summary.csv.gz")
+file_04_summary_selected_microstate  <- file.path(dir_04_summary, "harmonic_oscillator_selected_microstate_summary.csv.gz")
+file_04_summary_sequence_length      <- file.path(dir_04_summary, "harmonic_oscillator_sequence_length_summary.csv.gz")
+file_04_summary_resonance_margin     <- file.path(dir_04_summary, "harmonic_oscillator_resonance_margin_summary.csv.gz")
 
-if (!file.exists(file_04_summary_erasure_distance)) {
-  stop("Erasure Distance Summary file not found at: ", file_04_summary_erasure_distance)
+if (!file.exists(file_04_summary_erasure_displacement)) {
+  stop("Erasure Displacement Summary file not found at: ", file_04_summary_erasure_displacement)
 }
 
 # In-Memory Data Tables
-dt_summary_erasure_distance <- if (file.exists(file_04_summary_erasure_distance)) fread(file_04_summary_erasure_distance) else data.table()
-dt_summary_minimal_action_state <- if (file.exists(file_04_summary_minimal_action_state)) fread(file_04_summary_minimal_action_state) else data.table()
-dt_summary_minimal_program_length <- if (file.exists(file_04_summary_minimal_program_length)) fread(file_04_summary_minimal_program_length) else data.table()
+dt_summary_erasure_displacement <- if (file.exists(file_04_summary_erasure_displacement)) fread(file_04_summary_erasure_displacement) else data.table()
+dt_summary_selected_microstate <- if (file.exists(file_04_summary_selected_microstate)) fread(file_04_summary_selected_microstate) else data.table()
+dt_summary_sequence_length <- if (file.exists(file_04_summary_sequence_length)) fread(file_04_summary_sequence_length) else data.table()
 dt_summary_resonance_margin <- if (file.exists(file_04_summary_resonance_margin)) fread(file_04_summary_resonance_margin) else data.table()
 
-# --- 1.5 Physics Constants ---
+# --- 1.5 Physics Constants & Action Mapping ---
 # Zero-Point Energy offset for the Quantum Harmonic Oscillator.
-# P^2 = n + 0.5  =>  n = P^2 - 0.5
+# A = P^2. n = A - 0.5
 qho_zpe_offset <- 0.0
 
-# --- 2. Auto-Selection Logic (Erasure Distance) ---
+# Map Momentum to Action Space
+if(nrow(dt_summary_erasure_displacement)>0) dt_summary_erasure_displacement[, action_A := normalized_momentum^2]
+if(nrow(dt_summary_selected_microstate)>0) dt_summary_selected_microstate[, action_A := normalized_momentum^2]
+if(nrow(dt_summary_sequence_length)>0) dt_summary_sequence_length[, action_A := normalized_momentum^2]
+if(nrow(dt_summary_resonance_margin)>0) dt_summary_resonance_margin[, action_A := normalized_momentum^2]
 
-# Extract the EXACT P = 0.500 baseline from the RAW data (before NA filtering)
-row_0500 <- copy(dt_summary_erasure_distance[abs(normalized_momentum - 0.500) < 1e-4])
+# --- 2. Auto-Selection Logic (Erasure Displacement) ---
+
+# Extract the EXACT P = 0.500 (A = 0.25) baseline from the RAW data
+row_0500 <- copy(dt_summary_erasure_displacement[abs(normalized_momentum - 0.500) < 1e-4])
 if (nrow(row_0500) > 0) {
   row_0500 <- row_0500[1]
   row_0500[, node_count := 0] # Force n=0 so it plots correctly
   if ("snr_metric" %in% names(row_0500)) row_0500[, snr_metric := 0]
 }
 
-# Filter to valid macroscopic states
-valid_summaries <- dt_summary_erasure_distance[!is.na(node_count) & node_count >= 0]
+valid_summaries <- dt_summary_erasure_displacement[!is.na(node_count) & node_count >= 0]
 
-# SELECTION A: Closest to Theoretical Parabola
-idx_closest_parabola <- valid_summaries[, .I[which.min(abs(normalized_momentum - sqrt(node_count + qho_zpe_offset)))], by = node_count]$V1
-dt_parabola_picked <- valid_summaries[idx_closest_parabola]
-dt_parabola_picked <- dt_parabola_picked[node_count != 0] # Strip the algorithm's noisy n=0 pick
-if(nrow(row_0500) > 0) dt_parabola_picked <- rbind(dt_parabola_picked, row_0500, fill = TRUE) # Force exactly 0.500
-setorder(dt_parabola_picked, node_count)
-dt_selected_parabola <- dt_parabola_picked[node_count >= config_min_node_count & node_count <= config_max_node_count & normalized_momentum >= config_min_momentum & normalized_momentum <= config_max_momentum]
+# SELECTION A: Closest to Theoretical Action Line (n = A)
+idx_closest_line <- valid_summaries[, .I[which.min(abs(action_A - (node_count + qho_zpe_offset)))], by = node_count]$V1
+dt_line_picked <- valid_summaries[idx_closest_line]
+dt_line_picked <- dt_line_picked[node_count != 0] # Strip the algorithm's noisy n=0 pick
+if(nrow(row_0500) > 0) dt_line_picked <- rbind(dt_line_picked, row_0500, fill = TRUE)
+setorder(dt_line_picked, node_count)
+dt_selected_line <- dt_line_picked[node_count >= config_min_node_count & node_count <= config_max_node_count & action_A >= config_min_action & action_A <= config_max_action]
 
-# --- Auto-Selection Logic (Minimal Action State) ---
-
-if (exists("dt_summary_minimal_action_state") && nrow(dt_summary_minimal_action_state) > 0) {
+# --- Auto-Selection Logic (Selected Microstate) ---
+if (exists("dt_summary_selected_microstate") && nrow(dt_summary_selected_microstate) > 0) {
   
-  row_0500_action <- copy(dt_summary_minimal_action_state[abs(normalized_momentum - 0.500) < 1e-4])
+  row_0500_action <- copy(dt_summary_selected_microstate[abs(normalized_momentum - 0.500) < 1e-4])
   if (nrow(row_0500_action) > 0) {
     row_0500_action <- row_0500_action[1]
     row_0500_action[, node_count := 0]
     if ("snr_metric" %in% names(row_0500_action)) row_0500_action[, snr_metric := 0]
   }
   
-  valid_summaries_action <- dt_summary_minimal_action_state[!is.na(node_count) & node_count >= 0]
+  valid_summaries_microstate <- dt_summary_selected_microstate[!is.na(node_count) & node_count >= 0]
   
-  # SELECTION A: Parabola
-  idx_closest_parabola_action <- valid_summaries_action[, .I[which.min(abs(normalized_momentum - sqrt(node_count + qho_zpe_offset)))], by = node_count]$V1
-  dt_parabola_picked_action <- valid_summaries_action[idx_closest_parabola_action]
-  dt_parabola_picked_action <- dt_parabola_picked_action[node_count != 0]
-  if(nrow(row_0500_action) > 0) dt_parabola_picked_action <- rbind(dt_parabola_picked_action, row_0500_action, fill = TRUE)
-  setorder(dt_parabola_picked_action, node_count)
-  dt_selected_minimal_action_parabola <- dt_parabola_picked_action[node_count >= config_min_node_count & node_count <= config_max_node_count & normalized_momentum >= config_min_momentum & normalized_momentum <= config_max_momentum]
-  
-  # SELECTION B: Textbook (SNR)
-  if("snr_metric" %in% names(valid_summaries_action)) {
-    idx_textbook_action <- valid_summaries_action[, .I[which.max(snr_metric)], by = node_count]$V1
-  } else {
-    idx_textbook_action <- idx_closest_parabola_action
-  }
-  dt_textbook_picked_action <- valid_summaries_action[idx_textbook_action]
-  dt_textbook_picked_action <- dt_textbook_picked_action[node_count != 0]
-  if(nrow(row_0500_action) > 0) dt_textbook_picked_action <- rbind(dt_textbook_picked_action, row_0500_action, fill = TRUE)
-  setorder(dt_textbook_picked_action, node_count)
-  dt_selected_minimal_action_textbook <- dt_textbook_picked_action[node_count >= config_min_node_count & node_count <= config_max_node_count & normalized_momentum >= config_min_momentum & normalized_momentum <= config_max_momentum]
+  # SELECTION A: Action Line
+  idx_closest_line_microstate <- valid_summaries_microstate[, .I[which.min(abs(action_A - (node_count + qho_zpe_offset)))], by = node_count]$V1
+  dt_line_picked_microstate <- valid_summaries_microstate[idx_closest_line_microstate]
+  dt_line_picked_microstate <- dt_line_picked_microstate[node_count != 0]
+  if(nrow(row_0500_action) > 0) dt_line_picked_microstate <- rbind(dt_line_picked_microstate, row_0500_action, fill = TRUE)
+  setorder(dt_line_picked_microstate, node_count)
+  dt_selected_microstate_line <- dt_line_picked_microstate[node_count >= config_min_node_count & node_count <= config_max_node_count & action_A >= config_min_action & action_A <= config_max_action]
 }
 
-# --- 3. Dynamic Plot Sizing ---
-# Adjusted the height multiplier down to 4.0 to eliminate top/bottom white space
-dynamic_height_parabola <- max(5, nrow(dt_selected_parabola) * 4.0 + 1)
+dynamic_height_line <- max(5, nrow(dt_selected_line) * 4.0 + 1)
 ```
 
-```{r plot-2A-overview-scatter-erasure-distance, echo=FALSE, results='asis', message=FALSE, warning=FALSE, fig.width=12, fig.height=8}
-# --- Plot 2A: Overview Scatter Plot (Erasure Distance) ---
-qho_backbone <- function(P) { P^2 - qho_zpe_offset }
+```{r plot-2A-overview-scatter-erasure-displacement, echo=FALSE, results='asis', message=FALSE, warning=FALSE, fig.width=12, fig.height=8}
+# --- Plot 2A: Overview Scatter Plot (Erasure Displacement) ---
+qho_linear_backbone <- function(A) { A - qho_zpe_offset }
 
-if(nrow(dt_summary_erasure_distance) > 0) {
-  # FILTER STRICTLY: Only pull background data that strictly respects the configured boundaries
-  dt_background_erasure_distance <- dt_summary_erasure_distance[
+if(nrow(dt_summary_erasure_displacement) > 0) {
+  dt_background_erasure_displacement <- dt_summary_erasure_displacement[
     !is.na(node_count) & 
     node_count >= config_min_node_count & 
     node_count <= config_max_node_count & 
-    normalized_momentum >= config_min_momentum &
-    normalized_momentum <= config_max_momentum
+    action_A >= config_min_action &
+    action_A <= config_max_action
   ]
   
-  # Compute local relative SNR (percentile rank within each node_count)
-  dt_background_erasure_distance[, snr_relative := frank(snr_metric, ties.method = "average") / .N, by = node_count]
+  dt_background_erasure_displacement[, snr_relative := frank(snr_metric, ties.method = "average") / .N, by = node_count]
   
   p_ov_action_a <- ggplot() +
-    stat_function(fun = qho_backbone, 
+    stat_function(fun = qho_linear_backbone, 
                   n = 1001, color = "black", linetype = "dashed", alpha = 0.5, linewidth = 0.8) +
-    geom_point(data = dt_background_erasure_distance[order(snr_relative)], 
-               aes(x = normalized_momentum, y = node_count, color = snr_relative), 
+    geom_point(data = dt_background_erasure_displacement[order(snr_relative)], 
+               aes(x = action_A, y = node_count, color = snr_relative), 
                size = 1.5, alpha = 1.0) +
-    # Strictly Grayscale gradient for background points
     scale_color_gradient(low = "black", high = "grey85", name = "Local SNR\n(Percentile)") +  
     
-    # 2. Plot Parabola Selections (Circle, Shape 21, Solid Black)
-    # Plotted second so they sit clearly on top
-    geom_point(data = dt_selected_parabola, aes(x = normalized_momentum, y = node_count, shape = "Parabola Fit"), 
+    geom_point(data = dt_selected_line, aes(x = action_A, y = node_count, shape = "Linear Fit"), 
                color = "black", size = 5.5, fill = NA, stroke = 1.2) +
                
-    # Grayscale Shape Legend
-    scale_shape_manual(name = "Selection Method", values = c("Parabola Fit" = 21, "Max Local SNR" = 22)) +
+    scale_shape_manual(name = "Selection Method", values = c("Linear Fit" = 21)) +
     
-    # Text Callouts (Using Parabola data)
-    geom_text(data = dt_selected_parabola, aes(x = normalized_momentum, y = node_count, 
-              label = sprintf("n=%d P=%.3f snr=%.1f", node_count, normalized_momentum, snr_metric)),
+    geom_text(data = dt_selected_line, aes(x = action_A, y = node_count, 
+              label = sprintf("n=%d A=%.2f snr=%.1f", node_count, action_A, snr_metric)),
               nudge_y = config_max_node_count * 0.015, 
               size = 3, color = "black", fontface = "bold", family = "mono") +
               
-    # Axis Configurations
-    scale_x_continuous(breaks = seq(ceiling(config_min_momentum), floor(config_max_momentum), by = 1)) +
+    scale_x_continuous(breaks = seq(ceiling(config_min_action), floor(config_max_action), by = 10)) +
     scale_y_continuous(breaks = seq(config_min_node_count, config_max_node_count, by = 5)) +
     
-    labs(title = "Node Count vs Momentum: Erasure Distance",
-         subtitle = sprintf("Continuous phase-space evolution from P=%g to %g and n=%d to %d", config_min_momentum, config_max_momentum, config_min_node_count, config_max_node_count),
-         x = "Normalized Momentum (P)", y = "Nodes (n)") +
-    coord_cartesian(xlim = c(config_min_momentum, config_max_momentum), ylim = c(config_min_node_count - 0.5, config_max_node_count)) +
+    labs(title = "Node Count vs Action: Erasure Displacement",
+         subtitle = sprintf("Continuous phase-space evolution perfectly follows linear n = A map"),
+         x = "Action (A)", y = "Nodes (n)") +
+    coord_cartesian(xlim = c(config_min_action, config_max_action), ylim = c(config_min_node_count - 0.5, config_max_node_count)) +
     theme_minimal() +
     theme(panel.grid.minor = element_blank(), plot.title = element_text(face = "bold", size = 14))
   
@@ -169,30 +152,34 @@ if(nrow(dt_summary_erasure_distance) > 0) {
 }
 ```
 
-```{r plot-3-program-length-evolution, echo=FALSE, results='asis', message=FALSE, warning=FALSE, fig.width=12, fig.height=7}
-# --- Plot 3: Program Length Summary ---
-if (nrow(dt_summary_minimal_program_length) > 0) {
+```{r plot-3-sequence-length-evolution, echo=FALSE, results='asis', message=FALSE, warning=FALSE, fig.width=12, fig.height=7}
+# --- Plot 3: Sequence Length Summary ---
+if (nrow(dt_summary_sequence_length) > 0) {
   
-  dt_filtered_prog_len <- dt_summary_minimal_program_length[
-    normalized_momentum >= config_min_momentum & 
-    normalized_momentum <= config_max_momentum
+  dt_filtered_prog_len <- dt_summary_sequence_length[
+    action_A >= config_min_action & 
+    action_A <= config_max_action
   ]
   
-  p_prog <- ggplot(dt_filtered_prog_len, aes(x = normalized_momentum)) +
-    geom_ribbon(aes(ymin = lower, ymax = upper), fill = "grey80", alpha = 0.6) +
+  p_prog <- ggplot(dt_filtered_prog_len, aes(x = action_A)) +
+    # Absolute Min/Max Outer Ribbon
+    geom_ribbon(aes(ymin = min_len, ymax = max_len, fill = "Absolute Range"), alpha = 0.3) +
+    # Standard Deviation Inner Ribbon
+    geom_ribbon(aes(ymin = lower, ymax = upper, fill = "±1 SD"), alpha = 0.5) +
+    scale_fill_manual(name = "Variance", values = c("Absolute Range" = "grey90", "±1 SD" = "grey70")) +
+    
     geom_line(aes(y = mean_len, color = "Mean"), linetype = "dashed", linewidth = 1.0) +
     geom_step(aes(y = median_len, color = "Median"), linewidth = 1.2) +
     scale_color_manual(name = "Metric", values = c("Mean" = "gray30", "Median" = "black")) +
     
-    # Force Explicit Integer Axes
-    scale_x_continuous(breaks = seq(ceiling(config_min_momentum), floor(config_max_momentum), by = 1)) +
-    scale_y_continuous(breaks = seq(0, 12, by = 1)) +
+    scale_x_continuous(breaks = seq(ceiling(config_min_action), floor(config_max_action), by = 10)) +
+    scale_y_continuous(breaks = seq(0, max(dt_filtered_prog_len$max_len, na.rm=T) + 1, by = 1)) +
     
-    labs(title = "Algorithmic Complexity",
-         subtitle = "Mean, Median, and ±1 Standard Deviation of Minimal Program Length over Momentum",
-         x = "Normalized Momentum (P)", 
-         y = "Minimal Program Length (bits)") +
-    coord_cartesian(xlim = c(config_min_momentum, config_max_momentum)) +
+    labs(title = "Thermodynamic Complexity vs Action",
+         subtitle = "Demonstrating the strict macroscopic bound: N E_L \\tau \\le A",
+         x = "Action (A)", 
+         y = "Sequence Length (N bits)") +
+    coord_cartesian(xlim = c(config_min_action, config_max_action)) +
     theme_minimal() +
     theme(
       plot.title = element_text(family = "mono", face = "bold", size = 16),
@@ -205,34 +192,33 @@ if (nrow(dt_summary_minimal_program_length) > 0) {
   cat("\n\n---\n\n")
   
 } else {
-  cat("*(Program length summary data not yet generated)*\n\n---\n\n")
+  cat("*(Sequence length summary data not yet generated)*\n\n---\n\n")
 }
 ```
 
 ```{r plot-4-correspondence-limit, echo=FALSE, results='asis', message=FALSE, warning=FALSE, fig.width=12, fig.height=7}
 # --- Plot 4: Thermodynamic Correspondence Limit (Geometric Slack) ---
 
-# Check if the standalone summary table loaded successfully and has data
 if (nrow(dt_summary_resonance_margin) > 0) {
   
   dt_filtered_res <- dt_summary_resonance_margin[
-    normalized_momentum >= config_min_momentum & 
-    normalized_momentum <= config_max_momentum
+    action_A >= config_min_action & 
+    action_A <= config_max_action
   ]
   
-  p_res <- ggplot(dt_filtered_res, aes(x = normalized_momentum)) +
+  p_res <- ggplot(dt_filtered_res, aes(x = action_A)) +
     geom_ribbon(aes(ymin = lower_residual, ymax = upper_residual), fill = "grey80", alpha = 0.6) +
     geom_line(aes(y = mean_residual, color = "Mean"), linetype = "dashed", linewidth = 1.0) +
     geom_step(aes(y = median_residual, color = "Median"), linewidth = 1.2) +
     scale_color_manual(name = "Metric", values = c("Mean" = "gray30", "Median" = "black")) +
     
-    scale_x_continuous(breaks = seq(ceiling(config_min_momentum), floor(config_max_momentum), by = 1)) +
+    scale_x_continuous(breaks = seq(ceiling(config_min_action), floor(config_max_action), by = 10)) +
     
     labs(title = "Thermodynamic Correspondence Limit",
-         subtitle = expression(paste("Ensemble average of unspent phase-space capacity (", delta, "q - |", epsilon[q], "|) demonstrating classical smoothing")),
-         x = "Normalized Momentum (P)", 
+         subtitle = expression(paste("Ensemble average of unspent phase-space capacity (", delta, "q - |", epsilon[q], "|) over Action")),
+         x = "Action (A)", 
          y = expression(paste("Geometric Slack  ", delta, "q - |", epsilon[q], "|"))) +
-    coord_cartesian(xlim = c(config_min_momentum, config_max_momentum)) +
+    coord_cartesian(xlim = c(config_min_action, config_max_action)) +
     theme_minimal() +
     theme(
       plot.title = element_text(family = "mono", face = "bold", size = 16),
@@ -248,31 +234,31 @@ if (nrow(dt_summary_resonance_margin) > 0) {
   cat("*(Correspondence limit summary data not yet generated)*\n\n---\n\n")
 }
 ```
+
 ```{r setup-plotting-functions, echo=FALSE, message=FALSE, warning=FALSE}
-# --- Function: Render Combined Erasure Distance Grid ---
-render_combined_erasure_distance_grid <- function(dt_target_momenta, custom_title) {
+# --- Function: Render Combined Erasure Displacement Grid ---
+render_combined_erasure_displacement_grid <- function(dt_target_momenta, custom_title) {
   plot_list <- list()
   
   for (i in seq_len(nrow(dt_target_momenta))) {
     current_row <- dt_target_momenta[i]
     momentum_val <- current_row$normalized_momentum
+    action_val <- current_row$action_A
     momentum_str_padded <- sprintf("%013.6f", momentum_val)
     
-    # PRE-LOAD THE DENSITY FILE to get the exact number of minimal action states (bins)
-    # FIX: Added '_stern_brocot' to filename
-    file_density_erasure_distance <- file.path(dir_02_densities, sprintf("harmonic_oscillator_erasure_distance_density_stern_brocot_P_%s.csv.gz", momentum_str_padded))
+    file_density_erasure_displacement <- file.path(dir_02_densities, sprintf("harmonic_oscillator_erasure_displacement_density_stern_brocot_P_%s.csv.gz", momentum_str_padded))
     dt_histogram_points <- data.table()
     n_bins_text <- ""
     
-    if (file.exists(file_density_erasure_distance)) {
-      dt_histogram_points <- fread(file_density_erasure_distance)
+    if (file.exists(file_density_erasure_displacement)) {
+      dt_histogram_points <- fread(file_density_erasure_displacement)
       if (nrow(dt_histogram_points) > 0) {
         n_bins_text <- sprintf("\nbins = %d", nrow(dt_histogram_points))
       }
     }
     
     # ---------------------------------------------------------
-    # 1. Conjugate Quanta (Left Column)
+    # 1. Conjugate Quanta
     # ---------------------------------------------------------
     a_base <- momentum_val / 0.5
     b_base <- 0.5 / momentum_val
@@ -291,8 +277,7 @@ render_combined_erasure_distance_grid <- function(dt_target_momenta, custom_titl
       scale_color_manual(values = c("Q-Conjugate" = "black", "P-Conjugate" = "gray30")) +
       coord_fixed(xlim = c(-100, 100), ylim = c(-100, 100)) +
       
-      # INJECTING THE NUMBER OF BINS INTO THE Y-AXIS LABEL
-      labs(y = sprintf("P = %.3f\nn = %d%s", momentum_val, current_row$node_count, n_bins_text)) +
+      labs(y = sprintf("A = %.2f\nn = %d%s", action_val, current_row$node_count, n_bins_text)) +
       
       theme_minimal() + 
       theme(legend.position = "none",
@@ -307,16 +292,15 @@ render_combined_erasure_distance_grid <- function(dt_target_momenta, custom_titl
         theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14))
     
     # ---------------------------------------------------------
-    # 2. Microstate vs. minimal_action_state (Middle Column)
+    # 2. Selected Microstate vs. Microstate 
     # ---------------------------------------------------------
-    # FIX: Added '_stern_brocot' to filename
     file_raw_erasures <- file.path(dir_01_raw_erasures, sprintf("harmonic_oscillator_erasures_stern_brocot_P_%s.csv.gz", momentum_str_padded))
     p_scat <- ggplot() + theme_void() + theme(aspect.ratio = 1, plot.margin = margin(5, 5, 5, 5)) 
     
     if (file.exists(file_raw_erasures)) {
-      dt_raw_found <- fread(file_raw_erasures)[found == 1]
+      dt_raw_found <- fread(file_raw_erasures, colClasses=c(encoded_sequence="character"))[found == 1]
       if (nrow(dt_raw_found) > 0) {
-        p_scat <- ggplot(dt_raw_found, aes(x = microstate, y = minimal_action_state)) +
+        p_scat <- ggplot(dt_raw_found, aes(x = microstate, y = selected_microstate)) +
           geom_point(alpha = 0.25, size = 0.1, color = "black") + 
           theme_minimal() +
           theme(axis.title = element_blank(), 
@@ -326,21 +310,20 @@ render_combined_erasure_distance_grid <- function(dt_target_momenta, custom_titl
                 plot.margin = margin(5, 5, 5, 5))
       }
     }
-    if (i == 1) p_scat <- p_scat + labs(title = "Minimal Action State vs. Microstate") + 
+    if (i == 1) p_scat <- p_scat + labs(title = "Selected vs. True Microstate") + 
         theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14))
     
     # ---------------------------------------------------------
-    # 3. Coordinate Density (Right Column)
+    # 3. Coordinate Density
     # ---------------------------------------------------------
-    # FIX: Added '_stern_brocot' to filename
-    file_nodes_erasure_distance <- file.path(dir_03_nodes, sprintf("harmonic_oscillator_erasure_distance_nodes_stern_brocot_P_%s.csv.gz", momentum_str_padded))
+    file_nodes_erasure_displacement <- file.path(dir_03_nodes, sprintf("harmonic_oscillator_erasure_displacement_nodes_stern_brocot_P_%s.csv.gz", momentum_str_padded))
     p_den <- ggplot() + theme_void() + theme(aspect.ratio = 1, plot.margin = margin(5, 5, 5, 5))
     
     if (nrow(dt_histogram_points) > 0) {
-      dt_active_bins <- copy(dt_histogram_points) # Do not drop 0-count bins to preserve skyline shape
+      dt_active_bins <- copy(dt_histogram_points)
       
       max_density_height <- max(dt_active_bins$density_count, na.rm = TRUE)
-      if (max_density_height == 0) max_density_height <- 1 # Prevent division by zero
+      if (max_density_height == 0) max_density_height <- 1
       
       raw_coordinate_width <- if(nrow(dt_active_bins) > 1) median(diff(dt_active_bins$coordinate_q), na.rm=TRUE) else 1.0
       max_coordinate_edge <- max(abs(dt_active_bins$coordinate_q), na.rm = TRUE) + (raw_coordinate_width / 2)
@@ -349,17 +332,14 @@ render_combined_erasure_distance_grid <- function(dt_target_momenta, custom_titl
       dt_active_bins[, c("pct_density", "pct_q") := list((density_count/max_density_height)*100, (coordinate_q/max_coordinate_edge)*100)]
       pct_bar_width <- (raw_coordinate_width / max_coordinate_edge) * 100
       
-      # --- TRUE SKYLINE PATH LOGIC ---
-      # Build exact geometric perimeter without trailing zero-lines
       skyline_x <- c(dt_active_bins$pct_q[1] - pct_bar_width/2, 
                      rep(dt_active_bins$pct_q, each = 2) + rep(c(-pct_bar_width/2, pct_bar_width/2), nrow(dt_active_bins)), 
                      dt_active_bins$pct_q[nrow(dt_active_bins)] + pct_bar_width/2)
       
       skyline_y <- c(0, rep(dt_active_bins$pct_density, each = 2), 0)
-      
       dt_skyline_outline <- data.table::data.table(pct_q = skyline_x, pct_density = skyline_y)
       
-      dt_node_coordinates <- if(file.exists(file_nodes_erasure_distance)) fread(file_nodes_erasure_distance) else data.table()
+      dt_node_coordinates <- if(file.exists(file_nodes_erasure_displacement)) fread(file_nodes_erasure_displacement) else data.table()
       if (nrow(dt_node_coordinates) > 0 && "coordinate_q" %in% names(dt_node_coordinates)) {
         dt_node_coordinates[, c("pct_density", "pct_q") := list((density_count/max_density_height)*100, (coordinate_q/max_coordinate_edge)*100)]
       }
@@ -388,9 +368,6 @@ render_combined_erasure_distance_grid <- function(dt_target_momenta, custom_titl
     plot_list[[length(plot_list) + 1]] <- p_den
   }
   
-  # ---------------------------------------------------------
-  # Assemble into Final Matrix using Patchwork
-  # ---------------------------------------------------------
   final_grid <- wrap_plots(plot_list, ncol = 3) +
     plot_annotation(
       title = custom_title,
@@ -402,9 +379,9 @@ render_combined_erasure_distance_grid <- function(dt_target_momenta, custom_titl
 }
 ```
 
-```{r plot-1A-grid-parabola, echo=FALSE, fig.width=14, fig.height=dynamic_height_parabola, warning=FALSE, message=FALSE}
-# --- Plot 1A: Erasure Distance Grid (Theoretical Parabola) ---
-render_combined_erasure_distance_grid(dt_selected_parabola, "Harmonic Oscillator Erasure Density (Theoretical Parabola)")
+```{r plot-1A-grid-parabola, echo=FALSE, fig.width=14, fig.height=dynamic_height_line, warning=FALSE, message=FALSE}
+# --- Plot 1A: Erasure Displacement Grid (Linear Action Fit) ---
+render_combined_erasure_displacement_grid(dt_selected_line, "Harmonic Oscillator Erasure Density (Linear Action Fit)")
 ```
 
 ```{r generate_tree}
@@ -480,33 +457,23 @@ path_data <- tree_data %>%
   filter(bin %in% path_bins) %>%
   rowwise() %>%
   mutate(
-    # How many bits have ALREADY been popped to arrive at this node
     bits_popped = nchar(target_bin) - nchar(bin),
-    
-    # The state of s_x^* BEFORE taking the next upward step (drops leading bits)
     erase_str = ifelse(!is.na(parent_x), substr(s_star_full, bits_popped + 1, nchar(s_star_full)), ""),
     erase_label = ifelse(erase_str != "", paste0("s*=", erase_str), ""),
-    
-    # Calculate segment midpoints to place the labels directly on the arrows
     mid_x = (x + parent_x) / 2,
     mid_y = (y + parent_y) / 2
   ) %>%
   ungroup()
-# ------------------------------------------
 
 ggplot(tree_data, aes(x = x, y = y)) +
-  # Base Edges
   geom_segment(
     aes(xend = parent_x, yend = parent_y), 
     color = "gray85", 
     linewidth = 0.8,
     na.rm = TRUE  
   ) +
-  # Base Points
   geom_point(color = "gray75", size = 2) +
   
-  # --- DRAW THE GRAYSCALE ERASURE PATH ---
-  # Path Edges with Arrowheads
   geom_segment(
     data = path_data,
     aes(xend = parent_x, yend = parent_y), 
@@ -515,66 +482,40 @@ ggplot(tree_data, aes(x = x, y = y)) +
     arrow = arrow(length = unit(0.15, "inches"), type = "closed"),
     na.rm = TRUE
   ) +
-  # Path Points
   geom_point(
     data = path_data,
     color = "black", 
     size = 3.5
   ) +
   
-  # Segment Labels (The shrinking s* strings)
   geom_label(
     data = filter(path_data, erase_label != ""),
     aes(x = mid_x, y = mid_y, label = erase_label),
-    family = "mono",
-    fontface = "bold",
-    size = 3.5,
-    color = "white",
-    fill = "black",
-    label.size = NA,
-    label.padding = unit(0.2, "lines")
+    family = "mono", fontface = "bold", size = 3.5,
+    color = "white", fill = "black",
+    label.size = NA, label.padding = unit(0.2, "lines")
   ) +
-  # ---------------------------------------
   
-  # Top Labels: Fractions ABOVE the points
   geom_label_repel(
     aes(label = frac_label),
-    direction = "x",          
-    nudge_y = 0.15,          
-    segment.color = "gray85", 
-    segment.size = 0.2,       
-    size = 3.5,
-    color = "black",
-    fill = "white",          
-    label.size = NA,          
-    label.padding = unit(0.15, "lines"),
-    vjust = 0,                
-    box.padding = 0.1,       
-    max.overlaps = Inf       
+    direction = "x", nudge_y = 0.15, segment.color = "gray85", 
+    segment.size = 0.2, size = 3.5, color = "black", fill = "white",          
+    label.size = NA, label.padding = unit(0.15, "lines"), vjust = 0,                 
+    box.padding = 0.1, max.overlaps = Inf       
   ) +
   
-  # Bottom Labels: Binary strings BELOW the points
   geom_label_repel(
     aes(label = bin_label),
-    direction = "x",          
-    nudge_y = -0.15,          
-    segment.color = "gray85", 
-    segment.size = 0.2,       
-    size = 3.5,
-    family = "mono",          
-    color = "black",
-    fill = "white",          
-    label.size = NA,          
-    label.padding = unit(0.15, "lines"),
-    vjust = 1,                
-    box.padding = 0.1,       
-    max.overlaps = Inf       
+    direction = "x", nudge_y = -0.15, segment.color = "gray85", 
+    segment.size = 0.2, size = 3.5, family = "mono", color = "black",
+    fill = "white", label.size = NA, label.padding = unit(0.15, "lines"),
+    vjust = 1, box.padding = 0.1, max.overlaps = Inf       
   ) +
   
   scale_y_continuous(
     breaks = 0:max_k, 
     limits = c(-0.3, max_k + 0.3), 
-    name = "Kolmogorov Complexity (K)"
+    name = "Sequence Length (N bits)"
   ) +
   
   scale_x_continuous(
@@ -593,7 +534,7 @@ ggplot(tree_data, aes(x = x, y = y)) +
     axis.text = element_text(size = 10)
   ) +
   labs(
-    title = "Minimal-Action Information Tree (-Inf to +Inf)",
-    subtitle = "Highlighting the thermodynamic erasure path for q_mu = 5/3"
+    title = "Selected Microstate Information Tree (-Inf to +Inf)",
+    subtitle = "Highlighting the thermodynamic erasure sequence for q_mu = 5/3"
   )
 ```

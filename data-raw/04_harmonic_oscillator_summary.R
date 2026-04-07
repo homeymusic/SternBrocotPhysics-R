@@ -35,13 +35,11 @@ for (col in cols_topological) {
 
   dt_summary <- rbindlist(lapply(files_nodes, function(f) {
     tryCatch({
-      # Request snr_metric instead of complexity_ntv
       fread(f, select = c("normalized_momentum", "node_count", "snr_metric"), nrows = 1)
     }, error = function(e) return(NULL))
   }), fill = TRUE)
 
   if (nrow(dt_summary) > 0) {
-    # Clean and Sort on the new variable
     dt_summary <- dt_summary[!is.na(snr_metric)]
     setorder(dt_summary, normalized_momentum)
 
@@ -86,6 +84,8 @@ for (col in cols_algorithmic) {
         mean_len   = mean_val,
         median_len = median_val,
         sd_len     = sd_val,
+        min_len    = min(dt$coordinate_q), # Captures absolute minimum N
+        max_len    = max(dt$coordinate_q), # Captures absolute maximum N
         n_states   = total_states
       )
     }, error = function(e) return(NULL))
@@ -110,10 +110,8 @@ message("\n=== Aggregating Thermodynamic Summaries ===")
 dir_01_raw <- file.path(dir_base_data_4TB, "01_harmonic_oscillator_erasures")
 file_summary_out_res <- file.path(dir_04_summary, "harmonic_oscillator_resonance_margin_summary.csv.gz")
 
-# FIX: Allow algorithm string in the raw filename regex
 pattern_str_raw <- "^harmonic_oscillator_erasures_.*_P_.*\\.csv\\.gz$"
 files_raw <- list.files(dir_01_raw, pattern = pattern_str_raw, full.names = TRUE)
-
 
 if (length(files_raw) == 0) {
   warning("  -> No raw erasure files found. Skipping Resonance Margin.")
