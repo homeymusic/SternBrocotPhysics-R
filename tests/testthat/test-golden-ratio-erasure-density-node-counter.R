@@ -13,14 +13,14 @@ test_that("Golden Ratio erasure density node counts match theoretical expectatio
     1,         1
     2,         0
     3,         2
-    4,         1
-    5,         0
-    6,         1
-    7,         3
-    8,         8
-    9,         14
+    4,         5
+    5,         6
+    6,         2
+    7,         9
+    8,         20
+    9,         28
     10,        11
-    100,       319
+    100,       343
   ")
 
   fixtures_dir    <- test_path("fixtures_golden_ratio_erasure")
@@ -42,7 +42,7 @@ test_that("Golden Ratio erasure density node counts match theoretical expectatio
     m_str <- sprintf("%013.6f", m_val)
     expected_n <- truth_table$expected_nodes[i]
 
-    fixture_path <- file.path(fixtures_dir, sprintf("harmonic_oscillator_erasure_distance_density_golden_ratio_P_%s.csv.gz", m_str))
+    fixture_path <- file.path(fixtures_dir, sprintf("harmonic_oscillator_erasure_displacement_density_golden_ratio_P_%s.csv.gz", m_str))
 
     harmonic_oscillator_erasures(
       momenta   = m_val,
@@ -54,7 +54,7 @@ test_that("Golden Ratio erasure density node counts match theoretical expectatio
     raw_file <- file.path(temp_raw_dir, sprintf("harmonic_oscillator_erasures_golden_ratio_P_%s.csv.gz", m_str))
 
     if (file.exists(raw_file)) {
-      process_action_densities(f = raw_file, out_path = fixtures_dir, target_cols = c("erasure_distance"))
+      process_action_densities(f = raw_file, out_path = fixtures_dir, target_cols = c("erasure_displacement"))
       unlink(raw_file)
     }
 

@@ -4,14 +4,14 @@
 #include <string>
 
 struct EraseResult {
-  double erasure_distance;
-  double microstate;
-  double minimal_action_state;
-  double max_erasure_radius;
-  double numerator;
-  double denominator;
-  std::string minimal_program;
-  int minimal_program_length;
+  double erasure_displacement;  // epsilon_x^*
+  double blob_center;           // x_b
+  double selected_microstate;   // x_mu^*
+  double squeezed_boundary;     // delta x
+  double numerator;             // num
+  double denominator;           // den
+  std::string encoded_sequence; // s_x^*
+  int sequence_length;          // N_x
   double shannon_entropy;
   int zero_count;
   int one_count;
@@ -19,15 +19,15 @@ struct EraseResult {
 };
 
 // Stern-Brocot declaration
-EraseResult stern_brocot_erase_single_native(double microstate, double max_erasure_radius, int max_program_length);
+EraseResult stern_brocot_erase_single_native(double blob_center, double squeezed_boundary, int max_sequence_length);
 
 // K-D Tree declaration
-EraseResult kdtree_erase_single_native(double microstate, double max_erasure_radius, int max_program_length);
+EraseResult kdtree_erase_single_native(double blob_center, double squeezed_boundary, int max_sequence_length);
 
 // Action-Angle declaration
-EraseResult action_angle_erase_single_native(double microstate, double max_erasure_radius, int max_program_length);
+EraseResult action_angle_erase_single_native(double blob_center, double squeezed_boundary, int max_sequence_length);
 
 // Golden Ratio (KAM) declaration
-EraseResult golden_ratio_erase_single_native(double microstate, double max_erasure_radius, int max_program_length);
+EraseResult golden_ratio_erase_single_native(double blob_center, double squeezed_boundary, int max_sequence_length);
 
 #endif

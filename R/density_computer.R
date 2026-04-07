@@ -90,14 +90,15 @@ process_action_densities <- function(f, out_path, target_cols) {
     P_val <- as.numeric(p_str)
     P_effective <- P_val * 2 * pi
 
-    # Safely read the file (adding colClasses just in case you ever target minimal_program)
-    dt <- fread(f, select = c("found", target_cols), colClasses = list(character = "minimal_program"))
+    # Safely read the file (Updated colClasses for new string name)
+    dt <- fread(f, select = c("found", target_cols), colClasses = list(character = "encoded_sequence"))
 
     # -------------------------------------------------------------
     # THE NEW DISCRETE BINDING LOGIC (STRICT DETERMINISM)
     # -------------------------------------------------------------
-    if ("minimal_action_state" %in% names(dt)) {
-      unique_states <- unique(signif(dt[found == 1, minimal_action_state], 7))
+    # UPDATED to strictly match "selected_microstate"
+    if ("selected_microstate" %in% names(dt)) {
+      unique_states <- unique(signif(dt[found == 1, selected_microstate], 7))
       n_unique_states <- length(unique_states)
 
       if (n_unique_states %% 2 == 0) {
@@ -116,7 +117,8 @@ process_action_densities <- function(f, out_path, target_cols) {
       # Inject the algorithm string into the output file so kdtree and stern_brocot don't overwrite each other
       full_path <- file.path(out_path, sprintf("harmonic_oscillator_%s_density_%s_P_%s.csv.gz", col, algo_str, p_str))
 
-      if (col == "minimal_program_length") {
+      # UPDATED to match "sequence_length"
+      if (col == "sequence_length") {
         dt_active <- dt[found == 1]
         if(nrow(dt_active) > 0) {
           density_df <- dt_active[, .(density_count = .N), by = .(coordinate_q = get(col))]

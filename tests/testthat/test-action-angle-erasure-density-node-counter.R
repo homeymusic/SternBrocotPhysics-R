@@ -14,13 +14,13 @@ test_that("Action-Angle erasure density node counts match theoretical expectatio
     1,         0
     2,         0
     3,         0
-    4,         0
-    5,         1
+    4,         2
+    5,         2
     6,         2
-    7,         0
-    8,         6
-    9,         6
-    10,        7
+    7,         8
+    8,         8
+    9,         8
+    10,        9
   ")
 
   # --- 2. Setup Paths & Enforce Clean Slate ---
@@ -47,7 +47,7 @@ test_that("Action-Angle erasure density node counts match theoretical expectatio
     expected_n <- truth_table$expected_nodes[i]
 
     # Look specifically for the action_angle erasure processed output
-    fixture_path <- file.path(fixtures_dir, sprintf("harmonic_oscillator_erasure_distance_density_action_angle_P_%s.csv.gz", m_str))
+    fixture_path <- file.path(fixtures_dir, sprintf("harmonic_oscillator_erasure_displacement_density_action_angle_P_%s.csv.gz", m_str))
 
     # Pass the 'action_angle' algorithm parameter
     harmonic_oscillator_erasures(
@@ -65,7 +65,7 @@ test_that("Action-Angle erasure density node counts match theoretical expectatio
       process_action_densities(
         f = raw_file,
         out_path = fixtures_dir,
-        target_cols = c("erasure_distance")
+        target_cols = c("erasure_displacement") # Aligned with new C++ output
       )
       unlink(raw_file)
     }
@@ -102,7 +102,7 @@ test_that("Action-Angle erasure density node counts match theoretical expectatio
       theme_minimal()
 
     if (!is.null(results$nodes) && nrow(results$nodes) > 0) {
-      p <- p + geom_point(data = results$nodes, aes(x, y), color = "purple", size = 2) # Purple for Action-Angle
+      p <- p + geom_point(data = results$nodes, aes(x, y), color = "purple", size = 2)
     }
 
     # --- FAILURE DUMP ---

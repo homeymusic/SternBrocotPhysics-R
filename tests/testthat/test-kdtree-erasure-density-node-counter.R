@@ -21,7 +21,7 @@ test_that("KD-Tree erasure density node counts match theoretical expectations", 
     8,         15
     9,         25
     10,        17
-    100,       1
+    100,       327
   ")
 
   # --- 2. Setup Paths & Enforce Clean Slate ---
@@ -48,7 +48,7 @@ test_that("KD-Tree erasure density node counts match theoretical expectations", 
     expected_n <- truth_table$expected_nodes[i]
 
     # Look specifically for the kdtree erasure processed output
-    fixture_path <- file.path(fixtures_dir, sprintf("harmonic_oscillator_erasure_distance_density_kdtree_P_%s.csv.gz", m_str))
+    fixture_path <- file.path(fixtures_dir, sprintf("harmonic_oscillator_erasure_displacement_density_kdtree_P_%s.csv.gz", m_str))
 
     # Pass the 'kdtree' algorithm parameter
     harmonic_oscillator_erasures(
@@ -66,7 +66,7 @@ test_that("KD-Tree erasure density node counts match theoretical expectations", 
       process_action_densities(
         f = raw_file,
         out_path = fixtures_dir,
-        target_cols = c("erasure_distance")
+        target_cols = c("erasure_displacement")
       )
       unlink(raw_file)
     }

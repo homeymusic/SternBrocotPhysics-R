@@ -16,7 +16,7 @@ harmonic_oscillator_erasures(
 
 \item{dir}{Output directory.}
 
-\item{algorithm}{String to choose the engine: "stern_brocot" or "kdtree"}
+\item{algorithm}{String to choose the engine: "stern_brocot", "kdtree", "action_angle", "golden_ratio"}
 
 \item{n_threads}{Number of threads (0 = auto).}
 }

@@ -11,15 +11,15 @@ Rcpp::Rostream<true>&  Rcpp::Rcout = Rcpp::Rcpp_cout_get();
 Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
-// action_angle_erase_max_erasure_radius
-DataFrame action_angle_erase_max_erasure_radius(NumericVector x, double max_erasure_radius);
-RcppExport SEXP _SternBrocotPhysics_action_angle_erase_max_erasure_radius(SEXP xSEXP, SEXP max_erasure_radiusSEXP) {
+// action_angle_erase_squeezed_boundary
+DataFrame action_angle_erase_squeezed_boundary(NumericVector x, double squeezed_boundary);
+RcppExport SEXP _SternBrocotPhysics_action_angle_erase_squeezed_boundary(SEXP xSEXP, SEXP squeezed_boundarySEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< NumericVector >::type x(xSEXP);
-    Rcpp::traits::input_parameter< double >::type max_erasure_radius(max_erasure_radiusSEXP);
-    rcpp_result_gen = Rcpp::wrap(action_angle_erase_max_erasure_radius(x, max_erasure_radius));
+    Rcpp::traits::input_parameter< double >::type squeezed_boundary(squeezed_boundarySEXP);
+    rcpp_result_gen = Rcpp::wrap(action_angle_erase_squeezed_boundary(x, squeezed_boundary));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -35,28 +35,28 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// action_angle_erase_max_erasure_radius_and_depth
-DataFrame action_angle_erase_max_erasure_radius_and_depth(NumericVector x, double max_erasure_radius, int depth);
-RcppExport SEXP _SternBrocotPhysics_action_angle_erase_max_erasure_radius_and_depth(SEXP xSEXP, SEXP max_erasure_radiusSEXP, SEXP depthSEXP) {
+// action_angle_erase_squeezed_boundary_and_depth
+DataFrame action_angle_erase_squeezed_boundary_and_depth(NumericVector x, double squeezed_boundary, int depth);
+RcppExport SEXP _SternBrocotPhysics_action_angle_erase_squeezed_boundary_and_depth(SEXP xSEXP, SEXP squeezed_boundarySEXP, SEXP depthSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< NumericVector >::type x(xSEXP);
-    Rcpp::traits::input_parameter< double >::type max_erasure_radius(max_erasure_radiusSEXP);
+    Rcpp::traits::input_parameter< double >::type squeezed_boundary(squeezed_boundarySEXP);
     Rcpp::traits::input_parameter< int >::type depth(depthSEXP);
-    rcpp_result_gen = Rcpp::wrap(action_angle_erase_max_erasure_radius_and_depth(x, max_erasure_radius, depth));
+    rcpp_result_gen = Rcpp::wrap(action_angle_erase_squeezed_boundary_and_depth(x, squeezed_boundary, depth));
     return rcpp_result_gen;
 END_RCPP
 }
-// golden_ratio_erase_max_erasure_radius
-DataFrame golden_ratio_erase_max_erasure_radius(NumericVector x, double max_erasure_radius);
-RcppExport SEXP _SternBrocotPhysics_golden_ratio_erase_max_erasure_radius(SEXP xSEXP, SEXP max_erasure_radiusSEXP) {
+// golden_ratio_erase_squeezed_boundary
+DataFrame golden_ratio_erase_squeezed_boundary(NumericVector x, double squeezed_boundary);
+RcppExport SEXP _SternBrocotPhysics_golden_ratio_erase_squeezed_boundary(SEXP xSEXP, SEXP squeezed_boundarySEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< NumericVector >::type x(xSEXP);
-    Rcpp::traits::input_parameter< double >::type max_erasure_radius(max_erasure_radiusSEXP);
-    rcpp_result_gen = Rcpp::wrap(golden_ratio_erase_max_erasure_radius(x, max_erasure_radius));
+    Rcpp::traits::input_parameter< double >::type squeezed_boundary(squeezed_boundarySEXP);
+    rcpp_result_gen = Rcpp::wrap(golden_ratio_erase_squeezed_boundary(x, squeezed_boundary));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -72,16 +72,16 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// golden_ratio_erase_max_erasure_radius_and_depth
-DataFrame golden_ratio_erase_max_erasure_radius_and_depth(NumericVector x, double max_erasure_radius, int depth);
-RcppExport SEXP _SternBrocotPhysics_golden_ratio_erase_max_erasure_radius_and_depth(SEXP xSEXP, SEXP max_erasure_radiusSEXP, SEXP depthSEXP) {
+// golden_ratio_erase_squeezed_boundary_and_depth
+DataFrame golden_ratio_erase_squeezed_boundary_and_depth(NumericVector x, double squeezed_boundary, int depth);
+RcppExport SEXP _SternBrocotPhysics_golden_ratio_erase_squeezed_boundary_and_depth(SEXP xSEXP, SEXP squeezed_boundarySEXP, SEXP depthSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< NumericVector >::type x(xSEXP);
-    Rcpp::traits::input_parameter< double >::type max_erasure_radius(max_erasure_radiusSEXP);
+    Rcpp::traits::input_parameter< double >::type squeezed_boundary(squeezed_boundarySEXP);
     Rcpp::traits::input_parameter< int >::type depth(depthSEXP);
-    rcpp_result_gen = Rcpp::wrap(golden_ratio_erase_max_erasure_radius_and_depth(x, max_erasure_radius, depth));
+    rcpp_result_gen = Rcpp::wrap(golden_ratio_erase_squeezed_boundary_and_depth(x, squeezed_boundary, depth));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -98,15 +98,15 @@ BEGIN_RCPP
     return R_NilValue;
 END_RCPP
 }
-// kdtree_erase_max_erasure_radius
-DataFrame kdtree_erase_max_erasure_radius(NumericVector x, double max_erasure_radius);
-RcppExport SEXP _SternBrocotPhysics_kdtree_erase_max_erasure_radius(SEXP xSEXP, SEXP max_erasure_radiusSEXP) {
+// kdtree_erase_squeezed_boundary
+DataFrame kdtree_erase_squeezed_boundary(NumericVector x, double squeezed_boundary);
+RcppExport SEXP _SternBrocotPhysics_kdtree_erase_squeezed_boundary(SEXP xSEXP, SEXP squeezed_boundarySEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< NumericVector >::type x(xSEXP);
-    Rcpp::traits::input_parameter< double >::type max_erasure_radius(max_erasure_radiusSEXP);
-    rcpp_result_gen = Rcpp::wrap(kdtree_erase_max_erasure_radius(x, max_erasure_radius));
+    Rcpp::traits::input_parameter< double >::type squeezed_boundary(squeezed_boundarySEXP);
+    rcpp_result_gen = Rcpp::wrap(kdtree_erase_squeezed_boundary(x, squeezed_boundary));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -122,16 +122,16 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// kdtree_erase_max_erasure_radius_and_depth
-DataFrame kdtree_erase_max_erasure_radius_and_depth(NumericVector x, double max_erasure_radius, int depth);
-RcppExport SEXP _SternBrocotPhysics_kdtree_erase_max_erasure_radius_and_depth(SEXP xSEXP, SEXP max_erasure_radiusSEXP, SEXP depthSEXP) {
+// kdtree_erase_squeezed_boundary_and_depth
+DataFrame kdtree_erase_squeezed_boundary_and_depth(NumericVector x, double squeezed_boundary, int depth);
+RcppExport SEXP _SternBrocotPhysics_kdtree_erase_squeezed_boundary_and_depth(SEXP xSEXP, SEXP squeezed_boundarySEXP, SEXP depthSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< NumericVector >::type x(xSEXP);
-    Rcpp::traits::input_parameter< double >::type max_erasure_radius(max_erasure_radiusSEXP);
+    Rcpp::traits::input_parameter< double >::type squeezed_boundary(squeezed_boundarySEXP);
     Rcpp::traits::input_parameter< int >::type depth(depthSEXP);
-    rcpp_result_gen = Rcpp::wrap(kdtree_erase_max_erasure_radius_and_depth(x, max_erasure_radius, depth));
+    rcpp_result_gen = Rcpp::wrap(kdtree_erase_squeezed_boundary_and_depth(x, squeezed_boundary, depth));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -147,15 +147,15 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// stern_brocot_erase_max_erasure_radius
-DataFrame stern_brocot_erase_max_erasure_radius(NumericVector x, double max_erasure_radius);
-RcppExport SEXP _SternBrocotPhysics_stern_brocot_erase_max_erasure_radius(SEXP xSEXP, SEXP max_erasure_radiusSEXP) {
+// stern_brocot_erase_squeezed_boundary
+DataFrame stern_brocot_erase_squeezed_boundary(NumericVector x, double squeezed_boundary);
+RcppExport SEXP _SternBrocotPhysics_stern_brocot_erase_squeezed_boundary(SEXP xSEXP, SEXP squeezed_boundarySEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< NumericVector >::type x(xSEXP);
-    Rcpp::traits::input_parameter< double >::type max_erasure_radius(max_erasure_radiusSEXP);
-    rcpp_result_gen = Rcpp::wrap(stern_brocot_erase_max_erasure_radius(x, max_erasure_radius));
+    Rcpp::traits::input_parameter< double >::type squeezed_boundary(squeezed_boundarySEXP);
+    rcpp_result_gen = Rcpp::wrap(stern_brocot_erase_squeezed_boundary(x, squeezed_boundary));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -171,35 +171,35 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// stern_brocot_erase_max_erasure_radius_and_depth
-DataFrame stern_brocot_erase_max_erasure_radius_and_depth(NumericVector x, double max_erasure_radius, int depth);
-RcppExport SEXP _SternBrocotPhysics_stern_brocot_erase_max_erasure_radius_and_depth(SEXP xSEXP, SEXP max_erasure_radiusSEXP, SEXP depthSEXP) {
+// stern_brocot_erase_squeezed_boundary_and_depth
+DataFrame stern_brocot_erase_squeezed_boundary_and_depth(NumericVector x, double squeezed_boundary, int depth);
+RcppExport SEXP _SternBrocotPhysics_stern_brocot_erase_squeezed_boundary_and_depth(SEXP xSEXP, SEXP squeezed_boundarySEXP, SEXP depthSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< NumericVector >::type x(xSEXP);
-    Rcpp::traits::input_parameter< double >::type max_erasure_radius(max_erasure_radiusSEXP);
+    Rcpp::traits::input_parameter< double >::type squeezed_boundary(squeezed_boundarySEXP);
     Rcpp::traits::input_parameter< int >::type depth(depthSEXP);
-    rcpp_result_gen = Rcpp::wrap(stern_brocot_erase_max_erasure_radius_and_depth(x, max_erasure_radius, depth));
+    rcpp_result_gen = Rcpp::wrap(stern_brocot_erase_squeezed_boundary_and_depth(x, squeezed_boundary, depth));
     return rcpp_result_gen;
 END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_SternBrocotPhysics_action_angle_erase_max_erasure_radius", (DL_FUNC) &_SternBrocotPhysics_action_angle_erase_max_erasure_radius, 2},
+    {"_SternBrocotPhysics_action_angle_erase_squeezed_boundary", (DL_FUNC) &_SternBrocotPhysics_action_angle_erase_squeezed_boundary, 2},
     {"_SternBrocotPhysics_action_angle_erase_depth", (DL_FUNC) &_SternBrocotPhysics_action_angle_erase_depth, 2},
-    {"_SternBrocotPhysics_action_angle_erase_max_erasure_radius_and_depth", (DL_FUNC) &_SternBrocotPhysics_action_angle_erase_max_erasure_radius_and_depth, 3},
-    {"_SternBrocotPhysics_golden_ratio_erase_max_erasure_radius", (DL_FUNC) &_SternBrocotPhysics_golden_ratio_erase_max_erasure_radius, 2},
+    {"_SternBrocotPhysics_action_angle_erase_squeezed_boundary_and_depth", (DL_FUNC) &_SternBrocotPhysics_action_angle_erase_squeezed_boundary_and_depth, 3},
+    {"_SternBrocotPhysics_golden_ratio_erase_squeezed_boundary", (DL_FUNC) &_SternBrocotPhysics_golden_ratio_erase_squeezed_boundary, 2},
     {"_SternBrocotPhysics_golden_ratio_erase_depth", (DL_FUNC) &_SternBrocotPhysics_golden_ratio_erase_depth, 2},
-    {"_SternBrocotPhysics_golden_ratio_erase_max_erasure_radius_and_depth", (DL_FUNC) &_SternBrocotPhysics_golden_ratio_erase_max_erasure_radius_and_depth, 3},
+    {"_SternBrocotPhysics_golden_ratio_erase_squeezed_boundary_and_depth", (DL_FUNC) &_SternBrocotPhysics_golden_ratio_erase_squeezed_boundary_and_depth, 3},
     {"_SternBrocotPhysics_harmonic_oscillator_erasures", (DL_FUNC) &_SternBrocotPhysics_harmonic_oscillator_erasures, 4},
-    {"_SternBrocotPhysics_kdtree_erase_max_erasure_radius", (DL_FUNC) &_SternBrocotPhysics_kdtree_erase_max_erasure_radius, 2},
+    {"_SternBrocotPhysics_kdtree_erase_squeezed_boundary", (DL_FUNC) &_SternBrocotPhysics_kdtree_erase_squeezed_boundary, 2},
     {"_SternBrocotPhysics_kdtree_erase_depth", (DL_FUNC) &_SternBrocotPhysics_kdtree_erase_depth, 2},
-    {"_SternBrocotPhysics_kdtree_erase_max_erasure_radius_and_depth", (DL_FUNC) &_SternBrocotPhysics_kdtree_erase_max_erasure_radius_and_depth, 3},
+    {"_SternBrocotPhysics_kdtree_erase_squeezed_boundary_and_depth", (DL_FUNC) &_SternBrocotPhysics_kdtree_erase_squeezed_boundary_and_depth, 3},
     {"_SternBrocotPhysics_count_nodes_cpp", (DL_FUNC) &_SternBrocotPhysics_count_nodes_cpp, 2},
-    {"_SternBrocotPhysics_stern_brocot_erase_max_erasure_radius", (DL_FUNC) &_SternBrocotPhysics_stern_brocot_erase_max_erasure_radius, 2},
+    {"_SternBrocotPhysics_stern_brocot_erase_squeezed_boundary", (DL_FUNC) &_SternBrocotPhysics_stern_brocot_erase_squeezed_boundary, 2},
     {"_SternBrocotPhysics_stern_brocot_erase_depth", (DL_FUNC) &_SternBrocotPhysics_stern_brocot_erase_depth, 2},
-    {"_SternBrocotPhysics_stern_brocot_erase_max_erasure_radius_and_depth", (DL_FUNC) &_SternBrocotPhysics_stern_brocot_erase_max_erasure_radius_and_depth, 3},
+    {"_SternBrocotPhysics_stern_brocot_erase_squeezed_boundary_and_depth", (DL_FUNC) &_SternBrocotPhysics_stern_brocot_erase_squeezed_boundary_and_depth, 3},
     {NULL, NULL, 0}
 };
 
