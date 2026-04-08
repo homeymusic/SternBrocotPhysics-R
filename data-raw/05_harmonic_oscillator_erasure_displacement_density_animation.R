@@ -28,6 +28,9 @@ list_processed_frames <- mclapply(seq_len(nrow(dt_files_to_process)), function(i
   momentum_val <- current_row$momentum
   momentum_str <- current_row$key_str
 
+  # Calculate Action relative to A_0 (where P=0.5 -> A=0.25)
+  action_ratio <- 4 * (momentum_val^2)
+
   # Density Data (UPDATED nomenclature)
   file_density <- file.path(dir_02_densities, paste0("harmonic_oscillator_erasure_displacement_density_stern_brocot_P_", momentum_str, ".csv.gz"))
   dt_histogram_points <- tryCatch({ fread(file_density) }, error = function(e) NULL)
@@ -51,9 +54,9 @@ list_processed_frames <- mclapply(seq_len(nrow(dt_files_to_process)), function(i
   raw_coordinate_width <- if(nrow(dt_active_bins) > 1) median(diff(dt_active_bins$coordinate_q), na.rm=TRUE) else 1.0
   max_coordinate_edge <- max(abs(dt_active_bins$coordinate_q), na.rm = TRUE) + (raw_coordinate_width / 2)
 
-  # Full Scientific Label
-  lbl <- sprintf("Nodes: %02d  |  Momentum: %3.3f  | Max Amplitude: %4.1f  |  Max Density: %6s",
-                 node_count, momentum_val, max_coordinate_edge, format(max_density_height, big.mark=","))
+  # Full Scientific Label (Now explicitly labeled with A_0)
+  lbl <- sprintf("Nodes: %02d  |  Action: %6.1f A_0  | Max Amplitude: %4.1f  |  Max Density: %6s",
+                 node_count, action_ratio, max_coordinate_edge, format(max_density_height, big.mark=","))
 
   dt_active_bins[, `:=`(pct_density = (density_count/max_density_height)*100, pct_q = (coordinate_q/max_coordinate_edge)*100)]
   pct_bar_width <- (raw_coordinate_width / max_coordinate_edge) * 100
