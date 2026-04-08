@@ -9,7 +9,7 @@ if (!dir.exists(raw_directory)) dir.create(raw_directory, recursive = TRUE)
 # --- NEW: UNIFORM ACTION SAMPLING ---
 # Step linearly through Action space to ensure uniform data density on the plots
 granularity_a <- 0.01
-action_sequence <- seq(0.01, 100.0, by = granularity_a)
+action_sequence <- seq(1.0, 100.0, by = granularity_a)
 
 # Convert to Momentum (P = sqrt(A)) for the C++ engine
 normalized_momenta <- sqrt(action_sequence)

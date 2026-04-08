@@ -88,28 +88,31 @@ process_action_densities <- function(f, out_path, target_cols) {
     }
 
     P_val <- as.numeric(p_str)
-    P_effective <- P_val * 2 * pi
+    P_effective <- P_val
 
-    # Safely read the file (Updated colClasses for new string name)
-    dt <- fread(f, select = c("found", target_cols), colClasses = list(character = "encoded_sequence"))
+    # --- THE FREAD FIX ---
+    # Dynamically guarantee 'selected_microstate' is always loaded for the physics check
+    cols_to_read <- unique(c("found", "selected_microstate", target_cols))
+    dt <- fread(f, select = cols_to_read, colClasses = list(character = "encoded_sequence"))
 
     # -------------------------------------------------------------
     # THE NEW DISCRETE BINDING LOGIC (STRICT DETERMINISM)
     # -------------------------------------------------------------
-    # UPDATED to strictly match "selected_microstate"
-    if ("selected_microstate" %in% names(dt)) {
-      unique_states <- unique(signif(dt[found == 1, selected_microstate], 7))
-      n_unique_states <- length(unique_states)
+    if (!"selected_microstate" %in% names(dt)) {
+      stop(sprintf(
+        "\n[FATAL PIPELINE ERROR] Missing 'selected_microstate' at P=%s.\nCannot determine absolute phase-space granularity. Ensure 'selected_microstate' is in target_cols.",
+        p_str
+      ))
+    }
 
-      if (n_unique_states %% 2 == 0) {
-        stop(sprintf(
-          "\n[CRITICAL PHYSICS FAILURE] Deterministic symmetry broken at P=%s.\nFound an EVEN number of states (%d).\nThe phase space must be strictly symmetric (odd).",
-          p_str, n_unique_states
-        ))
-      }
-    } else {
-      n_unique_states <- max(5, floor(P_val * 10))
-      if (n_unique_states %% 2 == 0) n_unique_states <- n_unique_states + 1
+    unique_states <- unique(signif(dt[found == 1, selected_microstate], 7))
+    n_unique_states <- length(unique_states)
+
+    if (n_unique_states %% 2 == 0) {
+      stop(sprintf(
+        "\n[CRITICAL PHYSICS FAILURE] Deterministic symmetry broken at P=%s.\nFound an EVEN number of states (%d).\nThe phase space must be strictly symmetric (odd).",
+        p_str, n_unique_states
+      ))
     }
 
     for (col in target_cols) {

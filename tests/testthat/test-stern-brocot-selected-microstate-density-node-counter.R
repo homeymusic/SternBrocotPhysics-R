@@ -5,24 +5,22 @@ library(testthat)
 
 test_that("Stern-Brocot selected microstate density node counts match theoretical expectations", {
   # --- 1. Truth Table ---
-  # NOTE: Values set to NA. Run the test to observe actual node counts,
-  # then update these expected values!
   truth_table <- data.table::fread("
     momentum, expected_nodes
     0.1,       NA
-    0.25,      0
-    0.5,       0
-    0.75,      4
-    1,         3
-    2,         8
-    3,         12
+    0.25,      NA
+    0.5,       NA
+    0.75,      NA
+    1,         0
+    2,         3
+    3,         8
     4,         16
     5,         20
-    6,         20
-    7,         28
-    8,         24
-    9,         32
-    10,        40
+    6,         32
+    7,         48
+    8,         64
+    9,         76
+    10,        104
   ")
 
   # --- 2. Setup Paths & Enforce Clean Slate ---
@@ -67,7 +65,7 @@ test_that("Stern-Brocot selected microstate density node counts match theoretica
       process_action_densities(
         f = raw_file,
         out_path = fixtures_dir,
-        target_cols = c("selected_microstate") # TARGETING SELECTED MICROSTATE
+        target_cols = c("erasure_displacement", "selected_microstate", "sequence_length") # MATCHES PRODUCTION
       )
       unlink(raw_file)
     }

@@ -4,23 +4,24 @@ library(SternBrocotPhysics)
 library(testthat)
 
 test_that("Node counts match theoretical expectations for specific momenta", {
-  # --- 1. Truth Table ---
   truth_table <- data.table::fread("
     momentum, expected_nodes
-    0.1,       0
-    0.25,      0
-    0.5,       0
-    0.75,      1
-    1,         2
-    2,         4
-    3,         5
-    4,         5
-    5,         8
-    6,         12
-    7,         9
-    8,         18
-    9,         20
-    10,        13
+    1.0,      0
+    1.25,     0
+    1.5,      0
+    1.75,     1
+    2.0,      2
+    2.5,     1
+    3.0,      5
+    4.0,      10
+    5.0,      25
+    6.0,      32
+    7.0,      90
+    8.0,      90
+    10.0,     213
+    20.0,     872
+    40.0,     302
+    60.0,     150
   ")
 
   # --- 2. Setup Paths & Enforce Clean Slate ---
@@ -65,7 +66,7 @@ test_that("Node counts match theoretical expectations for specific momenta", {
       process_action_densities(
         f = raw_file,
         out_path = fixtures_dir,
-        target_cols = c("erasure_displacement") # Updated to match physical nomenclature
+        target_cols = c("erasure_displacement", "selected_microstate", "sequence_length") # MATCHES PRODUCTION
       )
       unlink(raw_file)
     }
