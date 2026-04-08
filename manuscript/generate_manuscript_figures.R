@@ -7,7 +7,6 @@ library(patchwork)
 dir_manuscript <- "./manuscript"
 if (!dir.exists(dir_manuscript)) dir.create(dir_manuscript)
 
-# Stable slug for LaTeX and GitHub tracking
 file_output_pdf <- file.path(dir_manuscript, "harmonic_oscillator.pdf")
 
 dir_base_data_4TB <- "/Volumes/SanDisk4TB/SternBrocot-data"
@@ -16,15 +15,20 @@ dir_02_densities    <- file.path(dir_base_data_4TB, "02_harmonic_oscillator_dens
 dir_03_nodes        <- file.path(dir_base_data_4TB, "03_harmonic_oscillator_nodes")
 dir_04_summary      <- file.path(dir_base_data_4TB, "04_harmonic_oscillator_summary")
 
-file_summary <- file.path(dir_04_summary, "harmonic_oscillator_erasure_distance_summary.csv.gz")
+file_summary <- file.path(dir_04_summary, "harmonic_oscillator_erasure_displacement_summary.csv.gz")
 
-# --- 2. Data Selection (Summary-Driven) ---
+# --- 2. Data Selection (Action-Driven) ---
 dt_summary <- fread(file_summary)
-target_values <- c(0.5, 0.777, 1.037, 1.373, 1.975, 10.0)
 
-# Pull exact simulation metadata for the closest matches [cite: 1-10]
-dt_selected <- rbindlist(lapply(target_values, function(v) {
-  dt_summary[which.min(abs(normalized_momentum - v))]
+# Define targets in terms of Relative Action (A / A_0)
+target_a_ratios <- c(2^(0:4),400)
+
+# Pull exact simulation metadata for the closest matches
+dt_selected <- rbindlist(lapply(target_a_ratios, function(target_ratio) {
+  # Convert target ratio back to Normalized Momentum (P) to find the match
+  # A_ratio = 4 * P^2  =>  P = sqrt(A_ratio) / 2
+  target_p <- sqrt(target_ratio) / 2
+  dt_summary[which.min(abs(normalized_momentum - target_p))]
 }))
 
 # --- 3. Plotting Function ---
@@ -36,7 +40,9 @@ render_prl_grid <- function(dt_meta) {
     p_val   <- dt_meta[i, normalized_momentum]
     n_val   <- dt_meta[i, node_count]
     p_str   <- sprintf("%013.6f", p_val)
-    a_ratio <- 4 * (p_val^2) # A relative to A_0 (where P=0.5)
+
+    # Calculate the actual achieved A_ratio from the matched simulation
+    a_ratio <- 4 * (p_val^2)
 
     # Column 1: Quantum of Action (Phase Space)
     a_base <- p_val / 0.5
@@ -56,7 +62,7 @@ render_prl_grid <- function(dt_meta) {
       theme(legend.position="none", panel.grid.minor=element_blank(), axis.text=element_text(size=8)) +
       labs(x = expression("Coordinate, " * italic(q)), y = expression("Momentum, " * italic(p)))
 
-    # Column 2: Mapping (Microstate vs. Action State) [cite: 11-13]
+    # Column 2: Mapping (Target vs. Selected Microstate)
     file_raw <- file.path(dir_01_raw_erasures, sprintf("harmonic_oscillator_erasures_stern_brocot_P_%s.csv.gz", p_str))
     p_scat <- ggplot() + theme_void() + theme(aspect.ratio=1)
 
@@ -64,9 +70,10 @@ render_prl_grid <- function(dt_meta) {
     row_subtitle <- bquote(bold(A == .(sprintf("%.1f", a_ratio))*A[0] ~~~~~ "node count" == .(n_val)))
 
     if (file.exists(file_raw)) {
-      dt_raw <- fread(file_raw)[found == 1]
-      p_scat <- ggplot(dt_raw, aes(x=microstate, y=minimal_action_state)) +
-        geom_point(alpha=0.15, size=0.01, stroke=0, color="black") +
+      dt_raw <- fread(file_raw, colClasses=c(encoded_sequence="character"))[found == 1]
+
+      p_scat <- ggplot(dt_raw, aes(x=blob_center, y=selected_microstate)) +
+        geom_point(alpha=0.3, size=0.5, stroke=0, color="black") +
         scale_x_continuous(breaks = c(0, 50, 100)) +
         scale_y_continuous(breaks = c(0, 50, 100)) +
         labs(subtitle = row_subtitle) +
@@ -74,12 +81,12 @@ render_prl_grid <- function(dt_meta) {
         theme(panel.grid.minor=element_blank(), axis.text = element_text(size=8),
               plot.subtitle=element_text(size=10, hjust=0.5, face="bold"),
               axis.title.y=element_text(size=9)) +
-        labs(x = expression("Coordinate Microstate, " * italic(q)[mu]),
-             y = expression("Minimal-Action State, " * italic(q)^"*"))
+        labs(x = expression("Blob Center, " * italic(q)[b]),
+             y = expression("Selected Microstate, " * italic(q)[mu]^"*"))
     }
 
-    # Column 3: Coordinate Density (Skyline + Emergent Nodes) [cite: 1-10]
-    file_density <- file.path(dir_02_densities, sprintf("harmonic_oscillator_erasure_distance_density_stern_brocot_P_%s.csv.gz", p_str))
+    # Column 3: Coordinate Density (Skyline + Emergent Nodes)
+    file_density <- file.path(dir_02_densities, sprintf("harmonic_oscillator_erasure_displacement_density_stern_brocot_P_%s.csv.gz", p_str))
     p_den <- ggplot() + theme_void() + theme(aspect.ratio=1)
     if (file.exists(file_density)) {
       dt_hist <- fread(file_density)
@@ -101,11 +108,11 @@ render_prl_grid <- function(dt_meta) {
         coord_cartesian(xlim=c(-100,100), ylim=c(0,110)) +
         theme_bw(base_family="serif") +
         theme(panel.grid.minor=element_blank(), axis.text=element_text(size=8)) +
-        labs(x = expression("Coordinate, " * italic(q) == (italic(A)/italic(h)) * epsilon[italic(q)]),
+        labs(x = expression("Coordinate, " * italic(q) == (italic(A)/italic(h)) * epsilon[italic(q)]^"*"),
              y = "Density Count")
 
-      # Re-load emergent node dots [cite: 1-10]
-      file_nodes <- file.path(dir_03_nodes, sprintf("harmonic_oscillator_erasure_distance_nodes_stern_brocot_P_%s.csv.gz", p_str))
+      # Re-load emergent node dots
+      file_nodes <- file.path(dir_03_nodes, sprintf("harmonic_oscillator_erasure_displacement_nodes_stern_brocot_P_%s.csv.gz", p_str))
       if(file.exists(file_nodes)){
         dt_n <- fread(file_nodes)
         if (nrow(dt_n) > 0) {
@@ -118,7 +125,7 @@ render_prl_grid <- function(dt_meta) {
     # Column Headers (Top Row)
     if (i == 1) {
       p_ell  <- p_ell  + labs(title = "Quantum of Action")
-      p_scat <- p_scat + labs(title = "Microstate vs. Minimal-Action State")
+      p_scat <- p_scat + labs(title = "Classical Target vs. Microstate")
       p_den  <- p_den  + labs(title = "Coordinate Density")
     }
     # Standardize X-labels (Bottom Row Only)
@@ -136,7 +143,6 @@ render_prl_grid <- function(dt_meta) {
 }
 
 # --- 4. Render with Dynamic Height ---
-# Ensures aspect ratio is preserved: ~2.3in per row + title/axis overhead
 dynamic_height <- nrow(dt_selected) * 2.3 + 1.2
 
 pdf(file = file_output_pdf, width = 8.5, height = dynamic_height)
