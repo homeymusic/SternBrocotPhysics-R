@@ -300,7 +300,8 @@ render_combined_erasure_displacement_grid <- function(dt_target_momenta, custom_
     if (file.exists(file_raw_erasures)) {
       dt_raw_found <- fread(file_raw_erasures, colClasses=c(encoded_sequence="character"))[found == 1]
       if (nrow(dt_raw_found) > 0) {
-        p_scat <- ggplot(dt_raw_found, aes(x = microstate, y = selected_microstate)) +
+        # If you named it blob_center in C++:
+        p_scat <- ggplot(dt_raw_found, aes(x = blob_center, y = selected_microstate)) +
           geom_point(alpha = 0.25, size = 0.1, color = "black") + 
           theme_minimal() +
           theme(axis.title = element_blank(), 

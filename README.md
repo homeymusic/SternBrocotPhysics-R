@@ -1,11 +1,11 @@
 Harmonic Oscillator Erasure Density
 ================
 
-![](README_files/figure-gfm/plot-2A-overview-scatter-erasure-distance-1.png)<!-- -->
+![](README_files/figure-gfm/plot-2A-overview-scatter-erasure-displacement-1.png)<!-- -->
 
 ------------------------------------------------------------------------
 
-![](README_files/figure-gfm/plot-3-program-length-evolution-1.png)<!-- -->
+![](README_files/figure-gfm/plot-3-sequence-length-evolution-1.png)<!-- -->
 
 ------------------------------------------------------------------------
 

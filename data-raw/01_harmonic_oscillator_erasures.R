@@ -6,10 +6,15 @@ raw_directory  <- file.path(base_data_dir_4TB, "01_harmonic_oscillator_erasures"
 
 if (!dir.exists(raw_directory)) dir.create(raw_directory, recursive = TRUE)
 
-granularity_p <- 0.001
-normalized_momenta <- seq(0.1, 10.0, by = granularity_p)
+# --- NEW: UNIFORM ACTION SAMPLING ---
+# Step linearly through Action space to ensure uniform data density on the plots
+granularity_a <- 0.01
+action_sequence <- seq(0.01, 100.0, by = granularity_a)
 
-message(sprintf("Launching Dynamic Simulation."))
+# Convert to Momentum (P = sqrt(A)) for the C++ engine
+normalized_momenta <- sqrt(action_sequence)
+
+message(sprintf("Launching Dynamic Simulation (Uniform Action Space)."))
 message(sprintf("Total Files: %d", length(normalized_momenta)))
 
 # Explicitly request the engine (matches the new C++ API)
