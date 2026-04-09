@@ -13,140 +13,46 @@ library(patchwork)
 library(dplyr)
 library(purrr)
 library(ggrepel) 
-library(SternBrocotPhysics) # The new package function lives here
+library(SternBrocotPhysics)
 
 # --- 1. Configuration & Data Load ---
 dir_base_data_4TB <- "/Volumes/SanDisk4TB/SternBrocot-data"
 
-# --- 1.2 Display Configuration ---
-config_min_node_count <- 0
-config_max_node_count <- 105
-config_min_momentum <- 0.5
-config_max_momentum <- 10.5
+dir_01_raw_erasures <- file.path(dir_base_data_4TB, "01_harmonic_oscillator_erasures")
+dir_02_densities    <- file.path(dir_base_data_4TB, "02_harmonic_oscillator_densities")
+dir_03_nodes        <- file.path(dir_base_data_4TB, "03_harmonic_oscillator_nodes")
+dir_04_summary      <- file.path(dir_base_data_4TB, "04_harmonic_oscillator_summary")
 
-# Action bounds (A = P^2)
-config_min_action <- 0
-config_max_action <- 105
+file_summary  <- file.path(dir_04_summary, "harmonic_oscillator_erasure_displacement_summary.csv.gz")
+file_seq_len  <- file.path(dir_04_summary, "harmonic_oscillator_sequence_length_summary.csv.gz")
+file_res_marg <- file.path(dir_04_summary, "harmonic_oscillator_resonance_margin_summary.csv.gz")
 
-# Pipeline Directories
-dir_01_raw_erasures           <- file.path(dir_base_data_4TB, "01_harmonic_oscillator_erasures")
-dir_02_densities              <- file.path(dir_base_data_4TB, "02_harmonic_oscillator_densities")
-dir_03_nodes                  <- file.path(dir_base_data_4TB, "03_harmonic_oscillator_nodes")
-dir_04_summary                <- file.path(dir_base_data_4TB, "04_harmonic_oscillator_summary")
-
-# Summary Files
-file_04_summary_erasure_displacement <- file.path(dir_04_summary, "harmonic_oscillator_erasure_displacement_summary.csv.gz")
-file_04_summary_selected_microstate  <- file.path(dir_04_summary, "harmonic_oscillator_selected_microstate_summary.csv.gz")
-file_04_summary_sequence_length      <- file.path(dir_04_summary, "harmonic_oscillator_sequence_length_summary.csv.gz")
-file_04_summary_resonance_margin     <- file.path(dir_04_summary, "harmonic_oscillator_resonance_margin_summary.csv.gz")
-
-# In-Memory Data Tables (Preserving your specific naming)
-dt_summary_erasure_displacement <- if (file.exists(file_04_summary_erasure_displacement)) fread(file_04_summary_erasure_displacement) else data.table()
-dt_summary_selected_microstate <- if (file.exists(file_04_summary_selected_microstate)) fread(file_04_summary_selected_microstate) else data.table()
-dt_summary_sequence_length <- if (file.exists(file_04_summary_sequence_length)) fread(file_04_summary_sequence_length) else data.table()
-dt_summary_resonance_margin <- if (file.exists(file_04_summary_resonance_margin)) fread(file_04_summary_resonance_margin) else data.table()
+dt_summary_erasure_displacement <- if (file.exists(file_summary)) fread(file_summary) else data.table()
+dt_summary_sequence_length      <- if (file.exists(file_seq_len)) fread(file_seq_len) else data.table()
+dt_summary_resonance_margin     <- if (file.exists(file_res_marg)) fread(file_res_marg) else data.table()
 
 # --- 1.5 Physics Constants & Action Mapping ---
-qho_zpe_offset <- 0.0
-
 if(nrow(dt_summary_erasure_displacement)>0) dt_summary_erasure_displacement[, action_A := normalized_momentum^2]
-if(nrow(dt_summary_selected_microstate)>0) dt_summary_selected_microstate[, action_A := normalized_momentum^2]
 if(nrow(dt_summary_sequence_length)>0) dt_summary_sequence_length[, action_A := normalized_momentum^2]
 if(nrow(dt_summary_resonance_margin)>0) dt_summary_resonance_margin[, action_A := normalized_momentum^2]
 
-# --- 2. Auto-Selection Logic ---
-row_0500 <- copy(dt_summary_erasure_displacement[abs(normalized_momentum - 0.500) < 1e-4])
-if (nrow(row_0500) > 0) {
-  row_0500 <- row_0500[1]
-  row_0500[, node_count := 0]
-}
+# --- 2. DATA SELECTION FOR GRID ---
+target_a_ratios <- c(1, 3.14, 4.14, 5.5, 8.0, 9.0, 35.0)
 
+dt_selected_custom <- rbindlist(lapply(target_a_ratios, function(target_ratio) {
+  target_p <- sqrt(target_ratio)
+  dt_summary_erasure_displacement[which.min(abs(normalized_momentum - target_p))]
+}))
+
+dynamic_height_custom <- max(5, nrow(dt_selected_custom) * 4.0 + 1)
+
+# Logic for overview scatter plot
 valid_summaries <- dt_summary_erasure_displacement[!is.na(node_count) & node_count >= 0]
-idx_closest_line <- valid_summaries[, .I[which.min(abs(action_A - (node_count + qho_zpe_offset)))], by = node_count]$V1
-dt_line_picked <- valid_summaries[idx_closest_line]
-dt_line_picked <- dt_line_picked[node_count != 0]
-if(nrow(row_0500) > 0) dt_line_picked <- rbind(dt_line_picked, row_0500, fill = TRUE)
-setorder(dt_line_picked, node_count)
-dt_selected_line <- dt_line_picked[node_count >= config_min_node_count & node_count <= config_max_node_count & action_A >= config_min_action & action_A <= config_max_action]
+idx_closest_line <- valid_summaries[, .I[which.min(abs(action_A - node_count))], by = node_count]$V1
+dt_selected_line <- valid_summaries[idx_closest_line]
+setorder(dt_selected_line, node_count)
 
-# Downsample for the detailed grid plot
-grid_target_nodes <- c(0, 2, 3, 4, 5, 10, 20, 40, 60, 80, 100)
-dt_selected_line_grid <- dt_selected_line[node_count %in% grid_target_nodes]
-
-# FORCE INJECTION: The exact Ground State (A = 1.0)
-row_1000 <- copy(dt_summary_erasure_displacement[abs(normalized_momentum - 1.000) < 1e-4])
-if (nrow(row_1000) > 0) {
-  row_1000 <- row_1000[1]
-  dt_selected_line_grid <- rbind(dt_selected_line_grid[abs(action_A - 1.00) > 1e-4], row_1000, fill = TRUE)
-}
-setorder(dt_selected_line_grid, action_A)
-
-dynamic_height_line <- max(5, nrow(dt_selected_line_grid) * 4.0 + 1)
-```
-
-```{r plot-2A-overview-scatter-erasure-displacement, echo=FALSE, results='asis', message=FALSE, warning=FALSE, fig.width=12, fig.height=8}
-# --- Plot 2A: Overview Scatter Plot (Restored Original Logic) ---
-qho_linear_backbone <- function(A) { A - qho_zpe_offset }
-
-if(nrow(dt_summary_erasure_displacement) > 0) {
-  dt_background_erasure_displacement <- dt_summary_erasure_displacement[
-    !is.na(node_count) & 
-    node_count >= config_min_node_count & 
-    node_count <= config_max_node_count & 
-    action_A >= config_min_action &
-    action_A <= config_max_action
-  ]
-  dt_background_erasure_displacement[, snr_relative := frank(snr_metric, ties.method = "average") / .N, by = node_count]
-  
-  ggplot() +
-    stat_function(fun = qho_linear_backbone, n = 1001, color = "black", linetype = "dashed", alpha = 0.5, linewidth = 0.8) +
-    geom_point(data = dt_background_erasure_displacement[order(snr_relative)], 
-               aes(x = action_A, y = node_count, color = snr_relative), size = 1.5, alpha = 1.0) +
-    scale_color_gradient(low = "black", high = "grey85", name = "Local SNR\n(Percentile)") +  
-    geom_point(data = dt_selected_line, aes(x = action_A, y = node_count, shape = "Linear Fit"), color = "black", size = 4.5, fill = NA, stroke = 1.2) +
-    scale_shape_manual(name = "Selection Method", values = c("Linear Fit" = 21)) +
-    geom_text_repel(data = dt_selected_line, aes(x = action_A, y = node_count, label = sprintf("n=%d", node_count)),
-                    size = 3, color = "black", fontface = "bold", family = "mono", box.padding = 0.3, point.padding = 0.5, max.overlaps = 15) +
-    scale_x_continuous(breaks = seq(0, 100, by = 10)) +
-    scale_y_continuous(breaks = seq(0, 100, by = 10)) +
-    labs(title = "Node Count vs Action: Erasure Displacement", x = "Action (A)", y = "Nodes (n)") +
-    theme_minimal() + theme(panel.grid.minor = element_blank())
-}
-```
-
-```{r plot-1A-grid-parabola, echo=FALSE, fig.width=14, fig.height=dynamic_height_line, warning=FALSE, message=FALSE}
-# --- Plot 1A: Shared Plotting Engine (Refactored Surgical Replacement) ---
-p_grid <- plot_erasure_grid(
-  dt_meta = dt_selected_line_grid, 
-  dir_raw = dir_01_raw_erasures, 
-  dir_densities = dir_02_densities, 
-  dir_nodes = dir_03_nodes,
-  style = "readme",
-  base_font = "",
-  overarching_title = "Harmonic Oscillator Erasure Density (Linear Action Fit)"
-)
-print(p_grid)
-```
-
-```{r plot-3-sequence-length-evolution, echo=FALSE, results='asis', message=FALSE, warning=FALSE, fig.width=12, fig.height=7}
-# --- Plot 3: Sequence Length Summary (Restored Original Logic) ---
-if (nrow(dt_summary_sequence_length) > 0) {
-  dt_filtered_prog_len <- dt_summary_sequence_length[action_A >= config_min_action & action_A <= config_max_action]
-  ggplot(dt_filtered_prog_len, aes(x = action_A)) +
-    geom_ribbon(aes(ymin = min_len, ymax = max_len, fill = "Absolute Range"), alpha = 0.3) +
-    geom_ribbon(aes(ymin = lower, ymax = upper, fill = "±1 SD"), alpha = 0.5) +
-    scale_fill_manual(name = "Variance", values = c("Absolute Range" = "grey90", "±1 SD" = "grey70")) +
-    geom_line(aes(y = mean_len, color = "Mean"), linetype = "dashed", linewidth = 1.0) +
-    geom_step(aes(y = median_len, color = "Median"), linewidth = 1.2) +
-    scale_color_manual(name = "Metric", values = c("Mean" = "gray30", "Median" = "black")) +
-    scale_x_continuous(breaks = seq(0, 100, by = 10)) +
-    labs(title = "Thermodynamic Complexity vs Action", x = "Action (A)", y = "Sequence Length (N bits)") +
-    theme_minimal() + theme(legend.position = "bottom")
-}
-```
-
-```{r generate_tree, echo=FALSE}
-# --- Stern-Brocot Tree Data (RESTORED ORIGINAL COMPLEX LOGIC) ---
+# --- 3. STERN-BROCOT TREE SETUP (Moved here to fix scoping) ---
 generate_tree <- function(max_depth) {
   nodes <- list(list(depth = 0, num = 0, den = 1, l_num = -1, l_den = 0, r_num = 1, r_den = 0, bin = "", parent_x = NA_real_, parent_y = NA_real_))
   all_nodes <- nodes
@@ -166,8 +72,59 @@ max_k <- 4
 tree_data <- generate_tree(max_k)
 ```
 
+```{r plot-2A-overview-scatter-erasure-displacement, echo=FALSE, results='asis', message=FALSE, warning=FALSE, fig.width=12, fig.height=8}
+# --- Plot 2A: Overview Scatter Plot ---
+if(nrow(dt_summary_erasure_displacement) > 0) {
+  dt_bg <- dt_summary_erasure_displacement[action_A <= 105]
+  dt_bg[, snr_relative := frank(snr_metric, ties.method = "average") / .N, by = node_count]
+  
+  ggplot() +
+    geom_abline(slope = 1, intercept = 0, color = "black", linetype = "dashed", alpha = 0.5) +
+    geom_point(data = dt_bg[order(snr_relative)], 
+               aes(x = action_A, y = node_count, color = snr_relative), size = 1.5, alpha = 1.0) +
+    scale_color_gradient(low = "black", high = "grey85", name = "Local SNR\n(Percentile)") +  
+    geom_point(data = dt_selected_line, aes(x = action_A, y = node_count), shape = 21, color = "black", size = 4.5, fill = NA, stroke = 1.2) +
+    geom_text_repel(data = dt_selected_line, aes(x = action_A, y = node_count, label = sprintf("n=%d", node_count)),
+                    size = 3, color = "black", fontface = "bold", family = "mono", max.overlaps = Inf) +
+    scale_x_continuous(breaks = seq(0, 100, by = 10)) +
+    scale_y_continuous(breaks = seq(0, 100, by = 10)) +
+    labs(title = "Node Count vs Action: Erasure Displacement", x = "Action (A)", y = "Nodes (n)") +
+    theme_minimal() + theme(panel.grid.minor = element_blank())
+}
+```
+
+```{r plot-1A-grid-parabola, echo=FALSE, fig.width=14, fig.height=dynamic_height_custom, warning=FALSE, message=FALSE}
+# --- Plot 1A: Shared Plotting Engine (Readme Style) ---
+p_grid <- plot_erasure_grid(
+  dt_meta = dt_selected_custom, 
+  dir_raw = dir_01_raw_erasures, 
+  dir_densities = dir_02_densities, 
+  dir_nodes = dir_03_nodes,
+  style = "readme",
+  base_font = "",
+  overarching_title = "Harmonic Oscillator Erasure Density (Linear Action Fit)"
+)
+print(p_grid)
+```
+
+```{r plot-3-sequence-length-evolution, echo=FALSE, results='asis', message=FALSE, warning=FALSE, fig.width=12, fig.height=7}
+# --- Plot 3: Sequence Length Summary ---
+if (nrow(dt_summary_sequence_length) > 0) {
+  ggplot(dt_summary_sequence_length[action_A <= 105], aes(x = action_A)) +
+    geom_ribbon(aes(ymin = min_len, ymax = max_len, fill = "Absolute Range"), alpha = 0.3) +
+    geom_ribbon(aes(ymin = lower, ymax = upper, fill = "±1 SD"), alpha = 0.5) +
+    scale_fill_manual(name = "Variance", values = c("Absolute Range" = "grey90", "±1 SD" = "grey70")) +
+    geom_line(aes(y = mean_len, color = "Mean"), linetype = "dashed", linewidth = 1.0) +
+    geom_step(aes(y = median_len, color = "Median"), linewidth = 1.2) +
+    scale_color_manual(name = "Metric", values = c("Mean" = "gray30", "Median" = "black")) +
+    scale_x_continuous(breaks = seq(0, 100, by = 10)) +
+    labs(title = "Thermodynamic Complexity vs Action", x = "Action (A)", y = "Sequence Length (N bits)") +
+    theme_minimal() + theme(legend.position = "bottom")
+}
+```
+
 ```{r plot_tree, echo=FALSE, fig.width=14, fig.height=8, dpi=300}
-# --- Stern-Brocot Tree Plot (RESTORED ORIGINAL PATH HIGHLIGHTING) ---
+# --- Plot 4: Stern-Brocot Tree Plot ---
 target_bin <- "1101"
 invert_bit <- function(s) { chars <- unlist(strsplit(s, "")); paste(ifelse(chars == "1", "0", "1"), collapse = "") }
 reverse_string <- function(s) { paste(rev(unlist(strsplit(s, ""))), collapse = "") }
