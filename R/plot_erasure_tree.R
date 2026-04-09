@@ -117,7 +117,7 @@ plot_erasure_tree <- function(max_k = 4,
   # --- Title Logic ---
   if (!is_ms) {
     p <- p + labs(
-      title = "Selected Microstate Information Tree (-Inf to +Inf)",
+      title = "Erasure Tree",
       subtitle = paste0("Highlighting the thermodynamic erasure sequence for q_mu = ", q_mu_label)
     ) +
       theme(

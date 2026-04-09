@@ -51,25 +51,6 @@ valid_summaries <- dt_summary_erasure_displacement[!is.na(node_count) & node_cou
 idx_closest_line <- valid_summaries[, .I[which.min(abs(action_A - node_count))], by = node_count]$V1
 dt_selected_line <- valid_summaries[idx_closest_line]
 setorder(dt_selected_line, node_count)
-
-# --- 3. STERN-BROCOT TREE SETUP (Moved here to fix scoping) ---
-generate_tree <- function(max_depth) {
-  nodes <- list(list(depth = 0, num = 0, den = 1, l_num = -1, l_den = 0, r_num = 1, r_den = 0, bin = "", parent_x = NA_real_, parent_y = NA_real_))
-  all_nodes <- nodes
-  for (d in 1:max_depth) {
-    new_nodes <- list()
-    for (node in nodes) {
-      left_node <- list(depth = d, num = node$l_num + node$num, den = node$l_den + node$den, l_num = node$l_num, l_den = node$l_den, r_num = node$num, r_den = node$den, bin = paste0(node$bin, "0"), parent_x = node$num / node$den, parent_y = node$depth)
-      right_node <- list(depth = d, num = node$num + node$r_num, den = node$den + node$r_den, l_num = node$num, l_den = node$den, r_num = node$r_num, r_den = node$r_den, bin = paste0(node$bin, "1"), parent_x = node$num / node$den, parent_y = node$depth)
-      new_nodes <- append(new_nodes, list(left_node, right_node))
-    }
-    all_nodes <- append(all_nodes, new_nodes)
-    nodes <- new_nodes
-  }
-  bind_rows(all_nodes) %>% mutate(x = num / den, y = depth, frac_label = paste0(num, "/", den), bin_label = ifelse(bin == "", "(zero bits)", bin))
-}
-max_k <- 4
-tree_data <- generate_tree(max_k)
 ```
 
 ```{r plot-2A-overview-scatter-erasure-displacement, echo=FALSE, results='asis', message=FALSE, warning=FALSE, fig.width=12, fig.height=8}
@@ -127,9 +108,13 @@ if (nrow(dt_summary_sequence_length) > 0) {
 # --- Plot 4: Stern-Brocot Tree Plot ---
 p_tree <- plot_erasure_tree(
   max_k = 4, 
-  target_bin = "1101", 
-  q_mu_label = "5/3",
+  q_bin = "110", 
+  q_num = 3,
+  q_den = 2,
+  q_target = (sqrt(5)+1)/2,
   style = "readme",
-  base_font = ""
+  base_font = "",
+  mono_font = ""
 )
 print(p_tree)
+```
