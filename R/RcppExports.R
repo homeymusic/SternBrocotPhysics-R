@@ -26,8 +26,12 @@ golden_ratio_erase_squeezed_boundary_and_depth <- function(x, squeezed_boundary,
 }
 
 #' Run Erasure Simulation
-NULL
-
+#'
+#' @param momenta Vector of momentum values (P) to simulate.
+#' @param dir Output directory.
+#' @param algorithm String to choose the engine: "stern_brocot", "kdtree", "action_angle", "golden_ratio"
+#' @param n_threads Number of threads (0 = auto).
+#' @export
 harmonic_oscillator_erasures <- function(momenta, dir, algorithm = "stern_brocot", n_threads = 0L) {
     invisible(.Call(`_SternBrocotPhysics_harmonic_oscillator_erasures`, momenta, dir, algorithm, n_threads))
 }
