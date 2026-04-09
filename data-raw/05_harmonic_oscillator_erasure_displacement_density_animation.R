@@ -9,7 +9,7 @@ dir_base_data_4TB <- "/Volumes/SanDisk4TB/SternBrocot-data"
 dir_02_densities <- file.path(dir_base_data_4TB, "02_harmonic_oscillator_densities")
 dir_03_nodes     <- file.path(dir_base_data_4TB, "03_harmonic_oscillator_nodes")
 
-# FINAL PRODUCTION FILENAME
+# PRODUCTION FILENAME
 file_animation   <- file.path(dir_base_data_4TB, "05_harmonic_oscillator_erasure_displacement.mp4")
 
 # File Discovery
@@ -20,7 +20,7 @@ dt_files_to_process <- data.table(key_str = keys_momentum)
 dt_files_to_process[, momentum := as.numeric(key_str)]
 setorder(dt_files_to_process, momentum)
 
-cat(sprintf("FINAL PRODUCTION RENDER: Processing %d frames with 25pt margins...\n", nrow(dt_files_to_process)))
+cat(sprintf("PRODUCTION RENDER: Processing %d frames with 25pt margins...\n", nrow(dt_files_to_process)))
 
 # --- 2. Parallel Processing (Full Dataset) ---
 num_cores <- parallel::detectCores() - 1
@@ -30,8 +30,8 @@ list_processed_frames <- mclapply(seq_len(nrow(dt_files_to_process)), function(i
   momentum_val <- current_row$momentum
   momentum_str <- current_row$key_str
 
-  # Calculate Action relative to A_0 (where P=0.5 -> A=0.25)
-  action_ratio <- 4 * (momentum_val^2)
+  # NEW PHYSICS MATH: A / A_0 = P^2 (Ground state A=1 occurs at P=1)
+  action_ratio <- momentum_val^2
 
   # Density Data
   file_density <- file.path(dir_02_densities, paste0("harmonic_oscillator_erasure_displacement_density_stern_brocot_P_", momentum_str, ".csv.gz"))
@@ -56,13 +56,13 @@ list_processed_frames <- mclapply(seq_len(nrow(dt_files_to_process)), function(i
   raw_coordinate_width <- if(nrow(dt_active_bins) > 1) median(diff(dt_active_bins$coordinate_q), na.rm=TRUE) else 1.0
   max_coordinate_edge <- max(abs(dt_active_bins$coordinate_q), na.rm = TRUE) + (raw_coordinate_width / 2)
 
-  # Full Scientific Label explicitly labeled with A_0
-  lbl <- sprintf("Nodes: %02d  |  Action: %6.1f A_0  | Max Amplitude: %4.1f  |  Max Density: %6s",
+  # Full Scientific Label explicitly labeled with updated precision
+  lbl <- sprintf("Nodes: %02d | Action: %6.2f A_0 | Max Amplitude: %4.1f | Max Density: %6s",
                  node_count, action_ratio, max_coordinate_edge, format(max_density_height, big.mark=","))
 
   dt_active_bins[, `:=`(pct_density = (density_count/max_density_height)*100, pct_q = (coordinate_q/max_coordinate_edge)*100)]
 
-  # Exact Mathematical Skyline Geometry (No geom_col ghosts)
+  # Exact Mathematical Skyline Geometry
   half_w <- ((raw_coordinate_width / max_coordinate_edge) * 100) / 2
 
   poly_x <- c(dt_active_bins$pct_q[1] - half_w,
@@ -101,17 +101,21 @@ p <- ggplot() +
   geom_path(data = dt_all_frames[type == "skyline"],
             aes(x = pct_q, y = pct_density, group = label),
             color = "black", linewidth = 0.7) +
-  # Draw the Nodes
+  # Draw the Nodes in stark black
   geom_point(data = dt_all_frames[type == "nodes" & is_ghost == FALSE],
              aes(x = pct_q, y = pct_density, group = label),
              color = "black", size = 3) +
+
+  # Grounding line at y=0 so the polygon sits perfectly flat
+  geom_hline(yintercept = 0, color = "black", linewidth = 0.5) +
+
   labs(title = "{current_frame}", x = "Amplitude (%)", y = "Density %") +
   coord_cartesian(xlim = c(-100, 100), ylim = c(0, 105), clip = "on") +
   scale_x_continuous(breaks = seq(-100, 100, 50), expand = c(0, 0)) +
   scale_y_continuous(expand = c(0, 0)) +
   theme_minimal() +
   theme(
-    plot.title = element_text(family = "mono", face = "bold", size = 11),
+    plot.title = element_text(family = "mono", face = "bold", size = 13),
     panel.grid.minor = element_blank(),
     plot.margin = margin(t = 25, r = 25, b = 25, l = 25),
     plot.background = element_rect(fill = "white", color = NA)
@@ -119,7 +123,7 @@ p <- ggplot() +
   transition_manual(label)
 
 # --- 5. Render (The Long Haul) ---
-animate(p, nframes = nrow(dt_files_to_process), fps = 24,
+animate(p, nframes = nrow(dt_files_to_process), fps = 60,
         width = 1600, height = 1000, res = 150,
         renderer = av_renderer(file_animation))
 

@@ -13,11 +13,12 @@ library(patchwork)
 library(dplyr)
 library(purrr)
 library(ggrepel) 
+library(SternBrocotPhysics) # The new package function lives here
 
 # --- 1. Configuration & Data Load ---
 dir_base_data_4TB <- "/Volumes/SanDisk4TB/SternBrocot-data"
 
-# --- 1.2 Display Configuration (UPDATED FOR A=100 SCALE) ---
+# --- 1.2 Display Configuration ---
 config_min_node_count <- 0
 config_max_node_count <- 105
 config_min_momentum <- 0.5
@@ -39,76 +40,52 @@ file_04_summary_selected_microstate  <- file.path(dir_04_summary, "harmonic_osci
 file_04_summary_sequence_length      <- file.path(dir_04_summary, "harmonic_oscillator_sequence_length_summary.csv.gz")
 file_04_summary_resonance_margin     <- file.path(dir_04_summary, "harmonic_oscillator_resonance_margin_summary.csv.gz")
 
-if (!file.exists(file_04_summary_erasure_displacement)) {
-  stop("Erasure Displacement Summary file not found at: ", file_04_summary_erasure_displacement)
-}
-
-# In-Memory Data Tables
+# In-Memory Data Tables (Preserving your specific naming)
 dt_summary_erasure_displacement <- if (file.exists(file_04_summary_erasure_displacement)) fread(file_04_summary_erasure_displacement) else data.table()
 dt_summary_selected_microstate <- if (file.exists(file_04_summary_selected_microstate)) fread(file_04_summary_selected_microstate) else data.table()
 dt_summary_sequence_length <- if (file.exists(file_04_summary_sequence_length)) fread(file_04_summary_sequence_length) else data.table()
 dt_summary_resonance_margin <- if (file.exists(file_04_summary_resonance_margin)) fread(file_04_summary_resonance_margin) else data.table()
 
 # --- 1.5 Physics Constants & Action Mapping ---
-# Zero-Point Energy offset for the Quantum Harmonic Oscillator.
-# A = P^2. n = A - 0.5
 qho_zpe_offset <- 0.0
 
-# Map Momentum to Action Space
 if(nrow(dt_summary_erasure_displacement)>0) dt_summary_erasure_displacement[, action_A := normalized_momentum^2]
 if(nrow(dt_summary_selected_microstate)>0) dt_summary_selected_microstate[, action_A := normalized_momentum^2]
 if(nrow(dt_summary_sequence_length)>0) dt_summary_sequence_length[, action_A := normalized_momentum^2]
 if(nrow(dt_summary_resonance_margin)>0) dt_summary_resonance_margin[, action_A := normalized_momentum^2]
 
-# --- 2. Auto-Selection Logic (Erasure Displacement) ---
-
-# Extract the EXACT P = 0.500 (A = 0.25) baseline from the RAW data
+# --- 2. Auto-Selection Logic ---
 row_0500 <- copy(dt_summary_erasure_displacement[abs(normalized_momentum - 0.500) < 1e-4])
 if (nrow(row_0500) > 0) {
   row_0500 <- row_0500[1]
-  row_0500[, node_count := 0] # Force n=0 so it plots correctly
-  if ("snr_metric" %in% names(row_0500)) row_0500[, snr_metric := 0]
+  row_0500[, node_count := 0]
 }
 
 valid_summaries <- dt_summary_erasure_displacement[!is.na(node_count) & node_count >= 0]
-
-# SELECTION A: Closest to Theoretical Action Line (n = A)
 idx_closest_line <- valid_summaries[, .I[which.min(abs(action_A - (node_count + qho_zpe_offset)))], by = node_count]$V1
 dt_line_picked <- valid_summaries[idx_closest_line]
-dt_line_picked <- dt_line_picked[node_count != 0] # Strip the algorithm's noisy n=0 pick
+dt_line_picked <- dt_line_picked[node_count != 0]
 if(nrow(row_0500) > 0) dt_line_picked <- rbind(dt_line_picked, row_0500, fill = TRUE)
 setorder(dt_line_picked, node_count)
 dt_selected_line <- dt_line_picked[node_count >= config_min_node_count & node_count <= config_max_node_count & action_A >= config_min_action & action_A <= config_max_action]
 
-# Downsample for the detailed grid plot to prevent massive 400-inch tall rendering
-grid_target_nodes <- c(0, 1, 2, 3, 4, 5, 10, 20, 40, 60, 80, 100)
+# Downsample for the detailed grid plot
+grid_target_nodes <- c(0, 2, 3, 4, 5, 10, 20, 40, 60, 80, 100)
 dt_selected_line_grid <- dt_selected_line[node_count %in% grid_target_nodes]
-dynamic_height_line <- max(5, nrow(dt_selected_line_grid) * 4.0 + 1)
 
-# --- Auto-Selection Logic (Selected Microstate) ---
-if (exists("dt_summary_selected_microstate") && nrow(dt_summary_selected_microstate) > 0) {
-  
-  row_0500_action <- copy(dt_summary_selected_microstate[abs(normalized_momentum - 0.500) < 1e-4])
-  if (nrow(row_0500_action) > 0) {
-    row_0500_action <- row_0500_action[1]
-    row_0500_action[, node_count := 0]
-    if ("snr_metric" %in% names(row_0500_action)) row_0500_action[, snr_metric := 0]
-  }
-  
-  valid_summaries_microstate <- dt_summary_selected_microstate[!is.na(node_count) & node_count >= 0]
-  
-  # SELECTION A: Action Line
-  idx_closest_line_microstate <- valid_summaries_microstate[, .I[which.min(abs(action_A - (node_count + qho_zpe_offset)))], by = node_count]$V1
-  dt_line_picked_microstate <- valid_summaries_microstate[idx_closest_line_microstate]
-  dt_line_picked_microstate <- dt_line_picked_microstate[node_count != 0]
-  if(nrow(row_0500_action) > 0) dt_line_picked_microstate <- rbind(dt_line_picked_microstate, row_0500_action, fill = TRUE)
-  setorder(dt_line_picked_microstate, node_count)
-  dt_selected_microstate_line <- dt_line_picked_microstate[node_count >= config_min_node_count & node_count <= config_max_node_count & action_A >= config_min_action & action_A <= config_max_action]
+# FORCE INJECTION: The exact Ground State (A = 1.0)
+row_1000 <- copy(dt_summary_erasure_displacement[abs(normalized_momentum - 1.000) < 1e-4])
+if (nrow(row_1000) > 0) {
+  row_1000 <- row_1000[1]
+  dt_selected_line_grid <- rbind(dt_selected_line_grid[abs(action_A - 1.00) > 1e-4], row_1000, fill = TRUE)
 }
+setorder(dt_selected_line_grid, action_A)
+
+dynamic_height_line <- max(5, nrow(dt_selected_line_grid) * 4.0 + 1)
 ```
 
 ```{r plot-2A-overview-scatter-erasure-displacement, echo=FALSE, results='asis', message=FALSE, warning=FALSE, fig.width=12, fig.height=8}
-# --- Plot 2A: Overview Scatter Plot (Erasure Displacement) ---
+# --- Plot 2A: Overview Scatter Plot (Restored Original Logic) ---
 qho_linear_backbone <- function(A) { A - qho_zpe_offset }
 
 if(nrow(dt_summary_erasure_displacement) > 0) {
@@ -119,424 +96,103 @@ if(nrow(dt_summary_erasure_displacement) > 0) {
     action_A >= config_min_action &
     action_A <= config_max_action
   ]
-  
   dt_background_erasure_displacement[, snr_relative := frank(snr_metric, ties.method = "average") / .N, by = node_count]
   
-  p_ov_action_a <- ggplot() +
-    stat_function(fun = qho_linear_backbone, 
-                  n = 1001, color = "black", linetype = "dashed", alpha = 0.5, linewidth = 0.8) +
+  ggplot() +
+    stat_function(fun = qho_linear_backbone, n = 1001, color = "black", linetype = "dashed", alpha = 0.5, linewidth = 0.8) +
     geom_point(data = dt_background_erasure_displacement[order(snr_relative)], 
-               aes(x = action_A, y = node_count, color = snr_relative), 
-               size = 1.5, alpha = 1.0) +
+               aes(x = action_A, y = node_count, color = snr_relative), size = 1.5, alpha = 1.0) +
     scale_color_gradient(low = "black", high = "grey85", name = "Local SNR\n(Percentile)") +  
-    
-    geom_point(data = dt_selected_line, aes(x = action_A, y = node_count, shape = "Linear Fit"), 
-               color = "black", size = 4.5, fill = NA, stroke = 1.2) +
-               
+    geom_point(data = dt_selected_line, aes(x = action_A, y = node_count, shape = "Linear Fit"), color = "black", size = 4.5, fill = NA, stroke = 1.2) +
     scale_shape_manual(name = "Selection Method", values = c("Linear Fit" = 21)) +
-    
-    # Using ggrepel to prevent overlapping labels at high action
-    geom_text_repel(data = dt_selected_line, aes(x = action_A, y = node_count, 
-              label = sprintf("n=%d", node_count)),
-              size = 3, color = "black", fontface = "bold", family = "mono",
-              box.padding = 0.3, point.padding = 0.5, max.overlaps = 15) +
-              
+    geom_text_repel(data = dt_selected_line, aes(x = action_A, y = node_count, label = sprintf("n=%d", node_count)),
+                    size = 3, color = "black", fontface = "bold", family = "mono", box.padding = 0.3, point.padding = 0.5, max.overlaps = 15) +
     scale_x_continuous(breaks = seq(0, 100, by = 10)) +
     scale_y_continuous(breaks = seq(0, 100, by = 10)) +
-    
-    labs(title = "Node Count vs Action: Erasure Displacement",
-         subtitle = sprintf("Continuous phase-space evolution perfectly follows linear n = A map"),
-         x = "Action (A)", y = "Nodes (n)") +
-    coord_cartesian(xlim = c(config_min_action, config_max_action), ylim = c(config_min_node_count - 0.5, config_max_node_count)) +
-    theme_minimal() +
-    theme(panel.grid.minor = element_blank(), plot.title = element_text(face = "bold", size = 14))
-  
-  print(p_ov_action_a)
-  cat("\n\n---\n\n")
-}
-```
-
-```{r plot-3-sequence-length-evolution, echo=FALSE, results='asis', message=FALSE, warning=FALSE, fig.width=12, fig.height=7}
-# --- Plot 3: Sequence Length Summary ---
-if (nrow(dt_summary_sequence_length) > 0) {
-  
-  dt_filtered_prog_len <- dt_summary_sequence_length[
-    action_A >= config_min_action & 
-    action_A <= config_max_action
-  ]
-  
-  p_prog <- ggplot(dt_filtered_prog_len, aes(x = action_A)) +
-    geom_ribbon(aes(ymin = min_len, ymax = max_len, fill = "Absolute Range"), alpha = 0.3) +
-    geom_ribbon(aes(ymin = lower, ymax = upper, fill = "±1 SD"), alpha = 0.5) +
-    scale_fill_manual(name = "Variance", values = c("Absolute Range" = "grey90", "±1 SD" = "grey70")) +
-    
-    geom_line(aes(y = mean_len, color = "Mean"), linetype = "dashed", linewidth = 1.0) +
-    geom_step(aes(y = median_len, color = "Median"), linewidth = 1.2) +
-    scale_color_manual(name = "Metric", values = c("Mean" = "gray30", "Median" = "black")) +
-    
-    scale_x_continuous(breaks = seq(0, 100, by = 10)) +
-    scale_y_continuous(breaks = seq(0, max(dt_filtered_prog_len$max_len, na.rm=T) + 1, by = 5)) +
-    
-    labs(title = "Thermodynamic Complexity vs Action",
-         subtitle = "Demonstrating the strict macroscopic bound: N E_L \\tau \\le A",
-         x = "Action (A)", 
-         y = "Sequence Length (N bits)") +
-    coord_cartesian(xlim = c(config_min_action, config_max_action)) +
-    theme_minimal() +
-    theme(
-      plot.title = element_text(family = "mono", face = "bold", size = 16),
-      plot.subtitle = element_text(size = 12, color = "gray40"),
-      legend.position = "bottom",
-      panel.grid.minor = element_blank()
-    )
-  
-  print(p_prog)
-  cat("\n\n---\n\n")
-  
-} else {
-  cat("*(Sequence length summary data not yet generated)*\n\n---\n\n")
-}
-```
-
-```{r plot-4-correspondence-limit, echo=FALSE, results='asis', message=FALSE, warning=FALSE, fig.width=12, fig.height=7}
-# --- Plot 4: Thermodynamic Correspondence Limit (Geometric Slack) ---
-
-if (nrow(dt_summary_resonance_margin) > 0) {
-  
-  dt_filtered_res <- dt_summary_resonance_margin[
-    action_A >= config_min_action & 
-    action_A <= config_max_action
-  ]
-  
-  p_res <- ggplot(dt_filtered_res, aes(x = action_A)) +
-    geom_ribbon(aes(ymin = lower_residual, ymax = upper_residual), fill = "grey80", alpha = 0.6) +
-    geom_line(aes(y = mean_residual, color = "Mean"), linetype = "dashed", linewidth = 1.0) +
-    geom_step(aes(y = median_residual, color = "Median"), linewidth = 1.2) +
-    scale_color_manual(name = "Metric", values = c("Mean" = "gray30", "Median" = "black")) +
-    
-    scale_x_continuous(breaks = seq(0, 100, by = 10)) +
-    
-    labs(title = "Thermodynamic Correspondence Limit",
-         subtitle = expression(paste("Ensemble average of unspent phase-space capacity (", delta, "q - |", epsilon[q], "|) over Action")),
-         x = "Action (A)", 
-         y = expression(paste("Geometric Slack  ", delta, "q - |", epsilon[q], "|"))) +
-    coord_cartesian(xlim = c(config_min_action, config_max_action)) +
-    theme_minimal() +
-    theme(
-      plot.title = element_text(family = "mono", face = "bold", size = 16),
-      plot.subtitle = element_text(size = 12, color = "gray40"),
-      legend.position = "bottom",
-      panel.grid.minor = element_blank()
-    )
-  
-  print(p_res)
-  cat("\n\n---\n\n")
-  
-} else {
-  cat("*(Correspondence limit summary data not yet generated)*\n\n---\n\n")
-}
-```
-
-```{r setup-plotting-functions, echo=FALSE, message=FALSE, warning=FALSE}
-# --- Function: Render Combined Erasure Displacement Grid ---
-render_combined_erasure_displacement_grid <- function(dt_target_momenta, custom_title) {
-  plot_list <- list()
-  
-  for (i in seq_len(nrow(dt_target_momenta))) {
-    current_row <- dt_target_momenta[i]
-    momentum_val <- current_row$normalized_momentum
-    action_val <- current_row$action_A
-    momentum_str_padded <- sprintf("%013.6f", momentum_val)
-    
-    file_density_erasure_displacement <- file.path(dir_02_densities, sprintf("harmonic_oscillator_erasure_displacement_density_stern_brocot_P_%s.csv.gz", momentum_str_padded))
-    dt_histogram_points <- data.table()
-    n_bins_text <- ""
-    
-    if (file.exists(file_density_erasure_displacement)) {
-      dt_histogram_points <- fread(file_density_erasure_displacement)
-      if (nrow(dt_histogram_points) > 0) {
-        n_bins_text <- sprintf("\nbins = %d", nrow(dt_histogram_points))
-      }
-    }
-    
-    # ---------------------------------------------------------
-    # 1. Conjugate Quanta
-    # ---------------------------------------------------------
-    a_base <- momentum_val / 0.5
-    b_base <- 0.5 / momentum_val
-    scaling_factor <- 90 / max(a_base, b_base) 
-    
-    ellipse_df <- data.frame(
-      type = factor(c("Q-Conjugate", "P-Conjugate"), levels = c("Q-Conjugate", "P-Conjugate")),
-      major = c(a_base, b_base) * scaling_factor,
-      minor = c(b_base, a_base) * scaling_factor
-    )
-    
-    p_ell <- ggplot(ellipse_df) +
-      geom_ellipse(aes(x0 = 0, y0 = 0, a = major, b = minor, angle = 0, color = type, fill = type), 
-                   alpha = 0.2, linewidth = 0.5) +
-      scale_fill_manual(values = c("Q-Conjugate" = "black", "P-Conjugate" = "gray60")) +
-      scale_color_manual(values = c("Q-Conjugate" = "black", "P-Conjugate" = "gray30")) +
-      coord_fixed(xlim = c(-100, 100), ylim = c(-100, 100)) +
-      
-      labs(y = sprintf("A = %.2f\nn = %d%s", action_val, current_row$node_count, n_bins_text)) +
-      
-      theme_minimal() + 
-      theme(legend.position = "none",
-            axis.title.x = element_blank(), 
-            axis.title.y = element_text(angle = 0, vjust = 0.5, hjust = 1, face = "bold", size = 12, margin = margin(r = 15)), 
-            axis.text = element_blank(),
-            panel.grid = element_line(color = "gray90"),
-            aspect.ratio = 1,
-            plot.margin = margin(5, 5, 5, 5))
-    
-    if (i == 1) p_ell <- p_ell + labs(title = "Conjugate Blobs") + 
-        theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14))
-    
-    # ---------------------------------------------------------
-    # 2. Selected Microstate vs. Microstate 
-    # ---------------------------------------------------------
-    file_raw_erasures <- file.path(dir_01_raw_erasures, sprintf("harmonic_oscillator_erasures_stern_brocot_P_%s.csv.gz", momentum_str_padded))
-    p_scat <- ggplot() + theme_void() + theme(aspect.ratio = 1, plot.margin = margin(5, 5, 5, 5)) 
-    
-    if (file.exists(file_raw_erasures)) {
-      dt_raw_found <- fread(file_raw_erasures, colClasses=c(encoded_sequence="character"))[found == 1]
-      if (nrow(dt_raw_found) > 0) {
-        p_scat <- ggplot(dt_raw_found, aes(x = blob_center, y = selected_microstate)) +
-          geom_point(alpha = 0.25, size = 0.1, color = "black") + 
-          theme_minimal() +
-          theme(axis.title = element_blank(), 
-                axis.text = element_blank(),
-                panel.grid = element_line(color = "gray90"),
-                aspect.ratio = 1,
-                plot.margin = margin(5, 5, 5, 5))
-      }
-    }
-    if (i == 1) p_scat <- p_scat + labs(title = "Selected vs. True Microstate") + 
-        theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14))
-    
-    # ---------------------------------------------------------
-    # 3. Coordinate Density
-    # ---------------------------------------------------------
-    file_nodes_erasure_displacement <- file.path(dir_03_nodes, sprintf("harmonic_oscillator_erasure_displacement_nodes_stern_brocot_P_%s.csv.gz", momentum_str_padded))
-    p_den <- ggplot() + theme_void() + theme(aspect.ratio = 1, plot.margin = margin(5, 5, 5, 5))
-    
-    if (nrow(dt_histogram_points) > 0) {
-      dt_active_bins <- copy(dt_histogram_points)
-      
-      max_density_height <- max(dt_active_bins$density_count, na.rm = TRUE)
-      if (max_density_height == 0) max_density_height <- 1
-      
-      raw_coordinate_width <- if(nrow(dt_active_bins) > 1) median(diff(dt_active_bins$coordinate_q), na.rm=TRUE) else 1.0
-      max_coordinate_edge <- max(abs(dt_active_bins$coordinate_q), na.rm = TRUE) + (raw_coordinate_width / 2)
-      if (max_coordinate_edge == 0) max_coordinate_edge <- 1
-      
-      dt_active_bins[, c("pct_density", "pct_q") := list((density_count/max_density_height)*100, (coordinate_q/max_coordinate_edge)*100)]
-      pct_bar_width <- (raw_coordinate_width / max_coordinate_edge) * 100
-      
-      skyline_x <- c(dt_active_bins$pct_q[1] - pct_bar_width/2, 
-                     rep(dt_active_bins$pct_q, each = 2) + rep(c(-pct_bar_width/2, pct_bar_width/2), nrow(dt_active_bins)), 
-                     dt_active_bins$pct_q[nrow(dt_active_bins)] + pct_bar_width/2)
-      
-      skyline_y <- c(0, rep(dt_active_bins$pct_density, each = 2), 0)
-      dt_skyline_outline <- data.table::data.table(pct_q = skyline_x, pct_density = skyline_y)
-      
-      dt_node_coordinates <- if(file.exists(file_nodes_erasure_displacement)) fread(file_nodes_erasure_displacement) else data.table()
-      if (nrow(dt_node_coordinates) > 0 && "coordinate_q" %in% names(dt_node_coordinates)) {
-        dt_node_coordinates[, c("pct_density", "pct_q") := list((density_count/max_density_height)*100, (coordinate_q/max_coordinate_edge)*100)]
-      }
-      
-      p_den <- ggplot() +
-        geom_col(data = dt_active_bins, aes(x = pct_q, y = pct_density), width = pct_bar_width, fill = "gray85") +
-        geom_path(data = dt_skyline_outline, aes(x = pct_q, y = pct_density), color = "black", linewidth = 0.5) + 
-        geom_point(data = dt_node_coordinates, aes(x = pct_q, y = pct_density), color = "black", size = 1.5) +
-        coord_cartesian(xlim = c(-100, 100), ylim = c(0, 105)) +
-        theme_minimal() +
-        theme(axis.title = element_blank(), 
-              axis.text = element_blank(),
-              panel.grid = element_line(color = "gray90"),
-              aspect.ratio = 1,
-              plot.margin = margin(5, 5, 5, 5))
-    }
-    
-    if (i == 1) p_den <- p_den + labs(title = "Erasure Density") + 
-        theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14))
-    
-    # ---------------------------------------------------------
-    # 4. Append row to Master List
-    # ---------------------------------------------------------
-    plot_list[[length(plot_list) + 1]] <- p_ell
-    plot_list[[length(plot_list) + 1]] <- p_scat
-    plot_list[[length(plot_list) + 1]] <- p_den
-  }
-  
-  final_grid <- wrap_plots(plot_list, ncol = 3) +
-    plot_annotation(
-      title = custom_title,
-      theme = theme(plot.title = element_text(size = 20, face = "bold", hjust = 0.5, family = "mono"),
-                    plot.subtitle = element_text(size = 14, hjust = 0.5, color = "gray30"))
-    )
-  
-  if(nrow(dt_target_momenta) > 0) print(final_grid)
+    labs(title = "Node Count vs Action: Erasure Displacement", x = "Action (A)", y = "Nodes (n)") +
+    theme_minimal() + theme(panel.grid.minor = element_blank())
 }
 ```
 
 ```{r plot-1A-grid-parabola, echo=FALSE, fig.width=14, fig.height=dynamic_height_line, warning=FALSE, message=FALSE}
-# --- Plot 1A: Erasure Displacement Grid (Linear Action Fit) ---
-render_combined_erasure_displacement_grid(dt_selected_line_grid, "Harmonic Oscillator Erasure Density (Linear Action Fit)")
+# --- Plot 1A: Shared Plotting Engine (Refactored Surgical Replacement) ---
+p_grid <- plot_erasure_grid(
+  dt_meta = dt_selected_line_grid, 
+  dir_raw = dir_01_raw_erasures, 
+  dir_densities = dir_02_densities, 
+  dir_nodes = dir_03_nodes,
+  style = "readme",
+  base_font = "",
+  overarching_title = "Harmonic Oscillator Erasure Density (Linear Action Fit)"
+)
+print(p_grid)
 ```
 
-```{r generate_tree}
-# Function to generate the algorithmic state-space tree up to max_depth
+```{r plot-3-sequence-length-evolution, echo=FALSE, results='asis', message=FALSE, warning=FALSE, fig.width=12, fig.height=7}
+# --- Plot 3: Sequence Length Summary (Restored Original Logic) ---
+if (nrow(dt_summary_sequence_length) > 0) {
+  dt_filtered_prog_len <- dt_summary_sequence_length[action_A >= config_min_action & action_A <= config_max_action]
+  ggplot(dt_filtered_prog_len, aes(x = action_A)) +
+    geom_ribbon(aes(ymin = min_len, ymax = max_len, fill = "Absolute Range"), alpha = 0.3) +
+    geom_ribbon(aes(ymin = lower, ymax = upper, fill = "±1 SD"), alpha = 0.5) +
+    scale_fill_manual(name = "Variance", values = c("Absolute Range" = "grey90", "±1 SD" = "grey70")) +
+    geom_line(aes(y = mean_len, color = "Mean"), linetype = "dashed", linewidth = 1.0) +
+    geom_step(aes(y = median_len, color = "Median"), linewidth = 1.2) +
+    scale_color_manual(name = "Metric", values = c("Mean" = "gray30", "Median" = "black")) +
+    scale_x_continuous(breaks = seq(0, 100, by = 10)) +
+    labs(title = "Thermodynamic Complexity vs Action", x = "Action (A)", y = "Sequence Length (N bits)") +
+    theme_minimal() + theme(legend.position = "bottom")
+}
+```
+
+```{r generate_tree, echo=FALSE}
+# --- Stern-Brocot Tree Data (RESTORED ORIGINAL COMPLEX LOGIC) ---
 generate_tree <- function(max_depth) {
-  nodes <- list(
-    list(
-      depth = 0, num = 0, den = 1,
-      l_num = -1, l_den = 0, r_num = 1, r_den = 0,
-      bin = "", parent_x = NA_real_, parent_y = NA_real_
-    )
-  )
-  
+  nodes <- list(list(depth = 0, num = 0, den = 1, l_num = -1, l_den = 0, r_num = 1, r_den = 0, bin = "", parent_x = NA_real_, parent_y = NA_real_))
   all_nodes <- nodes
-  
   for (d in 1:max_depth) {
     new_nodes <- list()
     for (node in nodes) {
-      left_node <- list(
-        depth = d, num = node$l_num + node$num, den = node$l_den + node$den,
-        l_num = node$l_num, l_den = node$l_den, r_num = node$num, r_den = node$den,
-        bin = paste0(node$bin, "0"), parent_x = node$num / node$den, parent_y = node$depth
-      )
-      right_node <- list(
-        depth = d, num = node$num + node$r_num, den = node$den + node$r_den,
-        l_num = node$num, l_den = node$den, r_num = node$r_num, r_den = node$r_den,
-        bin = paste0(node$bin, "1"), parent_x = node$num / node$den, parent_y = node$depth
-      )
+      left_node <- list(depth = d, num = node$l_num + node$num, den = node$l_den + node$den, l_num = node$l_num, l_den = node$l_den, r_num = node$num, r_den = node$den, bin = paste0(node$bin, "0"), parent_x = node$num / node$den, parent_y = node$depth)
+      right_node <- list(depth = d, num = node$num + node$r_num, den = node$den + node$r_den, l_num = node$num, l_den = node$den, r_num = node$r_num, r_den = node$r_den, bin = paste0(node$bin, "1"), parent_x = node$num / node$den, parent_y = node$depth)
       new_nodes <- append(new_nodes, list(left_node, right_node))
     }
     all_nodes <- append(all_nodes, new_nodes)
     nodes <- new_nodes
   }
-  
-  df <- bind_rows(all_nodes) %>%
-    mutate(
-      x = num / den,
-      y = depth,
-      frac_label = paste0(num, "/", den),
-      bin_label = ifelse(bin == "", "(zero bits)", bin)
-    )
-  
-  return(df)
+  bind_rows(all_nodes) %>% mutate(x = num / den, y = depth, frac_label = paste0(num, "/", den), bin_label = ifelse(bin == "", "(zero bits)", bin))
 }
-
 max_k <- 4
 tree_data <- generate_tree(max_k)
 ```
 
-```{r plot_tree, fig.width=14, fig.height=8, dpi=300}
-# --- ISOLATE AND LABEL THE ERASURE PATH ---
-target_bin <- "1101" # This targets the 5/3 node
-
-# Helper functions for the reverse inverse
-invert_bit <- function(s) {
-  chars <- unlist(strsplit(s, ""))
-  inv <- ifelse(chars == "1", "0", "1")
-  paste(inv, collapse = "")
-}
-
-reverse_string <- function(s) {
-  paste(rev(unlist(strsplit(s, ""))), collapse = "")
-}
-
-# Calculate the full initial erasure string (the reverse complement)
+```{r plot_tree, echo=FALSE, fig.width=14, fig.height=8, dpi=300}
+# --- Stern-Brocot Tree Plot (RESTORED ORIGINAL PATH HIGHLIGHTING) ---
+target_bin <- "1101"
+invert_bit <- function(s) { chars <- unlist(strsplit(s, "")); paste(ifelse(chars == "1", "0", "1"), collapse = "") }
+reverse_string <- function(s) { paste(rev(unlist(strsplit(s, ""))), collapse = "") }
 s_star_full <- invert_bit(reverse_string(target_bin))
-
-# Dynamically generate all prefixes
 path_bins <- sapply(0:nchar(target_bin), function(i) substr(target_bin, 1, i))
 
-# Filter the tree and calculate the shrinking erase string (ShiftLeft) for each segment
 path_data <- tree_data %>% 
   filter(bin %in% path_bins) %>%
   rowwise() %>%
-  mutate(
-    bits_popped = nchar(target_bin) - nchar(bin),
-    erase_str = ifelse(!is.na(parent_x), substr(s_star_full, bits_popped + 1, nchar(s_star_full)), ""),
-    erase_label = ifelse(erase_str != "", paste0("s*=", erase_str), ""),
-    mid_x = (x + parent_x) / 2,
-    mid_y = (y + parent_y) / 2
-  ) %>%
+  mutate(bits_popped = nchar(target_bin) - nchar(bin), 
+         erase_str = ifelse(!is.na(parent_x), substr(s_star_full, bits_popped + 1, nchar(s_star_full)), ""),
+         erase_label = ifelse(erase_str != "", paste0("s*=", erase_str), ""),
+         mid_x = (x + parent_x) / 2, mid_y = (y + parent_y) / 2) %>%
   ungroup()
 
 ggplot(tree_data, aes(x = x, y = y)) +
-  geom_segment(
-    aes(xend = parent_x, yend = parent_y), 
-    color = "gray85", 
-    linewidth = 0.8,
-    na.rm = TRUE  
-  ) +
+  geom_segment(aes(xend = parent_x, yend = parent_y), color = "gray85", linewidth = 0.8, na.rm = TRUE) +
   geom_point(color = "gray75", size = 2) +
-  
-  geom_segment(
-    data = path_data,
-    aes(xend = parent_x, yend = parent_y), 
-    color = "black", 
-    linewidth = 1.2,
-    arrow = arrow(length = unit(0.15, "inches"), type = "closed"),
-    na.rm = TRUE
-  ) +
-  geom_point(
-    data = path_data,
-    color = "black", 
-    size = 3.5
-  ) +
-  
-  geom_label(
-    data = filter(path_data, erase_label != ""),
-    aes(x = mid_x, y = mid_y, label = erase_label),
-    family = "mono", fontface = "bold", size = 3.5,
-    color = "white", fill = "black",
-    label.size = NA, label.padding = unit(0.2, "lines")
-  ) +
-  
-  geom_label_repel(
-    aes(label = frac_label),
-    direction = "x", nudge_y = 0.15, segment.color = "gray85", 
-    segment.size = 0.2, size = 3.5, color = "black", fill = "white",          
-    label.size = NA, label.padding = unit(0.15, "lines"), vjust = 0,                
-    box.padding = 0.1, max.overlaps = Inf       
-  ) +
-  
-  geom_label_repel(
-    aes(label = bin_label),
-    direction = "x", nudge_y = -0.15, segment.color = "gray85", 
-    segment.size = 0.2, size = 3.5, family = "mono", color = "black",
-    fill = "white", label.size = NA, label.padding = unit(0.15, "lines"),
-    vjust = 1, box.padding = 0.1, max.overlaps = Inf       
-  ) +
-  
-  scale_y_continuous(
-    breaks = 0:max_k, 
-    limits = c(-0.3, max_k + 0.3), 
-    name = "Sequence Length (N bits)"
-  ) +
-  
-  scale_x_continuous(
-    breaks = -4:4, 
-    name = "Coordinate (q)",
-    expand = expansion(mult = 0.05) 
-  ) +
-  
-  theme_minimal() +
-  theme(
-    panel.grid.minor = element_blank(),
-    panel.grid.major.y = element_line(color = "gray90"),
-    plot.title = element_text(hjust = 0.5, face = "bold", size = 16),
-    plot.subtitle = element_text(hjust = 0.5, size = 12, color = "gray30"),
-    axis.title = element_text(face = "bold"),
-    axis.text = element_text(size = 10)
-  ) +
-  labs(
-    title = "Selected Microstate Information Tree (-Inf to +Inf)",
-    subtitle = "Highlighting the thermodynamic erasure sequence for q_mu = 5/3"
-  )
+  geom_segment(data = path_data, aes(xend = parent_x, yend = parent_y), color = "black", linewidth = 1.2, arrow = arrow(length = unit(0.15, "inches"), type = "closed"), na.rm = TRUE) +
+  geom_point(data = path_data, color = "black", size = 3.5) +
+  geom_label(data = filter(path_data, erase_label != ""), aes(x = mid_x, y = mid_y, label = erase_label), family = "mono", fontface = "bold", size = 3.5, color = "white", fill = "black", label.size = NA, label.padding = unit(0.2, "lines")) +
+  geom_label_repel(aes(label = frac_label), direction = "x", nudge_y = 0.15, segment.color = "gray85", segment.size = 0.2, size = 3.5, color = "black", fill = "white", label.size = NA, label.padding = unit(0.15, "lines"), vjust = 0, box.padding = 0.1, max.overlaps = Inf) +
+  geom_label_repel(aes(label = bin_label), direction = "x", nudge_y = -0.15, segment.color = "gray85", segment.size = 0.2, size = 3.5, family = "mono", color = "black", fill = "white", label.size = NA, label.padding = unit(0.15, "lines"), vjust = 1, box.padding = 0.1, max.overlaps = Inf) +
+  scale_y_continuous(breaks = 0:max_k, limits = c(-0.3, max_k + 0.3), name = "Sequence Length (N bits)") +
+  scale_x_continuous(breaks = -4:4, name = "Coordinate (q)", expand = expansion(mult = 0.05)) +
+  theme_minimal() + theme(panel.grid.minor = element_blank(), plot.title = element_text(hjust = 0.5, face = "bold", size = 16)) +
+  labs(title = "Selected Microstate Information Tree (-Inf to +Inf)", subtitle = "Highlighting the thermodynamic erasure sequence for q_mu = 5/3")
 ```
