@@ -17,15 +17,15 @@ library(ggrepel)
 # --- 1. Configuration & Data Load ---
 dir_base_data_4TB <- "/Volumes/SanDisk4TB/SternBrocot-data"
 
-# --- 1.2 Display Configuration ---
+# --- 1.2 Display Configuration (UPDATED FOR A=100 SCALE) ---
 config_min_node_count <- 0
-config_max_node_count <- 30
+config_max_node_count <- 105
 config_min_momentum <- 0.5
-config_max_momentum <- 10
+config_max_momentum <- 10.5
 
 # Action bounds (A = P^2)
-config_min_action <- config_min_momentum^2
-config_max_action <- config_max_momentum^2
+config_min_action <- 0
+config_max_action <- 105
 
 # Pipeline Directories
 dir_01_raw_erasures           <- file.path(dir_base_data_4TB, "01_harmonic_oscillator_erasures")
@@ -33,7 +33,7 @@ dir_02_densities              <- file.path(dir_base_data_4TB, "02_harmonic_oscil
 dir_03_nodes                  <- file.path(dir_base_data_4TB, "03_harmonic_oscillator_nodes")
 dir_04_summary                <- file.path(dir_base_data_4TB, "04_harmonic_oscillator_summary")
 
-# Summary Files (UPDATED NOMENCLATURE)
+# Summary Files
 file_04_summary_erasure_displacement <- file.path(dir_04_summary, "harmonic_oscillator_erasure_displacement_summary.csv.gz")
 file_04_summary_selected_microstate  <- file.path(dir_04_summary, "harmonic_oscillator_selected_microstate_summary.csv.gz")
 file_04_summary_sequence_length      <- file.path(dir_04_summary, "harmonic_oscillator_sequence_length_summary.csv.gz")
@@ -80,6 +80,11 @@ if(nrow(row_0500) > 0) dt_line_picked <- rbind(dt_line_picked, row_0500, fill = 
 setorder(dt_line_picked, node_count)
 dt_selected_line <- dt_line_picked[node_count >= config_min_node_count & node_count <= config_max_node_count & action_A >= config_min_action & action_A <= config_max_action]
 
+# Downsample for the detailed grid plot to prevent massive 400-inch tall rendering
+grid_target_nodes <- c(0, 1, 2, 3, 4, 5, 10, 20, 40, 60, 80, 100)
+dt_selected_line_grid <- dt_selected_line[node_count %in% grid_target_nodes]
+dynamic_height_line <- max(5, nrow(dt_selected_line_grid) * 4.0 + 1)
+
 # --- Auto-Selection Logic (Selected Microstate) ---
 if (exists("dt_summary_selected_microstate") && nrow(dt_summary_selected_microstate) > 0) {
   
@@ -100,8 +105,6 @@ if (exists("dt_summary_selected_microstate") && nrow(dt_summary_selected_microst
   setorder(dt_line_picked_microstate, node_count)
   dt_selected_microstate_line <- dt_line_picked_microstate[node_count >= config_min_node_count & node_count <= config_max_node_count & action_A >= config_min_action & action_A <= config_max_action]
 }
-
-dynamic_height_line <- max(5, nrow(dt_selected_line) * 4.0 + 1)
 ```
 
 ```{r plot-2A-overview-scatter-erasure-displacement, echo=FALSE, results='asis', message=FALSE, warning=FALSE, fig.width=12, fig.height=8}
@@ -128,17 +131,18 @@ if(nrow(dt_summary_erasure_displacement) > 0) {
     scale_color_gradient(low = "black", high = "grey85", name = "Local SNR\n(Percentile)") +  
     
     geom_point(data = dt_selected_line, aes(x = action_A, y = node_count, shape = "Linear Fit"), 
-               color = "black", size = 5.5, fill = NA, stroke = 1.2) +
+               color = "black", size = 4.5, fill = NA, stroke = 1.2) +
                
     scale_shape_manual(name = "Selection Method", values = c("Linear Fit" = 21)) +
     
-    geom_text(data = dt_selected_line, aes(x = action_A, y = node_count, 
-              label = sprintf("n=%d A=%.2f snr=%.1f", node_count, action_A, snr_metric)),
-              nudge_y = config_max_node_count * 0.015, 
-              size = 3, color = "black", fontface = "bold", family = "mono") +
+    # Using ggrepel to prevent overlapping labels at high action
+    geom_text_repel(data = dt_selected_line, aes(x = action_A, y = node_count, 
+              label = sprintf("n=%d", node_count)),
+              size = 3, color = "black", fontface = "bold", family = "mono",
+              box.padding = 0.3, point.padding = 0.5, max.overlaps = 15) +
               
-    scale_x_continuous(breaks = seq(ceiling(config_min_action), floor(config_max_action), by = 10)) +
-    scale_y_continuous(breaks = seq(config_min_node_count, config_max_node_count, by = 5)) +
+    scale_x_continuous(breaks = seq(0, 100, by = 10)) +
+    scale_y_continuous(breaks = seq(0, 100, by = 10)) +
     
     labs(title = "Node Count vs Action: Erasure Displacement",
          subtitle = sprintf("Continuous phase-space evolution perfectly follows linear n = A map"),
@@ -162,9 +166,7 @@ if (nrow(dt_summary_sequence_length) > 0) {
   ]
   
   p_prog <- ggplot(dt_filtered_prog_len, aes(x = action_A)) +
-    # Absolute Min/Max Outer Ribbon
     geom_ribbon(aes(ymin = min_len, ymax = max_len, fill = "Absolute Range"), alpha = 0.3) +
-    # Standard Deviation Inner Ribbon
     geom_ribbon(aes(ymin = lower, ymax = upper, fill = "±1 SD"), alpha = 0.5) +
     scale_fill_manual(name = "Variance", values = c("Absolute Range" = "grey90", "±1 SD" = "grey70")) +
     
@@ -172,8 +174,8 @@ if (nrow(dt_summary_sequence_length) > 0) {
     geom_step(aes(y = median_len, color = "Median"), linewidth = 1.2) +
     scale_color_manual(name = "Metric", values = c("Mean" = "gray30", "Median" = "black")) +
     
-    scale_x_continuous(breaks = seq(ceiling(config_min_action), floor(config_max_action), by = 10)) +
-    scale_y_continuous(breaks = seq(0, max(dt_filtered_prog_len$max_len, na.rm=T) + 1, by = 1)) +
+    scale_x_continuous(breaks = seq(0, 100, by = 10)) +
+    scale_y_continuous(breaks = seq(0, max(dt_filtered_prog_len$max_len, na.rm=T) + 1, by = 5)) +
     
     labs(title = "Thermodynamic Complexity vs Action",
          subtitle = "Demonstrating the strict macroscopic bound: N E_L \\tau \\le A",
@@ -212,7 +214,7 @@ if (nrow(dt_summary_resonance_margin) > 0) {
     geom_step(aes(y = median_residual, color = "Median"), linewidth = 1.2) +
     scale_color_manual(name = "Metric", values = c("Mean" = "gray30", "Median" = "black")) +
     
-    scale_x_continuous(breaks = seq(ceiling(config_min_action), floor(config_max_action), by = 10)) +
+    scale_x_continuous(breaks = seq(0, 100, by = 10)) +
     
     labs(title = "Thermodynamic Correspondence Limit",
          subtitle = expression(paste("Ensemble average of unspent phase-space capacity (", delta, "q - |", epsilon[q], "|) over Action")),
@@ -300,7 +302,6 @@ render_combined_erasure_displacement_grid <- function(dt_target_momenta, custom_
     if (file.exists(file_raw_erasures)) {
       dt_raw_found <- fread(file_raw_erasures, colClasses=c(encoded_sequence="character"))[found == 1]
       if (nrow(dt_raw_found) > 0) {
-        # If you named it blob_center in C++:
         p_scat <- ggplot(dt_raw_found, aes(x = blob_center, y = selected_microstate)) +
           geom_point(alpha = 0.25, size = 0.1, color = "black") + 
           theme_minimal() +
@@ -382,7 +383,7 @@ render_combined_erasure_displacement_grid <- function(dt_target_momenta, custom_
 
 ```{r plot-1A-grid-parabola, echo=FALSE, fig.width=14, fig.height=dynamic_height_line, warning=FALSE, message=FALSE}
 # --- Plot 1A: Erasure Displacement Grid (Linear Action Fit) ---
-render_combined_erasure_displacement_grid(dt_selected_line, "Harmonic Oscillator Erasure Density (Linear Action Fit)")
+render_combined_erasure_displacement_grid(dt_selected_line_grid, "Harmonic Oscillator Erasure Density (Linear Action Fit)")
 ```
 
 ```{r generate_tree}
@@ -501,7 +502,7 @@ ggplot(tree_data, aes(x = x, y = y)) +
     aes(label = frac_label),
     direction = "x", nudge_y = 0.15, segment.color = "gray85", 
     segment.size = 0.2, size = 3.5, color = "black", fill = "white",          
-    label.size = NA, label.padding = unit(0.15, "lines"), vjust = 0,                 
+    label.size = NA, label.padding = unit(0.15, "lines"), vjust = 0,                
     box.padding = 0.1, max.overlaps = Inf       
   ) +
   
