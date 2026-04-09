@@ -125,31 +125,11 @@ if (nrow(dt_summary_sequence_length) > 0) {
 
 ```{r plot_tree, echo=FALSE, fig.width=14, fig.height=8, dpi=300}
 # --- Plot 4: Stern-Brocot Tree Plot ---
-target_bin <- "1101"
-invert_bit <- function(s) { chars <- unlist(strsplit(s, "")); paste(ifelse(chars == "1", "0", "1"), collapse = "") }
-reverse_string <- function(s) { paste(rev(unlist(strsplit(s, ""))), collapse = "") }
-s_star_full <- invert_bit(reverse_string(target_bin))
-path_bins <- sapply(0:nchar(target_bin), function(i) substr(target_bin, 1, i))
-
-path_data <- tree_data %>% 
-  filter(bin %in% path_bins) %>%
-  rowwise() %>%
-  mutate(bits_popped = nchar(target_bin) - nchar(bin), 
-         erase_str = ifelse(!is.na(parent_x), substr(s_star_full, bits_popped + 1, nchar(s_star_full)), ""),
-         erase_label = ifelse(erase_str != "", paste0("s*=", erase_str), ""),
-         mid_x = (x + parent_x) / 2, mid_y = (y + parent_y) / 2) %>%
-  ungroup()
-
-ggplot(tree_data, aes(x = x, y = y)) +
-  geom_segment(aes(xend = parent_x, yend = parent_y), color = "gray85", linewidth = 0.8, na.rm = TRUE) +
-  geom_point(color = "gray75", size = 2) +
-  geom_segment(data = path_data, aes(xend = parent_x, yend = parent_y), color = "black", linewidth = 1.2, arrow = arrow(length = unit(0.15, "inches"), type = "closed"), na.rm = TRUE) +
-  geom_point(data = path_data, color = "black", size = 3.5) +
-  geom_label(data = filter(path_data, erase_label != ""), aes(x = mid_x, y = mid_y, label = erase_label), family = "mono", fontface = "bold", size = 3.5, color = "white", fill = "black", label.size = NA, label.padding = unit(0.2, "lines")) +
-  geom_label_repel(aes(label = frac_label), direction = "x", nudge_y = 0.15, segment.color = "gray85", segment.size = 0.2, size = 3.5, color = "black", fill = "white", label.size = NA, label.padding = unit(0.15, "lines"), vjust = 0, box.padding = 0.1, max.overlaps = Inf) +
-  geom_label_repel(aes(label = bin_label), direction = "x", nudge_y = -0.15, segment.color = "gray85", segment.size = 0.2, size = 3.5, family = "mono", color = "black", fill = "white", label.size = NA, label.padding = unit(0.15, "lines"), vjust = 1, box.padding = 0.1, max.overlaps = Inf) +
-  scale_y_continuous(breaks = 0:max_k, limits = c(-0.3, max_k + 0.3), name = "Sequence Length (N bits)") +
-  scale_x_continuous(breaks = -4:4, name = "Coordinate (q)", expand = expansion(mult = 0.05)) +
-  theme_minimal() + theme(panel.grid.minor = element_blank(), plot.title = element_text(hjust = 0.5, face = "bold", size = 16)) +
-  labs(title = "Selected Microstate Information Tree (-Inf to +Inf)", subtitle = "Highlighting the thermodynamic erasure sequence for q_mu = 5/3")
-```
+p_tree <- plot_erasure_tree(
+  max_k = 4, 
+  target_bin = "1101", 
+  q_mu_label = "5/3",
+  style = "readme",
+  base_font = ""
+)
+print(p_tree)

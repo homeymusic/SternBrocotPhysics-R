@@ -39,6 +39,7 @@ Suggests:
     patchwork,
     rmarkdown,
     scales,
+    svglite,
     testthat (>= 3.0.0),
     tictoc,
     tidyr,
