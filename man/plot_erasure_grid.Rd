@@ -11,7 +11,8 @@ plot_erasure_grid(
   dir_nodes,
   style = c("manuscript", "readme"),
   base_font = "",
-  overarching_title = NULL
+  overarching_title = NULL,
+  show_nodes = TRUE
 )
 }
 \arguments{
@@ -28,6 +29,8 @@ plot_erasure_grid(
 \item{base_font}{String for the font family (e.g., "CMU Serif").}
 
 \item{overarching_title}{Optional title for the readme style.}
+
+\item{show_nodes}{Logical, whether to plot the discrete node dots on the density map. Defaults to TRUE.}
 }
 \description{
 Render the Harmonic Oscillator Erasure Grid

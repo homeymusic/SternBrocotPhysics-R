@@ -7,6 +7,7 @@
 #' @param style String, either "manuscript" or "readme".
 #' @param base_font String for the font family (e.g., "CMU Serif").
 #' @param overarching_title Optional title for the readme style.
+#' @param show_nodes Logical, whether to plot the discrete node dots on the density map. Defaults to TRUE.
 #' @import ggplot2
 #' @import ggforce
 #' @import patchwork
@@ -14,7 +15,8 @@
 #' @export
 plot_erasure_grid <- function(dt_meta, dir_raw, dir_densities, dir_nodes,
                               style = c("manuscript", "readme"),
-                              base_font = "", overarching_title = NULL) {
+                              base_font = "", overarching_title = NULL,
+                              show_nodes = TRUE) {
   style <- match.arg(style)
   plot_list <- list()
   num_rows <- nrow(dt_meta)
@@ -117,7 +119,8 @@ plot_erasure_grid <- function(dt_meta, dir_raw, dir_densities, dir_nodes,
         theme(panel.grid.minor=element_blank(), axis.text=element_text(size=8), aspect.ratio=1) +
         labs(x = ax_x_den, y = ax_y_den)
 
-      if(file.exists(file_nodes)){
+      # LOGIC: Only add dots if show_nodes is TRUE
+      if(show_nodes && file.exists(file_nodes)){
         dt_n <- fread(file_nodes)
         if (nrow(dt_n) > 0) {
           dt_n[, pct := (density_count / total_count) * 100]
