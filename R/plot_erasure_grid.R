@@ -65,11 +65,13 @@ plot_erasure_grid <- function(dt_meta, dir_raw, dir_densities, dir_nodes,
     # --- Column 0: Row Label ---
     p_label <- ggplot() + theme_void() + coord_cartesian(xlim = c(0, 1), ylim = c(0, 1), clip = "off")
     if (is_ms) {
-      row_label_str <- sprintf("%.1f * A[0]", a_ratio)
+      # Note the single quotes outside and double quotes inside
+      row_label_str <- sprintf('"%.1f" * A[0]', a_ratio)
       p_label <- p_label + annotate("text", x=1, y=0.5, label=row_label_str, parse=TRUE, family=base_font, size=4, hjust=1)
     } else {
       n_val <- if("node_count" %in% names(current_row)) current_row$node_count else NA
-      row_label_str <- sprintf("A = %.2f\nn = %s", a_ratio, ifelse(is.na(n_val), "?", n_val))
+      # Standard formatting works here because parse is FALSE
+      row_label_str <- sprintf("A = %.1f\nn = %s", a_ratio, ifelse(is.na(n_val), "?", n_val))
       p_label <- p_label + annotate("text", x=1, y=0.5, label=row_label_str, family=base_font, size=4, hjust=1, fontface="bold")
     }
 

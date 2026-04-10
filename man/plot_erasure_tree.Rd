@@ -5,7 +5,7 @@
 \title{Render the Stern-Brocot Erasure Tree Plot}
 \usage{
 plot_erasure_tree(
-  max_k = 4,
+  max_N = 4,
   q_bin = "110",
   q_num = 3,
   q_den = 2,
@@ -16,7 +16,7 @@ plot_erasure_tree(
 )
 }
 \arguments{
-\item{max_k}{Integer, maximum depth of the tree. Defaults to 4.}
+\item{max_N}{Integer, maximum depth of the tree. Defaults to 4.}
 
 \item{q_bin}{Character, binary string for the target path. Defaults to "110".}
 
