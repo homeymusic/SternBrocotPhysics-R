@@ -53,6 +53,10 @@ plot_erasure_grid <- function(dt_meta, dir_raw, dir_densities, dir_nodes,
       dt_hist <- fread(file_density)
       total_count <- sum(dt_hist$density_count, na.rm=TRUE)
       dt_hist[, pct := if(total_count > 0) (density_count / total_count) * 100 else 0]
+
+      # Scale the relative coordinates by the classical boundary and undo the 2/pi projection
+      dt_hist[, coordinate_q := coordinate_q * max_ax * (pi / 2)]
+
       width <- median(diff(dt_hist$coordinate_q), na.rm=TRUE)
       active_q <- dt_hist[density_count > 0, coordinate_q]
       if (length(active_q) > 0) {
@@ -62,15 +66,17 @@ plot_erasure_grid <- function(dt_meta, dir_raw, dir_densities, dir_nodes,
     }
     plot_lim_x <- lim_x * 1.05
 
+    # --- Setup Custom Physical Axes Boundaries ---
+    custom_breaks <- c(-max_ax, 0, max_ax)
+    label_format <- function(x) sprintf("%.1f", x)
+
     # --- Column 0: Row Label ---
     p_label <- ggplot() + theme_void() + coord_cartesian(xlim = c(0, 1), ylim = c(0, 1), clip = "off")
     if (is_ms) {
-      # Note the single quotes outside and double quotes inside
       row_label_str <- sprintf('"%.1f" * A[0]', a_ratio)
       p_label <- p_label + annotate("text", x=1, y=0.5, label=row_label_str, parse=TRUE, family=base_font, size=4, hjust=1)
     } else {
       n_val <- if("node_count" %in% names(current_row)) current_row$node_count else NA
-      # Standard formatting works here because parse is FALSE
       row_label_str <- sprintf("A = %.1f\nn = %s", a_ratio, ifelse(is.na(n_val), "?", n_val))
       p_label <- p_label + annotate("text", x=1, y=0.5, label=row_label_str, family=base_font, size=4, hjust=1, fontface="bold")
     }
@@ -83,6 +89,8 @@ plot_erasure_grid <- function(dt_meta, dir_raw, dir_densities, dir_nodes,
       geom_ellipse(aes(x0=x0, y0=y0, a=min_ax, b=max_ax, angle=angle), fill="#A9A9A9", alpha=0.25, color="#5E5E5E", linewidth=0.3) +
       geom_ellipse(aes(x0=x0, y0=y0, a=min_ax, b=min_ax, angle=angle), fill="#FFFFFF", alpha=1.0, color="#5E5E5E", linewidth=0.3) +
       coord_fixed(xlim=c(-plot_lim_x, plot_lim_x), ylim=c(-plot_lim_x, plot_lim_x), expand=FALSE) +
+      scale_x_continuous(breaks = custom_breaks, labels = label_format) +
+      scale_y_continuous(breaks = custom_breaks, labels = label_format) +
       theme_bw(base_family = base_font) +
       theme(panel.grid.minor=element_blank(), axis.text=element_text(size=8)) +
       labs(x = ax_x_ell, y = ax_y_ell)
@@ -95,6 +103,8 @@ plot_erasure_grid <- function(dt_meta, dir_raw, dir_densities, dir_nodes,
       p_scat <- ggplot(dt_raw, aes(x=x_scaled, y=y_scaled)) +
         geom_point(alpha=0.3, size=0.5, stroke=0, color="black") +
         coord_fixed(xlim=c(-plot_lim_x, plot_lim_x), ylim=c(-plot_lim_x, plot_lim_x), expand=FALSE) +
+        scale_x_continuous(breaks = custom_breaks, labels = label_format) +
+        scale_y_continuous(breaks = custom_breaks, labels = label_format) +
         theme_bw(base_family = base_font) +
         theme(panel.grid.minor=element_blank(), axis.text = element_text(size=8), axis.title.y = element_text(size=9)) +
         labs(x = ax_x_sct, y = ax_y_sct)
@@ -108,15 +118,14 @@ plot_erasure_grid <- function(dt_meta, dir_raw, dir_densities, dir_nodes,
                   dt_hist$coordinate_q[nrow(dt_hist)] + width/2)
       step_y <- c(0, rep(dt_hist$pct, each=2), 0)
 
-      den_max_x <- max(abs(step_x), na.rm=TRUE)
       den_max_y <- max(step_y, na.rm=TRUE)
-      den_lim_x <- if(is.na(den_max_x) || den_max_x == 0) 1.0 else den_max_x * 1.05
       den_lim_y <- if(is.na(den_max_y) || den_max_y == 0) 1.0 else den_max_y * 1.15
 
       p_den <- ggplot(data.frame(x=step_x, y=step_y), aes(x=x, y=y)) +
         geom_polygon(fill="gray85", color=NA) +
         geom_path(color="black", linewidth=0.4) +
-        coord_cartesian(xlim=c(-den_lim_x, den_lim_x), ylim=c(0, den_lim_y), expand=FALSE) +
+        coord_cartesian(xlim=c(-plot_lim_x, plot_lim_x), ylim=c(0, den_lim_y), expand=FALSE) +
+        scale_x_continuous(breaks = custom_breaks, labels = label_format) +
         theme_bw(base_family=base_font) +
         theme(panel.grid.minor=element_blank(), axis.text=element_text(size=8), aspect.ratio=1) +
         labs(x = ax_x_den, y = ax_y_den)
@@ -126,6 +135,10 @@ plot_erasure_grid <- function(dt_meta, dir_raw, dir_densities, dir_nodes,
         dt_n <- fread(file_nodes)
         if (nrow(dt_n) > 0) {
           dt_n[, pct := (density_count / total_count) * 100]
+
+          # Apply the same pi/2 multiplier to the nodes
+          dt_n[, coordinate_q := coordinate_q * max_ax * (pi / 2)]
+
           p_den <- p_den + geom_point(data=dt_n, aes(x=coordinate_q, y=pct), size=0.8, color="black")
         }
       }
