@@ -44,12 +44,14 @@ plot_erasure_action <- function(dt_summary, max_action = 50,
                                   "Median" = "black",
                                   "Maximum" = "gray40")) +
 
-    scale_x_continuous(breaks = seq(0, max_action, by = 10)) +
+    scale_x_continuous(breaks = seq(0, max_action, by = 10), expand = c(0, 0)) +
     coord_cartesian(xlim = c(0, max_action)) +
     theme_minimal(base_family = base_font) +
+
     theme(
       legend.position = "bottom",
-      panel.grid.minor = element_blank()
+      panel.grid.minor = element_blank(),
+      plot.margin = margin(t = 5, r = 15, b = 5, l = 5) # Adds 15pts of padding to the right
     )
 
   # Style Overrides
