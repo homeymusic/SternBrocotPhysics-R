@@ -28,9 +28,8 @@ plot_erasure_nodes <- function(dt_summary, max_action = 50,
 
   # Base Plot
   p <- ggplot() +
-    # High-density, solid black scatter points (Line removed entirely)
     geom_point(data = dt_bg, aes(x = action_A, y = node_count),
-               color = "black", size = 0.5, alpha = 1.0) +
+               color = "black", size = 0.5, alpha = 0.5, stroke = 0) +
 
     scale_x_continuous(breaks = seq(0, max_action, by = 10), limits = c(1.0, max_action)) +
     scale_y_continuous(breaks = seq(0, max(dt_bg$node_count, na.rm = TRUE), by = 10)) +

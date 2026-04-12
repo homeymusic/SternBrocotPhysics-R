@@ -1,5 +1,5 @@
 ---
-title: "Harmonic Oscillator Erasure Density"
+title: "Stern-Brocot Physics"
 output:
   github_document: default
 ---
@@ -37,7 +37,7 @@ if(nrow(dt_summary_sequence_length)>0) dt_summary_sequence_length[, action_A := 
 if(nrow(dt_summary_resonance_margin)>0) dt_summary_resonance_margin[, action_A := normalized_momentum^2]
 
 # --- 2. DATA SELECTION FOR GRID ---
-target_a_ratios <- c(1, 3.14, 4.14, 5.5, 8.0, 9.0, 35.0)
+target_a_ratios <- c(1, 3, 4, 5.5, 8, 9, 50)
 
 dt_selected_custom <- rbindlist(lapply(target_a_ratios, function(target_ratio) {
   target_p <- sqrt(target_ratio)
@@ -59,7 +59,7 @@ if(nrow(dt_summary_erasure_displacement) > 0) {
 }
 ```
 
-```{r plot-1A-grid-parabola, echo=FALSE, fig.width=14, fig.height=dynamic_height_custom, warning=FALSE, message=FALSE}
+```{r plot-1A-grid, echo=FALSE, fig.width=14, fig.height=dynamic_height_custom, warning=FALSE, message=FALSE}
 # --- Plot 1A: Shared Plotting Engine (Readme Style) ---
 p_grid <- plot_erasure_grid(
   dt_meta = dt_selected_custom, 
@@ -73,19 +73,15 @@ p_grid <- plot_erasure_grid(
 print(p_grid)
 ```
 
-```{r plot-3-sequence-length-evolution, echo=FALSE, results='asis', message=FALSE, warning=FALSE, fig.width=12, fig.height=7}
+```{r plot-3-landauer-action-vs-classical-action, echo=FALSE, results='asis', message=FALSE, warning=FALSE, fig.width=12, fig.height=7}
 # --- Plot 3: Sequence Length Summary ---
 if (nrow(dt_summary_sequence_length) > 0) {
-  ggplot(dt_summary_sequence_length[action_A <= 105], aes(x = action_A)) +
-    geom_ribbon(aes(ymin = min_len, ymax = max_len, fill = "Absolute Range"), alpha = 0.3) +
-    geom_ribbon(aes(ymin = lower, ymax = upper, fill = "±1 SD"), alpha = 0.5) +
-    scale_fill_manual(name = "Variance", values = c("Absolute Range" = "grey90", "±1 SD" = "grey70")) +
-    geom_line(aes(y = mean_len, color = "Mean"), linetype = "dashed", linewidth = 1.0) +
-    geom_step(aes(y = median_len, color = "Median"), linewidth = 1.2) +
-    scale_color_manual(name = "Metric", values = c("Mean" = "gray30", "Median" = "black")) +
-    scale_x_continuous(breaks = seq(0, 100, by = 10)) +
-    labs(title = "Thermodynamic Complexity vs Action", x = "Action (A)", y = "Sequence Length (N bits)") +
-    theme_minimal() + theme(legend.position = "bottom")
+  p_action <- plot_erasure_action(
+    dt_summary = dt_summary_sequence_length,
+    max_action = 50,
+    style = "readme"
+  )
+  print(p_action)
 }
 ```
 
