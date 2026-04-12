@@ -41,8 +41,10 @@ plot_erasure_nodes <- function(dt_summary, max_action = 50,
   if (!is_ms) {
     p <- p + labs(
       title = "Node Count vs. Classical Action",
-      x = expression("Classical Action (" * A/A[0] * ")"),
-      y = "Topological Nodes (n)"
+      # Changed from "(" * A/A[0] * ")" to ", " * A/A[0]
+      x = expression("Classical Action, " * A/A[0]),
+      # Changed from "(n)" to ", n"
+      y = "Topological Nodes, n"
     ) +
       theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 16))
   } else {

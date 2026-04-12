@@ -57,6 +57,7 @@ if(nrow(dt_summary_erasure_displacement) > 0) {
   )
   print(p_nodes)
 }
+```
 
 ```{r plot-1A-grid-parabola, echo=FALSE, fig.width=14, fig.height=dynamic_height_custom, warning=FALSE, message=FALSE}
 # --- Plot 1A: Shared Plotting Engine (Readme Style) ---

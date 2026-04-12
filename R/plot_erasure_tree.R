@@ -136,9 +136,11 @@ plot_erasure_tree <- function(max_N = 4,
     scale_y_continuous(
       breaks = 0:max_N,
       limits = c(-0.3, max_N + 0.3),
-      name = expression("Landauer Action (" * A[L] * ") [" * k[B] * T ~ "ln 2" ~ tau * "]")
+      # Changed from "(" * A[L] * ")" to ", " * A[L]
+      name = expression("Landauer Action, " * A[L] ~ "[" * k[B] * T ~ "ln 2" ~ tau * "]")
     ) +
-    scale_x_continuous(breaks = -4:4, name = expression("Position (q/" * q[0] * ")"), expand = expansion(mult = 0.05)) +
+    # Changed from "(q/" * q[0] * ")" to ", " * q/q[0]
+    scale_x_continuous(breaks = -4:4, name = expression("Position, " * q/q[0]), expand = expansion(mult = 0.05)) +
     theme_minimal(base_family = base_font) +
     theme(panel.grid.minor = element_blank())
 
