@@ -45,34 +45,18 @@ dt_selected_custom <- rbindlist(lapply(target_a_ratios, function(target_ratio) {
 }))
 
 dynamic_height_custom <- max(5, nrow(dt_selected_custom) * 4.0 + 1)
-
-# Logic for overview scatter plot
-valid_summaries <- dt_summary_erasure_displacement[!is.na(node_count) & node_count >= 0]
-idx_closest_line <- valid_summaries[, .I[which.min(abs(action_A - node_count))], by = node_count]$V1
-dt_selected_line <- valid_summaries[idx_closest_line]
-setorder(dt_selected_line, node_count)
 ```
 
-```{r plot-2A-overview-scatter-erasure-displacement, echo=FALSE, results='asis', message=FALSE, warning=FALSE, fig.width=12, fig.height=8}
+```{r plot-2A-overview-scatter-erasure-displacement, echo=FALSE, fig.width=12, fig.height=8, message=FALSE, warning=FALSE}
 # --- Plot 2A: Overview Scatter Plot ---
 if(nrow(dt_summary_erasure_displacement) > 0) {
-  dt_bg <- dt_summary_erasure_displacement[action_A <= 105]
-  dt_bg[, snr_relative := frank(snr_metric, ties.method = "average") / .N, by = node_count]
-  
-  ggplot() +
-    geom_abline(slope = 1, intercept = 0, color = "black", linetype = "dashed", alpha = 0.5) +
-    geom_point(data = dt_bg[order(snr_relative)], 
-               aes(x = action_A, y = node_count, color = snr_relative), size = 1.5, alpha = 1.0) +
-    scale_color_gradient(low = "black", high = "grey85", name = "Local SNR\n(Percentile)") +  
-    geom_point(data = dt_selected_line, aes(x = action_A, y = node_count), shape = 21, color = "black", size = 4.5, fill = NA, stroke = 1.2) +
-    geom_text_repel(data = dt_selected_line, aes(x = action_A, y = node_count, label = sprintf("n=%d", node_count)),
-                    size = 3, color = "black", fontface = "bold", family = "mono", max.overlaps = Inf) +
-    scale_x_continuous(breaks = seq(0, 100, by = 10)) +
-    scale_y_continuous(breaks = seq(0, 100, by = 10)) +
-    labs(title = "Node Count vs Action: Erasure Displacement", x = "Action (A)", y = "Nodes (n)") +
-    theme_minimal() + theme(panel.grid.minor = element_blank())
+  p_nodes <- plot_erasure_nodes(
+    dt_summary = dt_summary_erasure_displacement,
+    max_action = 50,
+    style = "readme"
+  )
+  print(p_nodes)
 }
-```
 
 ```{r plot-1A-grid-parabola, echo=FALSE, fig.width=14, fig.height=dynamic_height_custom, warning=FALSE, message=FALSE}
 # --- Plot 1A: Shared Plotting Engine (Readme Style) ---
@@ -107,7 +91,7 @@ if (nrow(dt_summary_sequence_length) > 0) {
 ```{r plot_tree, echo=FALSE, fig.width=14, fig.height=8, dpi=300}
 # --- Plot 4: Stern-Brocot Tree Plot ---
 p_tree <- plot_erasure_tree(
-  max_k = 4, 
+  max_N = 4, 
   q_bin = "110", 
   q_num = 3,
   q_den = 2,
