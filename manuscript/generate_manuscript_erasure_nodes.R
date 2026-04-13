@@ -1,6 +1,6 @@
 library(data.table)
-library(SternBrocotPhysics) # Assuming plot_erasure_nodes is exported here, or source it directly
-library(svglite)
+library(SternBrocotPhysics)
+library(ggplot2)
 
 # --- 1. Configuration ---
 latex_font <- "CMU Serif"
@@ -11,6 +11,10 @@ if (!dir.exists(dir_manuscript)) dir.create(dir_manuscript)
 dir_base_data_4TB <- "/Volumes/SanDisk4TB/SternBrocot-data"
 dir_04_summary    <- file.path(dir_base_data_4TB, "04_harmonic_oscillator_summary")
 file_summary      <- file.path(dir_04_summary, "harmonic_oscillator_erasure_displacement_summary.csv.gz")
+
+# Output filenames
+file_output_pdf  <- file.path(dir_manuscript, "erasure_nodes.pdf")
+file_output_png  <- file.path(dir_manuscript, "erasure_nodes.png")
 
 # --- 2. Data Load ---
 if (!file.exists(file_summary)) stop("Summary file not found!")
@@ -26,16 +30,38 @@ p_nodes <- plot_erasure_nodes(
   mono_font = mono_font
 )
 
-# --- 4A. Render as PDF ---
-file_output_nodes_pdf <- file.path(dir_manuscript, "erasure_nodes.pdf")
-cairo_pdf(file = file_output_nodes_pdf, width = 8.5, height = 6.0, family = latex_font)
-print(p_nodes)
-dev.off()
-cat("Manuscript nodes figure (PDF) generated successfully:", file_output_nodes_pdf, "\n")
+# Add padding to prevent label clipping during rasterization
+p_nodes <- p_nodes + theme(plot.margin = margin(10, 10, 10, 10))
 
-# --- 4B. Render as SVG for OmniGraffle ---
-file_output_nodes_svg <- file.path(dir_manuscript, "erasure_nodes.svg")
-svglite::svglite(file = file_output_nodes_svg, width = 8.5, height = 6.0)
-print(p_nodes)
-dev.off()
-cat("Manuscript nodes figure (SVG) generated successfully:", file_output_nodes_svg, "\n")
+# Standard dimensions
+fig_w <- 8.5
+fig_h <- 6.0
+
+# --- 4. Export ---
+
+# 4A. Render as PDF (Vector Master)
+# Best for archival and highest possible quality printing
+ggsave(
+  filename = file_output_pdf,
+  plot = p_nodes,
+  device = cairo_pdf,
+  width = fig_w,
+  height = fig_h
+)
+
+# 4B. Render as PNG (High-Res Bitmap for Overleaf/Manuscript)
+# This eliminates scrolling lag while maintaining print-ready sharpness
+ggsave(
+  filename = file_output_png,
+  plot = p_nodes,
+  device = "png",
+  type = "cairo",    # Ensures fonts and anti-aliasing are handled correctly
+  width = fig_w,
+  height = fig_h,
+  dpi = 600,         # 600 DPI is standard for publication-quality line/node art
+  bg = "white"
+)
+
+cat("Figures generated successfully:\n")
+cat("PDF Master:", file_output_pdf, "\n")
+cat("PNG Manuscript:", file_output_png, "\n")
