@@ -51,34 +51,15 @@ plot_erasure_tree <- function(max_N = 4,
     dplyr::bind_rows(all_nodes) %>%
       dplyr::mutate(x = num / den, y = depth,
                     frac_label = paste0(num, "/", den),
-                    bin_label = ifelse(bin == "", "Thermal State", bin))
-  }
-
-  # Dynamically calculate the theoretical SB path for the actual target value
-  get_sb_path <- function(target_val, max_d) {
-    l_n <- -1; l_d <- 0
-    r_n <- 1;  r_d <- 0
-    m_n <- 0;  m_d <- 1
-    bin_str <- ""
-    for (d in 1:max_d) {
-      if (target_val > m_n / m_d) {
-        l_n <- m_n; l_d <- m_d
-        bin_str <- paste0(bin_str, "1")
-      } else {
-        r_n <- m_n; r_d <- m_d
-        bin_str <- paste0(bin_str, "0")
-      }
-      m_n <- l_n + r_n
-      m_d <- l_d + r_d
-    }
-    return(bin_str)
+                    # Wrap the binary string in literal quotes (makes "" for root, "10" for children)
+                    bin_label = paste0('"', bin, '"'))
   }
 
   # --- Data Preparation ---
+  # Generate the full tree up to max_N
   tree_data <- generate_tree(max_N)
-  path_bins <- sapply(0:nchar(q_bin), function(i) substr(q_bin, 1, i))
 
-  # --- Dynamic Tolerance Calculation ---
+  # --- Dynamic Tolerance Calculation (Blob Boundaries) ---
   target_node <- tree_data %>% dplyr::filter(bin == q_bin)
   if (nrow(target_node) == 1 && !is.na(target_node$parent_x)) {
     # Make it just less than the distance to the parent so the parent is strictly excluded
@@ -87,59 +68,29 @@ plot_erasure_tree <- function(max_N = 4,
     margin_width <- 0 # Fallback
   }
 
-  # --- Prune Tree Data (Points & Labels) ---
-  target_depth <- nchar(q_bin)
-  full_target_path <- get_sb_path(q_target, max_N)
-  true_path_bins <- sapply(0:max_N, function(i) substr(full_target_path, 1, i))
-
-  tree_data_pruned <- tree_data %>%
-    # Rule 1: Keep everything up to the target depth. For deeper nodes, keep only if inside margin.
-    dplyr::filter(depth <= target_depth | (x >= q_target - margin_width & x <= q_target + margin_width)) %>%
-    # Rule 2: For deeper nodes, clear labels if they are NOT on the theoretical sequence path
-    dplyr::mutate(
-      frac_label = ifelse(depth > target_depth & !(bin %in% true_path_bins), "", frac_label),
-      bin_label  = ifelse(depth > target_depth & !(bin %in% true_path_bins), "", bin_label)
-    )
-
-  path_data <- tree_data_pruned %>%
-    dplyr::filter(bin %in% path_bins) %>%
-    dplyr::rowwise() %>%
-    dplyr::mutate(
-      mid_x = (x + parent_x) / 2,
-      mid_y = (y + parent_y) / 2
-    ) %>%
-    dplyr::ungroup()
-
   # --- Build Plot ---
-  # Feed the pruned dataset to ggplot
-  p <- ggplot(tree_data_pruned, aes(x = x, y = y)) +
-    # Resolution Band and Target Line (Placed at the bottom layer)
-    geom_rect(aes(xmin = q_target - margin_width, xmax = q_target + margin_width, ymin = -Inf, ymax = Inf),
-              fill = "gray15", inherit.aes = FALSE) +
-    geom_vline(xintercept = q_target, linetype = "dashed", color = "white", linewidth = 0.6) +
+  p <- ggplot(tree_data, aes(x = x, y = y)) +
 
-    # Tree Elements (Using pruned data)
-    geom_segment(aes(xend = parent_x, yend = parent_y), color = "gray85", linewidth = 0.8, na.rm = TRUE) +
-    geom_point(color = "gray75", size = 2) +
-    geom_segment(data = path_data, aes(xend = parent_x, yend = parent_y), color = "black", linewidth = 1.2, arrow = arrow(length = unit(0.15, "inches"), type = "closed"), na.rm = TRUE) +
-    geom_point(data = path_data, color = "black", size = 3.5) +
+    # Blob Boundaries (Dashed Lines)
+    geom_vline(xintercept = q_target - margin_width, linetype = "dashed", color = "gray50", linewidth = 0.6) +
+    geom_vline(xintercept = q_target + margin_width, linetype = "dashed", color = "gray50", linewidth = 0.6) +
 
-    # Fraction Labels (Using geom_text_repel for no backgrounds)
-    geom_text_repel(data = dplyr::filter(tree_data_pruned, frac_label != ""), aes(label = frac_label), direction = "x", nudge_y = 0.15, segment.color = "gray85", segment.size = 0.2, size = 3.5, family = base_font, color = "black", vjust = 0, box.padding = 0.1, max.overlaps = Inf) +
+    # Full Tree Elements (Uniform background branches)
+    geom_segment(aes(xend = parent_x, yend = parent_y), color = "gray75", linewidth = 0.8, na.rm = TRUE) +
+    geom_point(color = "black", size = 2.5) +
 
-    # Root Node Label ("Thermal State" -> Serif Font)
-    geom_text_repel(data = dplyr::filter(tree_data_pruned, bin == ""), aes(label = bin_label), direction = "x", nudge_y = -0.15, segment.color = "gray85", segment.size = 0.2, size = 3.5, family = base_font, color = "black", vjust = 1, box.padding = 0.1, max.overlaps = Inf) +
+    # Fraction Labels (Placed above the nodes)
+    geom_text_repel(data = dplyr::filter(tree_data, frac_label != ""), aes(label = frac_label), direction = "x", nudge_y = 0.15, segment.color = "gray85", segment.size = 0.2, size = 3.5, family = base_font, color = "black", vjust = 0, box.padding = 0.1, max.overlaps = Inf) +
 
-    # Binary Strings (Using geom_text_repel for no backgrounds)
-    geom_text_repel(data = dplyr::filter(tree_data_pruned, bin != "" & bin_label != ""), aes(label = bin_label), direction = "x", nudge_y = -0.15, segment.color = "gray85", segment.size = 0.2, size = 3.5, family = mono_font, color = "black", vjust = 1, box.padding = 0.1, max.overlaps = Inf) +
+    # Quoted Binary String Labels (Placed below ALL nodes, including root)
+    geom_text_repel(data = tree_data, aes(label = bin_label), direction = "x", nudge_y = -0.15, segment.color = "gray85", segment.size = 0.2, size = 3.5, family = mono_font, color = "black", vjust = 1, box.padding = 0.1, max.overlaps = Inf) +
 
+    # Axes
     scale_y_continuous(
       breaks = 0:max_N,
       limits = c(-0.3, max_N + 0.3),
-      # Changed from "(" * A[L] * ")" to ", " * A[L]
       name = expression("Landauer Action, " * A[L] ~ "[" * k[B] * T ~ "ln 2" ~ tau * "]")
     ) +
-    # Changed from "(q/" * q[0] * ")" to ", " * q/q[0]
     scale_x_continuous(breaks = -4:4, name = expression("Position, " * q/q[0]), expand = expansion(mult = 0.05)) +
     theme_minimal(base_family = base_font) +
     theme(panel.grid.minor = element_blank())
@@ -147,7 +98,7 @@ plot_erasure_tree <- function(max_N = 4,
   # --- Title Logic ---
   if (!is_ms) {
     p <- p + labs(
-      title = "Erasure Tree",
+      title = "Full Erasure Tree",
       subtitle = paste0("Highlighting the thermodynamic erasure sequence for q_mu = ", q_mu_label)
     ) +
       theme(

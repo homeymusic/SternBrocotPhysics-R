@@ -9,11 +9,11 @@ if (!dir.exists(dir_manuscript)) dir.create(dir_manuscript)
 
 # --- 4. Generate Tree Plot Object ---
 p_tree <- plot_erasure_tree(
-  max_N = 5,
-  q_bin = "10",
-  q_num = 1,
-  q_den = 2,
-  q_target = (sqrt(5)-1)/2,
+  max_N = 4,
+  q_bin = "",
+  q_num = 0,
+  q_den = 1,
+  q_target = 0,
   style = "manuscript",
   base_font = latex_font,
   mono_font = mono_font # Passed to the function
