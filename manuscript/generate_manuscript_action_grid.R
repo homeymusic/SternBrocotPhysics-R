@@ -20,8 +20,9 @@ file_disp_dist <- file.path(dir_04_summary, "harmonic_oscillator_erasure_displac
 file_output_pdf <- file.path(dir_manuscript, "action_grid.pdf")
 file_output_png <- file.path(dir_manuscript, "action_grid.png")
 
-fig_w <- 8.5
-fig_h <- 10.0
+# CHANGED: Adjusted to a 1:2 width-to-height ratio for a taller aspect
+fig_w <- 6.0
+fig_h <- 12.0
 
 # --- 2. Data Load & Prep ---
 if (!file.exists(file_nodes)) stop("Nodes summary missing!")
@@ -56,8 +57,6 @@ p_disp <- plot_erasure_displacement(
 )
 
 # --- 4. Combine with Patchwork ---
-# With both plots having identical min/max Boundary aesthetic mappings,
-# patchwork will collect and unify the guides perfectly on its own.
 p_combined <- p_nodes / p_action / p_disp +
   plot_layout(guides = "collect") &
   theme(
