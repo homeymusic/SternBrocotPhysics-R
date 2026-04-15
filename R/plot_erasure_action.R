@@ -33,10 +33,10 @@ plot_erasure_action <- function(dt_summary, max_action = 50,
                       values = c("Total Range" = "grey75", "±1 SD" = "grey55")) +
 
     # Limits and Tendencies (Now mapping BOTH max and min to "Boundary")
-    geom_line(aes(y = max_len, color = "Boundary", linetype = "Boundary"), linewidth = 0.6) +
-    geom_line(aes(y = min_len, color = "Boundary", linetype = "Boundary"), linewidth = 0.6) +
-    geom_line(aes(y = mean_len, color = "Mean", linetype = "Mean"), linewidth = 0.8) +
-    geom_step(aes(y = median_len, color = "Median", linetype = "Median"), linewidth = 0.8) +
+    geom_line(aes(y = max_len, color = "Boundary", linetype = "Boundary"), linewidth = 0.4) +
+    geom_line(aes(y = min_len, color = "Boundary", linetype = "Boundary"), linewidth = 0.4) +
+    geom_line(aes(y = mean_len, color = "Mean", linetype = "Mean"), linewidth = 0.6) +
+    geom_step(aes(y = median_len, color = "Median", linetype = "Median"), linewidth = 0.6) +
 
     # Unified scale mappings with explicit breaks
     scale_color_manual(name = NULL,

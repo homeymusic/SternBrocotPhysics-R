@@ -22,6 +22,13 @@ plot_erasure_displacement <- function(dt_summary, max_action = 50,
 
   dt_plot <- dt_summary[action_A <= max_action * 1.05]
 
+  # --- NEW: Dynamic Y-Axis Framing ---
+  # Find the absolute maximum displacement to set explicit bounds
+  max_y_val <- max(abs(c(dt_plot$min_disp, dt_plot$max_disp)), na.rm = TRUE)
+  # Round up to the nearest 0.1 for clean, physical boundaries (e.g., 0.636 -> 0.7)
+  y_bound <- ceiling(max_y_val * 10) / 10
+  custom_y_breaks <- c(-y_bound, 0, y_bound)
+
   p <- ggplot(dt_plot, aes(x = action_A)) +
     # Variance Ribbons
     geom_ribbon(aes(ymin = min_disp, ymax = max_disp, fill = "Total Range"), alpha = 0.4) +
@@ -31,10 +38,10 @@ plot_erasure_displacement <- function(dt_summary, max_action = 50,
                       values = c("Total Range" = "grey75", "±1 SD" = "grey55")) +
 
     # Limits and Tendencies
-    geom_line(aes(y = max_disp, color = "Boundary", linetype = "Boundary"), linewidth = 0.6) +
-    geom_line(aes(y = min_disp, color = "Boundary", linetype = "Boundary"), linewidth = 0.6) +
-    geom_line(aes(y = mean_disp, color = "Mean", linetype = "Mean"), linewidth = 0.8) +
-    geom_step(aes(y = median_disp, color = "Median", linetype = "Median"), linewidth = 0.8) +
+    geom_line(aes(y = max_disp, color = "Boundary", linetype = "Boundary"), linewidth = 0.4) +
+    geom_line(aes(y = min_disp, color = "Boundary", linetype = "Boundary"), linewidth = 0.4) +
+    geom_line(aes(y = mean_disp, color = "Mean", linetype = "Mean"), linewidth = 0.6) +
+    geom_step(aes(y = median_disp, color = "Median", linetype = "Median"), linewidth = 0.6) +
 
     # Unified scale mappings
     scale_color_manual(name = NULL,
@@ -44,8 +51,11 @@ plot_erasure_displacement <- function(dt_summary, max_action = 50,
                           breaks = c("Boundary", "Mean", "Median"),
                           values = c("Boundary" = "solid", "Mean" = "dashed", "Median" = "solid")) +
 
+    # --- NEW: Explicit Axes Scales and Limits ---
+    scale_y_continuous(breaks = custom_y_breaks, labels = function(x) sprintf("%.1f", x)) +
     scale_x_continuous(breaks = seq(0, max_action, by = 10), expand = c(0, 0)) +
-    coord_cartesian(xlim = c(0, max_action)) +
+    coord_cartesian(xlim = c(0, max_action), ylim = c(-y_bound * 1.05, y_bound * 1.05)) +
+
     theme_minimal(base_family = base_font) +
     theme(
       legend.position = "bottom",
