@@ -26,7 +26,7 @@ dt_summary <- fread(file_summary)
 dt_summary[, action_A := normalized_momentum^2]
 
 # Targets defined by the user
-target_a_ratios <- c(1, 3, 4, 5.5, 8, 9, 50)
+target_a_ratios <- c(1, 3, 4, 5.5, 50)
 dt_selected <- rbindlist(lapply(target_a_ratios, function(target_ratio) {
   target_p <- sqrt(target_ratio)
   dt_summary[which.min(abs(normalized_momentum - target_p))]
