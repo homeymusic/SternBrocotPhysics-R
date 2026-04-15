@@ -25,8 +25,11 @@ plot_erasure_grid <- function(dt_meta, dir_raw, dir_densities, dir_nodes,
   is_ms <- style == "manuscript"
   ax_x_ell <- if(is_ms) expression("Position, " * italic(q)/italic(q)[0]) else "Position, q/q_0"
   ax_y_ell <- if(is_ms) expression("Momentum, " * italic(p)/italic(p)[0]) else "Momentum, p/p_0"
-  ax_x_sct <- if(is_ms) expression("Blob Center, " * italic(q)[b]/italic(q)[0]) else "Blob Center, q_b/q_0"
-  ax_y_sct <- if(is_ms) expression("Selected Microstate, " * italic(q)[mu]^"*" / italic(q)[0]) else "Selected Microstate, q*/q_0"
+
+  # ROTATED: X is Selected Microstate, Y is Blob Center
+  ax_x_sct <- if(is_ms) expression("Selected Microstate, " * italic(q)[mu]^"*" / italic(q)[0]) else "Selected Microstate, q*/q_0"
+  ax_y_sct <- if(is_ms) expression("Blob Center, " * italic(q)[b]/italic(q)[0]) else "Blob Center, q_b/q_0"
+
   ax_x_den <- if(is_ms) expression("Position, " * italic(q)/italic(q)[0]) else "Position, q/q_0"
   ax_y_den <- "Density (%)"
 
@@ -95,11 +98,17 @@ plot_erasure_grid <- function(dt_meta, dir_raw, dir_densities, dir_nodes,
       theme(panel.grid.minor=element_blank(), axis.text=element_text(size=8)) +
       labs(x = ax_x_ell, y = ax_y_ell)
 
-    # --- Column 2: Scatter ---
+    # --- Column 2: Scatter (Blob Center vs. Selected Microstate) ---
     p_scat <- ggplot() + theme_void() + theme(aspect.ratio=1)
     if (file.exists(file_raw)) {
       dt_raw <- fread(file_raw, colClasses=c(encoded_sequence="character"))[found == 1]
-      dt_raw[, `:=`(x_scaled = blob_center * max_ax, y_scaled = selected_microstate * max_ax)]
+
+      # ROTATED LOGIC: X-axis is the discrete microstate, Y-axis is the continuous lab sweep.
+      dt_raw[, `:=`(
+        x_scaled = selected_microstate * max_ax,
+        y_scaled = blob_center * max_ax
+      )]
+
       p_scat <- ggplot(dt_raw, aes(x=x_scaled, y=y_scaled)) +
         geom_point(alpha=0.3, size=0.5, stroke=0, color="black") +
         coord_fixed(xlim=c(-plot_lim_x, plot_lim_x), ylim=c(-plot_lim_x, plot_lim_x), expand=FALSE) +
@@ -148,7 +157,10 @@ plot_erasure_grid <- function(dt_meta, dir_raw, dir_densities, dir_nodes,
     if (i == 1) {
       p_label <- p_label + labs(title = " ") + theme(plot.title=element_text(size=11, hjust=0.5, face="plain"))
       p_ell   <- p_ell   + labs(title = "Quantum of Action") + theme(plot.title=element_text(size=11, hjust=0.5, face=ifelse(is_ms, "plain", "bold")))
-      p_scat  <- p_scat  + labs(title = "Microstate vs. Blob Center") + theme(plot.title=element_text(size=11, hjust=0.5, face=ifelse(is_ms, "plain", "bold")))
+
+      # TITLE UPDATE: Y vs. X Convention
+      p_scat  <- p_scat  + labs(title = "Blob Center vs. Selected Microstate") + theme(plot.title=element_text(size=11, hjust=0.5, face=ifelse(is_ms, "plain", "bold")))
+
       p_den   <- p_den   + labs(title = "Landauer Erasure Density") + theme(plot.title=element_text(size=11, hjust=0.5, face=ifelse(is_ms, "plain", "bold")))
     }
 
