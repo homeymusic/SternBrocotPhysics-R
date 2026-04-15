@@ -9,9 +9,9 @@ latex_font <- "CMU Serif"
 dir_manuscript <- "./manuscript"
 if (!dir.exists(dir_manuscript)) dir.create(dir_manuscript)
 
-# Output filenames (UPDATED to strict_erasure_grid)
-file_output_pdf  <- file.path(dir_manuscript, "strict_erasure_grid.pdf")
-file_output_png  <- file.path(dir_manuscript, "strict_erasure_grid.png")
+# Output filenames
+file_output_pdf  <- file.path(dir_manuscript, "erasure_grid.pdf")
+file_output_png  <- file.path(dir_manuscript, "erasure_grid.png")
 
 dir_base_data_4TB <- "/Volumes/SanDisk4TB/SternBrocot-data"
 dir_01_raw        <- file.path(dir_base_data_4TB, "01_harmonic_oscillator_erasures")
@@ -35,9 +35,8 @@ dt_selected <- rbindlist(lapply(target_a_ratios, function(target_ratio) {
 # --- 3. Rendering Logic ---
 
 # Function call to generate the patchwork object
-# UPDATED: Calling the new plot_strict_erasure_grid function
 # Note: show_nodes = FALSE to reduce visual noise/rendering time as requested
-p_final <- plot_strict_erasure_grid(
+p_final <- plot_erasure_grid(
   dt_meta = dt_selected,
   dir_raw = dir_01_raw,
   dir_densities = dir_02_densities,

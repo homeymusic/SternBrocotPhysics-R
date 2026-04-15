@@ -1,4 +1,4 @@
-#' Render the Harmonic Oscillator Strict Erasure Grid (Sawtooth Lever Arm)
+#' Render the Harmonic Oscillator Strict Erasure Grid (Blob Center vs. Position)
 #'
 #' @param dt_meta data.table containing normalized_momentum, action_A, and optionally node_count.
 #' @param dir_raw Directory containing raw erasures.
@@ -23,13 +23,16 @@ plot_strict_erasure_grid <- function(dt_meta, dir_raw, dir_densities, dir_nodes,
 
   # Setup aesthetics based on style
   is_ms <- style == "manuscript"
+
+  # Column 1
   ax_x_ell <- if(is_ms) expression("Position, " * italic(q)/italic(q)[0]) else "Position, q/q_0"
   ax_y_ell <- if(is_ms) expression("Momentum, " * italic(p)/italic(p)[0]) else "Momentum, p/p_0"
 
-  # NEW: X-axis is the Lab Probe, Y-axis is the Amplified Microscopic Friction
-  ax_x_sct <- if(is_ms) expression("Lab Probe, " * italic(q)[b]/italic(q)[0]) else "Lab Probe, q_b/q_0"
-  ax_y_sct <- if(is_ms) expression("Amplified Friction, " * italic(q) %~% italic(A) * epsilon[q]^"*") else "Amplified Friction, q ~ A eps*"
+  # Column 2 (Rotated: X is Position, Y is Blob Center)
+  ax_x_sct <- if(is_ms) expression("Position, " * italic(q)/italic(q)[0]) else "Position, q/q_0"
+  ax_y_sct <- if(is_ms) expression("Blob Center, " * italic(q)[b]/italic(q)[0]) else "Blob Center, q_b/q_0"
 
+  # Column 3
   ax_x_den <- if(is_ms) expression("Position, " * italic(q)/italic(q)[0]) else "Position, q/q_0"
   ax_y_den <- "Density (%)"
 
@@ -98,18 +101,16 @@ plot_strict_erasure_grid <- function(dt_meta, dir_raw, dir_densities, dir_nodes,
       theme(panel.grid.minor=element_blank(), axis.text=element_text(size=8)) +
       labs(x = ax_x_ell, y = ax_y_ell)
 
-    # --- Column 2: Scatter (The Sawtooth / Lever Arm) ---
+    # --- Column 2: Scatter (Blob Center vs. Position) ---
     p_scat <- ggplot() + theme_void() + theme(aspect.ratio=1)
     if (file.exists(file_raw)) {
       dt_raw <- fread(file_raw, colClasses=c(encoded_sequence="character"))[found == 1]
 
-      # NEW LOGIC: Plot the continuous sweep on the X-axis.
-      # For the Y-axis, take the microscopic friction (erasure_displacement) and
-      # apply the exact same Action amplification (P^2 * P * pi/2) that the density script uses.
-      # This guarantees the amplitude of the sawtooth perfectly maps to the width of the density skyline.
+      # ROTATED LOGIC: X-axis is the amplified physical position (q).
+      # Y-axis is the continuous lab sweep (q_b, the Blob Center).
       dt_raw[, `:=`(
-        x_scaled = blob_center * max_ax,
-        y_scaled = erasure_displacement * (max_ax * max_ax) * max_ax * (pi / 2)
+        x_scaled = erasure_displacement * (max_ax * max_ax) * max_ax * (pi / 2),
+        y_scaled = blob_center * max_ax
       )]
 
       p_scat <- ggplot(dt_raw, aes(x=x_scaled, y=y_scaled)) +
@@ -161,8 +162,8 @@ plot_strict_erasure_grid <- function(dt_meta, dir_raw, dir_densities, dir_nodes,
       p_label <- p_label + labs(title = " ") + theme(plot.title=element_text(size=11, hjust=0.5, face="plain"))
       p_ell   <- p_ell   + labs(title = "Quantum of Action") + theme(plot.title=element_text(size=11, hjust=0.5, face=ifelse(is_ms, "plain", "bold")))
 
-      # NEW: Updated Title for Column 2
-      p_scat  <- p_scat  + labs(title = "Measurement Friction vs. Target") + theme(plot.title=element_text(size=11, hjust=0.5, face=ifelse(is_ms, "plain", "bold")))
+      # TITLE UPDATE: Y vs. X Convention
+      p_scat  <- p_scat  + labs(title = "Blob Center vs. Position") + theme(plot.title=element_text(size=11, hjust=0.5, face=ifelse(is_ms, "plain", "bold")))
 
       p_den   <- p_den   + labs(title = "Landauer Erasure Density") + theme(plot.title=element_text(size=11, hjust=0.5, face=ifelse(is_ms, "plain", "bold")))
     }

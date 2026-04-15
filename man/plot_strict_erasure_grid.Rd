@@ -2,7 +2,7 @@
 % Please edit documentation in R/plot_strict_erasure_grid.R
 \name{plot_strict_erasure_grid}
 \alias{plot_strict_erasure_grid}
-\title{Render the Harmonic Oscillator Strict Erasure Grid (Sawtooth Lever Arm)}
+\title{Render the Harmonic Oscillator Strict Erasure Grid (Blob Center vs. Position)}
 \usage{
 plot_strict_erasure_grid(
   dt_meta,
@@ -33,5 +33,5 @@ plot_strict_erasure_grid(
 \item{show_nodes}{Logical, whether to plot the discrete node dots on the density map. Defaults to TRUE.}
 }
 \description{
-Render the Harmonic Oscillator Strict Erasure Grid (Sawtooth Lever Arm)
+Render the Harmonic Oscillator Strict Erasure Grid (Blob Center vs. Position)
 }
