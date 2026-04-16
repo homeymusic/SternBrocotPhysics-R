@@ -45,12 +45,11 @@ p_final <- plot_encoding_grid(
   show_nodes = FALSE
 )
 
-# Add a tiny bit of margin to ensure axis labels aren't clipped during rasterization
-p_final <- p_final + theme(plot.margin = margin(10, 10, 10, 10))
+# FIXED: Increased the LEFT margin from 10 to 40 so "50.0" doesn't clip
+# margin order is: margin(Top, Right, Bottom, Left)
+p_final <- p_final + theme(plot.margin = margin(10, 10, 10, 40))
 
 # Calculate dimensions based on number of rows
-# 8.5 width perfectly fits the 4-column layout (1 label col + 3 data cols)
-# Height automatically adjusts to the 5 rows so the squares don't distort
 fig_width  <- 8.5
 fig_height <- nrow(dt_selected) * 2.3 + 1.2
 

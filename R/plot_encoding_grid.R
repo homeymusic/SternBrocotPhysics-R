@@ -77,14 +77,16 @@ plot_encoding_grid <- function(dt_meta, dir_raw, dir_densities, dir_nodes,
     label_format <- function(x) sprintf("%.1f", x)
 
     # --- Column 0: Row Label ---
-    p_label <- ggplot() + theme_void() + coord_cartesian(xlim = c(0, 1), ylim = c(0, 1), clip = "off")
+    # Expand xlim deep into negative space so long text isn't internally clipped
+    p_label <- ggplot() + theme_void() + coord_cartesian(xlim = c(-3, 1), ylim = c(0, 1), clip = "off")
     if (is_ms) {
       row_label_str <- sprintf('"%.1f" * A[0]', a_ratio)
-      p_label <- p_label + annotate("text", x=1, y=0.5, label=row_label_str, parse=TRUE, family=base_font, size=4, hjust=1)
+      # Anchor at x=0.9 to provide a tiny visual gap from the ellipse plot
+      p_label <- p_label + annotate("text", x=0.9, y=0.5, label=row_label_str, parse=TRUE, family=base_font, size=4, hjust=1)
     } else {
       n_val <- if("node_count" %in% names(current_row)) current_row$node_count else NA
       row_label_str <- sprintf("A = %.1f\nn = %s", a_ratio, ifelse(is.na(n_val), "?", n_val))
-      p_label <- p_label + annotate("text", x=1, y=0.5, label=row_label_str, family=base_font, size=4, hjust=1, fontface="bold")
+      p_label <- p_label + annotate("text", x=0.9, y=0.5, label=row_label_str, family=base_font, size=4, hjust=1, fontface="bold")
     }
 
     # --- Column 1: Ellipses ---
@@ -181,7 +183,8 @@ plot_encoding_grid <- function(dt_meta, dir_raw, dir_densities, dir_nodes,
   }
 
   # Adjusted layout: 4 columns total (label, plot1, plot2, plot3)
-  final_plot <- wrap_plots(plot_list, ncol = 4, widths = c(0.20, 1, 1, 1))
+  # Increased the label column width to 0.35 so "50.0" physically fits
+  final_plot <- wrap_plots(plot_list, ncol = 4, widths = c(0.35, 1, 1, 1))
 
   # Add overarching title for README style
   if (!is_ms && !is.null(overarching_title)) {
