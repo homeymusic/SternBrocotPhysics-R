@@ -1,4 +1,4 @@
-#' Render the Complete 5-Column Causal Chain Erasure Grid
+#' Render the Complete Causal Chain Erasure Grid
 #'
 #' @param dt_meta data.table containing normalized_momentum and action_A.
 #' @param dir_raw Directory containing raw erasures.
@@ -10,9 +10,9 @@
 #' @import patchwork
 #' @import data.table
 #' @export
-plot_5col_erasure_grid <- function(dt_meta, dir_raw, dir_densities,
-                                   style = c("manuscript", "readme"),
-                                   base_font = "") {
+plot_causal_chain <- function(dt_meta, dir_raw, dir_densities,
+                              style = c("manuscript", "readme"),
+                              base_font = "") {
 
   style <- match.arg(style)
   is_ms <- style == "manuscript"
@@ -24,6 +24,7 @@ plot_5col_erasure_grid <- function(dt_meta, dir_raw, dir_densities,
     ax_x_ell <- expression("Position, " * italic(q)/italic(q)[0])
     ax_y_ell <- expression("Momentum, " * italic(p)/italic(p)[0])
 
+    ax_y_raw_eps <- expression("Raw Disp., " * italic("\u03F5"))
     ax_y_pos <- expression("Blob Center, " * italic(q)[b]/italic(q)[0])
     ax_x_mic <- expression("Microstate, " * italic(q)[mu]^"*" / italic(q)[0])
     ax_x_eps <- expression("Position, " * italic(q)/italic(q)[0])
@@ -31,6 +32,7 @@ plot_5col_erasure_grid <- function(dt_meta, dir_raw, dir_densities,
     ax_y_den <- "Density (%)"
   } else {
     ax_x_ell <- "Position, q/q_0"; ax_y_ell <- "Momentum, p/p_0"
+    ax_y_raw_eps <- "Raw Disp., \u03F5"
     ax_y_pos <- "Blob Center, q_b/q_0"
     ax_x_mic <- "Microstate, q*/q_0"; ax_x_eps <- "Position, q/q_0"
     ax_y_den <- "Density (%)"
@@ -52,10 +54,9 @@ plot_5col_erasure_grid <- function(dt_meta, dir_raw, dir_densities,
     custom_breaks <- c(-max_ax, 0, max_ax)
     label_format <- function(x) sprintf("%.1f", x)
 
-    # --- Col 0: Row Label (FIXED ANCHORING) ---
+    # --- Col 0: Row Label ---
     p_label <- ggplot() + theme_void() + coord_cartesian(xlim = c(0, 1), ylim = c(0, 1))
     row_label_str <- if(is_ms) sprintf('"%.1f" * A[0]', a_ratio) else sprintf("A = %.1f", a_ratio)
-    # Changed x to 0.95 and removed clip="off" to keep it safely inside its dedicated column
     p_label <- p_label + annotate("text", x=0.95, y=0.5, label=row_label_str, parse=is_ms, family=base_font, size=4, hjust=1, fontface=ifelse(is_ms, "plain", "bold"))
 
     # --- Col 1: Ellipses ---
@@ -71,10 +72,13 @@ plot_5col_erasure_grid <- function(dt_meta, dir_raw, dir_densities,
       theme_bw(base_family=base_font) + theme(panel.grid.minor=element_blank(), axis.text=element_text(size=8)) +
       labs(x = ax_x_ell, y = ax_y_ell)
 
-    p_scat1 <- ggplot() + theme_void() + theme(aspect.ratio=1)
-    p_den1  <- ggplot() + theme_void() + theme(aspect.ratio=1)
-    p_scat2 <- ggplot() + theme_void() + theme(aspect.ratio=1)
-    p_den2  <- ggplot() + theme_void() + theme(aspect.ratio=1)
+    p_raw_eps1 <- ggplot() + theme_void() + theme(aspect.ratio=1)
+    p_raw_eps2 <- ggplot() + theme_void() + theme(aspect.ratio=1) # NEW PLOT
+    p_scat1    <- ggplot() + theme_void() + theme(aspect.ratio=1)
+    p_den1     <- ggplot() + theme_void() + theme(aspect.ratio=1)
+    p_cross    <- ggplot() + theme_void() + theme(aspect.ratio=1)
+    p_scat2    <- ggplot() + theme_void() + theme(aspect.ratio=1)
+    p_den2     <- ggplot() + theme_void() + theme(aspect.ratio=1)
 
     if (file.exists(file_raw)) {
       dt_raw <- fread(file_raw, colClasses=c(encoded_sequence="character"))[found == 1]
@@ -84,7 +88,27 @@ plot_5col_erasure_grid <- function(dt_meta, dir_raw, dir_densities,
         x_eps = erasure_displacement * (max_ax^3) * (pi / 2)
       )]
 
-      # --- Col 2: Microstate Scatter ---
+      max_eps_raw <- max(abs(dt_raw$erasure_displacement), na.rm = TRUE)
+
+      # --- Col 2: Unscaled Erasure Displacement vs Selected Microstate ---
+      p_raw_eps1 <- ggplot(dt_raw, aes(x=x_mic, y=erasure_displacement)) +
+        geom_point(alpha=0.3, size=0.5, stroke=0, color="black") +
+        coord_cartesian(xlim=c(-plot_lim_x, plot_lim_x), ylim=c(-max_eps_raw*1.05, max_eps_raw*1.05), expand=FALSE) +
+        scale_x_continuous(breaks=custom_breaks, labels=label_format) +
+        theme_bw(base_family=base_font) +
+        theme(panel.grid.minor=element_blank(), axis.text=element_text(size=8), aspect.ratio=1) +
+        labs(x = ax_x_mic, y = ax_y_raw_eps)
+
+      # --- Col 3: NEW - Unscaled Erasure Displacement vs Blob Center ---
+      p_raw_eps2 <- ggplot(dt_raw, aes(x=y_pos, y=erasure_displacement)) +
+        geom_point(alpha=0.3, size=0.5, stroke=0, color="black") +
+        coord_cartesian(xlim=c(-plot_lim_x, plot_lim_x), ylim=c(-max_eps_raw*1.05, max_eps_raw*1.05), expand=FALSE) +
+        scale_x_continuous(breaks=custom_breaks, labels=label_format) +
+        theme_bw(base_family=base_font) +
+        theme(panel.grid.minor=element_blank(), axis.text=element_text(size=8), aspect.ratio=1) +
+        labs(x = ax_y_pos, y = ax_y_raw_eps)
+
+      # --- Col 4: Microstate Scatter ---
       p_scat1 <- ggplot(dt_raw, aes(x=x_mic, y=y_pos)) +
         geom_point(alpha=0.3, size=0.5, stroke=0, color="black") +
         coord_cartesian(xlim=c(-plot_lim_x, plot_lim_x), ylim=c(-plot_lim_x, plot_lim_x), expand=FALSE) +
@@ -94,7 +118,7 @@ plot_5col_erasure_grid <- function(dt_meta, dir_raw, dir_densities,
         theme(panel.grid.minor=element_blank(), axis.text=element_text(size=8), aspect.ratio=1) +
         labs(x = ax_x_mic, y = ax_y_pos)
 
-      # --- Col 3: Microstate Density ---
+      # --- Col 5: Microstate Density ---
       dt_mic_hist <- dt_raw[, .(count = .N), by = x_mic]
       dt_mic_hist[, pct := (count / sum(count)) * 100]
 
@@ -106,7 +130,17 @@ plot_5col_erasure_grid <- function(dt_meta, dir_raw, dir_densities,
         theme(panel.grid.minor=element_blank(), axis.text=element_text(size=8), aspect.ratio=1) +
         labs(x = ax_x_mic, y = ax_y_den)
 
-      # --- Col 4: Position Scatter ---
+      # --- Col 6: Position vs. Microstate Cross-Correlation ---
+      p_cross <- ggplot(dt_raw, aes(x=x_eps, y=x_mic)) +
+        geom_point(alpha=0.3, size=0.5, stroke=0, color="black") +
+        coord_cartesian(xlim=c(-plot_lim_x, plot_lim_x), ylim=c(-plot_lim_x, plot_lim_x), expand=FALSE) +
+        scale_x_continuous(breaks=custom_breaks, labels=label_format) +
+        scale_y_continuous(breaks=custom_breaks, labels=label_format) +
+        theme_bw(base_family=base_font) +
+        theme(panel.grid.minor=element_blank(), axis.text=element_text(size=8), aspect.ratio=1) +
+        labs(x = ax_x_eps, y = ax_x_mic)
+
+      # --- Col 7: Position Scatter ---
       p_scat2 <- ggplot(dt_raw, aes(x=x_eps, y=y_pos)) +
         geom_point(alpha=0.3, size=0.5, stroke=0, color="black") +
         coord_cartesian(xlim=c(-plot_lim_x, plot_lim_x), ylim=c(-plot_lim_x, plot_lim_x), expand=FALSE) +
@@ -117,7 +151,7 @@ plot_5col_erasure_grid <- function(dt_meta, dir_raw, dir_densities,
         labs(x = ax_x_eps, y = ax_y_pos)
     }
 
-    # --- Col 5: Position Density ---
+    # --- Col 8: Position Density ---
     if (file.exists(file_density)) {
       dt_hist <- fread(file_density)
       total_count <- sum(dt_hist$density_count, na.rm=TRUE)
@@ -140,33 +174,35 @@ plot_5col_erasure_grid <- function(dt_meta, dir_raw, dir_densities,
 
     # --- Formatting & Cleanup ---
     if (i == 1) {
-      font_face <- ifelse(is_ms, "plain", "bold")
-      p_label <- p_label + labs(title=" ")
-      p_ell   <- p_ell   + labs(title="Quantum of Action") + theme(plot.title=element_text(size=10, hjust=0.5, face=font_face))
-      p_scat1 <- p_scat1 + labs(title="Absolute Selection") + theme(plot.title=element_text(size=10, hjust=0.5, face=font_face))
-      p_den1  <- p_den1  + labs(title="Selection Density") + theme(plot.title=element_text(size=10, hjust=0.5, face=font_face))
-      p_scat2 <- p_scat2 + labs(title="Relative Position") + theme(plot.title=element_text(size=10, hjust=0.5, face=font_face))
-      p_den2  <- p_den2  + labs(title="Position Density") + theme(plot.title=element_text(size=10, hjust=0.5, face=font_face))
+      font_face  <- ifelse(is_ms, "plain", "bold")
+      p_label    <- p_label + labs(title=" ")
+      p_ell      <- p_ell      + labs(title="Quantum of Action") + theme(plot.title=element_text(size=9, hjust=0.5, face=font_face))
+      p_raw_eps1 <- p_raw_eps1 + labs(title="Disp. vs Selection") + theme(plot.title=element_text(size=9, hjust=0.5, face=font_face))
+      p_raw_eps2 <- p_raw_eps2 + labs(title="Disp. vs Center") + theme(plot.title=element_text(size=9, hjust=0.5, face=font_face))
+      p_scat1    <- p_scat1    + labs(title="Absolute Selection") + theme(plot.title=element_text(size=9, hjust=0.5, face=font_face))
+      p_den1     <- p_den1     + labs(title="Selection Density") + theme(plot.title=element_text(size=9, hjust=0.5, face=font_face))
+      p_cross    <- p_cross    + labs(title="Microstate vs. Position") + theme(plot.title=element_text(size=9, hjust=0.5, face=font_face))
+      p_scat2    <- p_scat2    + labs(title="Relative Position") + theme(plot.title=element_text(size=9, hjust=0.5, face=font_face))
+      p_den2     <- p_den2     + labs(title="Position Density") + theme(plot.title=element_text(size=9, hjust=0.5, face=font_face))
     }
 
     if (i != num_rows) {
-      p_ell   <- p_ell + theme(axis.title.x=element_blank())
-      p_scat1 <- p_scat1 + theme(axis.title.x=element_blank())
-      p_den1  <- p_den1 + theme(axis.title.x=element_blank())
-      p_scat2 <- p_scat2 + theme(axis.title.x=element_blank())
-      p_den2  <- p_den2 + theme(axis.title.x=element_blank())
+      p_ell      <- p_ell + theme(axis.title.x=element_blank())
+      p_raw_eps1 <- p_raw_eps1 + theme(axis.title.x=element_blank())
+      p_raw_eps2 <- p_raw_eps2 + theme(axis.title.x=element_blank())
+      p_scat1    <- p_scat1 + theme(axis.title.x=element_blank())
+      p_den1     <- p_den1 + theme(axis.title.x=element_blank())
+      p_cross    <- p_cross + theme(axis.title.x=element_blank())
+      p_scat2    <- p_scat2 + theme(axis.title.x=element_blank())
+      p_den2     <- p_den2 + theme(axis.title.x=element_blank())
     }
 
-    p_scat1 <- p_scat1 + theme(axis.title.y=element_blank(), axis.text.y=element_blank(), axis.ticks.y=element_blank())
-    p_den1  <- p_den1  + theme(axis.title.y=element_blank(), axis.text.y=element_blank(), axis.ticks.y=element_blank())
-    p_scat2 <- p_scat2 + theme(axis.title.y=element_blank(), axis.text.y=element_blank(), axis.ticks.y=element_blank())
-    p_den2  <- p_den2  + theme(axis.title.y=element_blank(), axis.text.y=element_blank(), axis.ticks.y=element_blank())
-
-    plot_list <- c(plot_list, list(p_label, p_ell, p_scat1, p_den1, p_scat2, p_den2))
+    # We preserve all Y-axes text & titles to keep the physics readable
+    plot_list <- c(plot_list, list(p_label, p_ell, p_raw_eps1, p_raw_eps2, p_scat1, p_den1, p_cross, p_scat2, p_den2))
   }
 
-  # Adjusted widths to give the label column a bit more relative breathing room
-  final_plot <- wrap_plots(plot_list, ncol = 6, widths = c(0.18, 1, 1, 1, 1, 1)) &
+  # Adjusted for 9 total columns (1 label + 8 plots)
+  final_plot <- wrap_plots(plot_list, ncol = 9, widths = c(0.18, 1, 1, 1, 1, 1, 1, 1, 1)) &
     theme(plot.margin = margin(t = 2, r = 2, b = 2, l = 2))
 
   return(final_plot)
