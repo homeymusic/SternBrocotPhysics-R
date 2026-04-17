@@ -45,12 +45,9 @@ p_final <- plot_encoding_grid(
   show_nodes = FALSE
 )
 
-# FIXED: Increased the LEFT margin from 10 to 40 so "50.0" doesn't clip
-# margin order is: margin(Top, Right, Bottom, Left)
-p_final <- p_final + theme(plot.margin = margin(10, 10, 10, 40))
+p_final <- p_final + theme(plot.margin = margin(10, 10, 10, 10))
 
-# Calculate dimensions based on number of rows
-fig_width  <- 8.5
+fig_width  <- 7.5
 fig_height <- nrow(dt_selected) * 2.3 + 1.2
 
 # --- 4. Export ---
@@ -66,12 +63,11 @@ ggsave(
 )
 
 # Save PNG (High-Res Bitmap for Manuscript/Overleaf)
-# 600 DPI is the gold standard for PRL/Physical Review manuscripts.
 ggsave(
   filename = file_output_png,
   plot = p_final,
   device = "png",
-  type = "cairo",    # Vital for correct font rendering on bitmap
+  type = "cairo",
   width = fig_width,
   height = fig_height,
   dpi = 600,

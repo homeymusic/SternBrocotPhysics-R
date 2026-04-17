@@ -14,9 +14,9 @@
 #' @import data.table
 #' @export
 plot_encoding_grid <- function(dt_meta, dir_raw, dir_densities, dir_nodes,
-                                    style = c("manuscript", "readme"),
-                                    base_font = "", overarching_title = NULL,
-                                    show_nodes = TRUE) {
+                               style = c("manuscript", "readme"),
+                               base_font = "", overarching_title = NULL,
+                               show_nodes = TRUE) {
   style <- match.arg(style)
   plot_list <- list()
   num_rows <- nrow(dt_meta)
@@ -28,9 +28,9 @@ plot_encoding_grid <- function(dt_meta, dir_raw, dir_densities, dir_nodes,
   ax_x_ell <- if(is_ms) expression("Position, " * italic(q)/italic(q)[0]) else "Position, q/q_0"
   ax_y_ell <- if(is_ms) expression("Momentum, " * italic(p)/italic(p)[0]) else "Momentum, p/p_0"
 
-  # Column 2 (Kinematic Staircase + Unscaled Scars)
+  # Column 2 (Kinematic Staircase)
   ax_x_stair <- if(is_ms) expression("Blob Center, " * italic(q)[b]/italic(q)[0]) else "Blob Center, q_b/q_0"
-  ax_y_stair <- if(is_ms) expression("Microstate, " * italic(q)[mu]^"*" / italic(q)[0]) else "Microstate, q*/q_0"
+  ax_y_stair <- if(is_ms) expression("Microstate, " * italic(q)^"\u266E" / italic(q)[0]) else "Microstate, q\u266E/q_0"
 
   # Column 3 (Density)
   ax_x_den <- if(is_ms) expression("Position, " * italic(q)/italic(q)[0]) else "Position, q/q_0"
@@ -77,11 +77,9 @@ plot_encoding_grid <- function(dt_meta, dir_raw, dir_densities, dir_nodes,
     label_format <- function(x) sprintf("%.1f", x)
 
     # --- Column 0: Row Label ---
-    # Expand xlim deep into negative space so long text isn't internally clipped
     p_label <- ggplot() + theme_void() + coord_cartesian(xlim = c(-3, 1), ylim = c(0, 1), clip = "off")
     if (is_ms) {
       row_label_str <- sprintf('"%.1f" * A[0]', a_ratio)
-      # Anchor at x=0.9 to provide a tiny visual gap from the ellipse plot
       p_label <- p_label + annotate("text", x=0.9, y=0.5, label=row_label_str, parse=TRUE, family=base_font, size=4, hjust=1)
     } else {
       n_val <- if("node_count" %in% names(current_row)) current_row$node_count else NA
@@ -100,7 +98,11 @@ plot_encoding_grid <- function(dt_meta, dir_raw, dir_densities, dir_nodes,
       scale_x_continuous(breaks = custom_breaks, labels = label_format) +
       scale_y_continuous(breaks = custom_breaks, labels = label_format) +
       theme_bw(base_family = base_font) +
-      theme(panel.grid.minor=element_blank(), axis.text=element_text(size=8)) +
+      theme(
+        panel.grid.minor=element_blank(),
+        axis.text=element_text(size=8),
+        plot.margin = margin(2, 4, 2, 4)
+      ) +
       labs(x = ax_x_ell, y = ax_y_ell)
 
     # --- Column 2: Kinematic Staircase + Unscaled Epsilon Scars ---
@@ -114,13 +116,9 @@ plot_encoding_grid <- function(dt_meta, dir_raw, dir_densities, dir_nodes,
       )]
 
       p_stair <- ggplot(dt_raw) +
-        # 1. Thermodynamic Scars (Corrected polarity, softened alpha/color)
         geom_segment(aes(x=q_b, xend=q_b, y=q_mu, yend=q_mu - eps_scaled),
                      color="gray90", alpha=0.05, linewidth=0.2) +
-
-        # 2. Kinematic Selection (Promoted foreground, solid black)
         geom_point(aes(x=q_b, y=q_mu), color="black", alpha=1.0, size=0.5, stroke=0) +
-
         coord_cartesian(xlim=c(-plot_lim_x, plot_lim_x), ylim=c(-plot_lim_x, plot_lim_x), expand=FALSE) +
         scale_x_continuous(breaks = custom_breaks, labels = label_format) +
         scale_y_continuous(breaks = custom_breaks, labels = label_format) +
@@ -128,7 +126,8 @@ plot_encoding_grid <- function(dt_meta, dir_raw, dir_densities, dir_nodes,
         theme(
           panel.grid.minor = element_blank(),
           axis.text = element_text(size=8),
-          aspect.ratio = 1
+          aspect.ratio = 1,
+          plot.margin = margin(2, 4, 2, 4)
         ) +
         labs(x = ax_x_stair, y = ax_y_stair)
     }
@@ -149,16 +148,20 @@ plot_encoding_grid <- function(dt_meta, dir_raw, dir_densities, dir_nodes,
         geom_path(color="black", linewidth=0.4) +
         coord_cartesian(xlim=c(-plot_lim_x, plot_lim_x), ylim=c(0, den_lim_y), expand=FALSE) +
         scale_x_continuous(breaks = custom_breaks, labels = label_format) +
+        # Cleaned out any artificial padding from the density Y-axis
         theme_bw(base_family=base_font) +
-        theme(panel.grid.minor=element_blank(), axis.text=element_text(size=8), aspect.ratio=1) +
+        theme(
+          panel.grid.minor=element_blank(),
+          axis.text=element_text(size=8),
+          aspect.ratio=1,
+          plot.margin = margin(2, 4, 2, 4)
+        ) +
         labs(x = ax_x_den, y = ax_y_den)
 
-      # LOGIC: Only add dots if show_nodes is TRUE
       if(show_nodes && file.exists(file_nodes)){
         dt_n <- fread(file_nodes)
         if (nrow(dt_n) > 0) {
           dt_n[, pct := (density_count / total_count) * 100]
-          # Apply the same pi/2 multiplier to the nodes
           dt_n[, coordinate_q := coordinate_q * max_ax * (pi / 2)]
           p_den <- p_den + geom_point(data=dt_n, aes(x=coordinate_q, y=pct), size=0.8, color="black")
         }
@@ -167,6 +170,7 @@ plot_encoding_grid <- function(dt_meta, dir_raw, dir_densities, dir_nodes,
 
     # --- Row Header Cleanup ---
     if (i == 1) {
+      # FIXED: Removed all linebreaks to restore pure single-line titles.
       p_label <- p_label + labs(title = " ") + theme(plot.title=element_text(size=11, hjust=0.5, face="plain"))
       p_ell   <- p_ell   + labs(title = "Quantum of Action") + theme(plot.title=element_text(size=11, hjust=0.5, face=ifelse(is_ms, "plain", "bold")))
       p_stair <- p_stair + labs(title = "Least Action Microstates") + theme(plot.title=element_text(size=11, hjust=0.5, face=ifelse(is_ms, "plain", "bold")))
@@ -182,11 +186,10 @@ plot_encoding_grid <- function(dt_meta, dir_raw, dir_densities, dir_nodes,
     plot_list <- c(plot_list, list(p_label, p_ell, p_stair, p_den))
   }
 
-  # Adjusted layout: 4 columns total (label, plot1, plot2, plot3)
-  # Increased the label column width to 0.35 so "50.0" physically fits
+  # Adjusted layout: 4 columns total
+  # Strictly guarantees that the three plot columns are given the exact same bounding box mathematically.
   final_plot <- wrap_plots(plot_list, ncol = 4, widths = c(0.35, 1, 1, 1))
 
-  # Add overarching title for README style
   if (!is_ms && !is.null(overarching_title)) {
     final_plot <- final_plot + plot_annotation(
       title = overarching_title,
