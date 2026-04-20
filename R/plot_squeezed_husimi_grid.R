@@ -10,7 +10,7 @@
 #' @import data.table
 #' @import stats
 #' @export
-plot_wigner_grid <- function(dt_meta, style = c("manuscript", "readme"),
+plot_squeezed_husimi_grid <- function(dt_meta, style = c("manuscript", "readme"),
                              base_font = "", overarching_title = NULL) {
   style <- match.arg(style)
   plot_list <- list()

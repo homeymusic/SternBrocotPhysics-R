@@ -22,7 +22,7 @@ dt_selected <- data.table(
 )
 
 # --- 3. Rendering Logic ---
-p_final <- plot_wigner_grid(
+p_final <- plot_squeezed_husimi_grid(
   dt_meta = dt_selected,
   style = "manuscript",
   base_font = latex_font
